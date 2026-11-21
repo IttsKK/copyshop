@@ -150,8 +150,12 @@ export function GeneralSettings({ onIntro, onReport, onTour, onStatus }: Props) 
           </div>
         )}
         <div className="settings-row">
-          <span>Something not working, or an idea?</span>
+          <span>Something not working?</span>
           <button onClick={onReport}>Report a problem…</button>
+        </div>
+        <div className="settings-row">
+          <span>Something you'd like it to do?</span>
+          <button onClick={() => void openUrl(`https://getcopyshop.com/request?from=app&v=${encodeURIComponent(APP_VERSION)}`)}>Request a feature…</button>
         </div>
         {/* A build from the source sends nothing, so it has nothing to switch (platform/build.ts). */}
         {OFFICIAL ? (
