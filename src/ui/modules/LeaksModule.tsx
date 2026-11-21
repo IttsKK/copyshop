@@ -44,7 +44,7 @@ export function LeaksModule({ blend, applyLeakStyle, setLeaks, palette, spots, s
           <button
             key={style.id}
             className={blend.effects.leaks.style === style.id && blend.effects.leaks.amount > 0 ? 'on' : ''}
-            title={`${style.hint}. Click again for another one like it.`}
+            title={`${style.hint}. Shuffle lays them out another way.`}
             onClick={() => applyLeakStyle(style)}
           >
             {style.label}

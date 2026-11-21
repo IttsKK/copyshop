@@ -1,7 +1,7 @@
 import { RISO_INKS } from '../../engine/extras'
 import { AngleDial } from '../AngleDial'
 import type { BlendParams, EffectParams } from '../../engine/types'
-import { Disclosure, Module, Slider } from '../controls'
+import { Disclosure, Module, SeeAlso, Slider } from '../controls'
 import { FACTORY } from '../moduleCatalog'
 
 interface Props {
@@ -104,6 +104,7 @@ export function HalftoneModule({ blend, setExtra }: Props) {
           </div>
         </div>
       </Disclosure>
+      <SeeAlso links={[['Dots in a few colours', 'dither', 'Dither'], ['Square pixels', 'pixel', 'Pixel art']]} />
     </Module>
   )
 }

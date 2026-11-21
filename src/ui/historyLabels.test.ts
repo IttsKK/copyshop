@@ -117,4 +117,14 @@ describe('names what changed, not just where', () => {
     expect(title(fx({ lens: { ...B.effects.lens, distortion: 0.3, vignette: 0.2 } as never }))).toBe('Lens: distortion and vignette')
     expect(title(fx({ base: { ...B.effects.base, shadows: 0.2, highlights: -0.2 } }))).toBe('Highlights and shadows')
   })
+
+  it("names a repeat's and a collage piece's settings by their panels", () => {
+    const r = { id: 'r1', layout: 'grid', count: 5, across: 0, up: 3, angle: 0, size: [1, 1] } as never
+    expect(listTitle([r], [{ ...(r as object), layout: 'path', count: 3 }], 'Repeat')).toBe('Repeat 1: layout and copies')
+    expect(listTitle([r], [{ ...(r as object), angle: 20 }], 'Repeat')).toBe('Repeat 1: angle')
+    expect(listTitle([r], [{ ...(r as object), size: [1, 0.5] }], 'Repeat')).toBe('Repeat 1: size')
+    const p = { id: 'p1', tolerance: 0.3, seal: 0.2, takeLook: 0 } as never
+    expect(listTitle([p], [{ ...(p as object), tolerance: 0.5 }], 'Piece')).toBe('Piece 1: reach')
+    expect(listTitle([p], [{ ...(p as object), takeLook: 1, seal: 0.5 }], 'Piece')).toBe('Piece 1: stop at thin lines and match the look')
+  })
 })

@@ -27,6 +27,14 @@ export const useLaunch = () => useStore(launchStore)
 export const startLookStore = persistedStore<string>('settings.startLook', 'none')
 export const useStartLook = () => useStore(startLookStore)
 
+/**
+ * Opening a module folds the others, so the panel stays short and the next
+ * one is in sight (darktable's "expand single module"). Option-click does
+ * the other: on, it opens one beside the rest; off, it opens only that one.
+ */
+export const singleModuleStore = persistedStore<boolean>('settings.singleModule', true)
+export const useSingleModule = () => useStore(singleModuleStore)
+
 /** Animations kept to a minimum, whatever the system says. (The system's Reduce motion is always followed.) */
 export const reduceMotionStore = persistedStore<boolean>('settings.reduceMotion', false)
 export const useReduceMotion = () => useStore(reduceMotionStore)

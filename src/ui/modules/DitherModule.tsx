@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { EditBox } from '../EditBox'
 import type { BlendParams, EffectParams } from '../../engine/types'
 import { ItemList } from '../ItemList'
-import { Disclosure, Module, Slider, ToneGauge, toneTrack } from '../controls'
+import { Disclosure, Module, SeeAlso, Slider, ToneGauge, toneTrack } from '../controls'
 import type { LoadedImage } from '../loadedImage'
 import { FACTORY } from '../moduleCatalog'
 
@@ -401,6 +401,7 @@ export function DitherModule({ blend, setEffects, setEditingGuides, editingGuide
         </button>
         <EditBox at="dither/bands" />
       </Disclosure>
+      <SeeAlso links={[['Bigger squares, fewer colours', 'pixel', 'Pixel art'], ['Printed dots', 'halftone', 'Halftone']]} />
     </Module>
   )
 }

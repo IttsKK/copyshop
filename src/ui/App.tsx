@@ -1,5 +1,5 @@
 import { OFFICIAL } from '../platform/build'
-import { showInFilesLabel } from '../platform/os'
+import { keyWords, showInFilesLabel } from '../platform/os'
 import { moduleSummary, needsSetup } from './moduleSummary'
 import { CollageFillWindow, regionOf } from './CollageArrange'
 import { decodeRaster, rasterToPoints } from '../engine/maskRaster'
@@ -8,6 +8,7 @@ import { graphicsState } from '../engine/renderClient'
 import { GrainEngine } from '../engine/GrainEngine'
 import { CommandPalette } from './CommandPalette'
 import { onMenuAction, setMenuEnabled, type MenuAction } from '../platform/menu'
+import { keepUntilWritten, onBeforeQuit, startQuitHandling } from '../platform/quit'
 import {
   MAX_LEAK_SPOTS,
   type BorderParams,
@@ -137,6 +138,9 @@ import { cannotOpenMessage, photoAccept } from '../pipeline/formats'
 import { isDesktop } from '../platform/desktop'
 import { fitPalette, lookPapers, offWheelColour, picturePapers } from './paletteFit'
 import { SESSION_STEP, WHOLE_STEP, useEditHistory, type EditState } from './history'
+import { OPENED_EDITED } from './historySteps'
+import { draftPoints, OUTLINE_POINTS } from './state/draft'
+import { useStore } from './state/store'
 import { Resizer } from './Resizer'
 import { TopBar } from './TopBar'
 import { LeftPanel } from './LeftPanel'
@@ -162,7 +166,7 @@ import type { LightEditor } from './LightOverlay'
 import { DEFAULT_LIGHT, DEFAULT_LIGHTING, type LightShape, type LightingParams } from '../engine/lighting'
 import type { RepeatEditor } from './RepeatOverlay'
 import { pieceBoxOf, pieceCentreOf } from '../engine/repeat'
-import { DEFAULT_REPEAT, DEFAULT_REPEAT_MODULE, fitRepeat as fitRepeatToPiece, MAX_REPEATS, newRepeat, repeatsActive, type RepeatModule as RepeatModuleParams, type RepeatParams } from '../engine/repeatParams'
+import { DEFAULT_REPEAT_MODULE, NEW_REPEAT_PARAMS, fitRepeat as fitRepeatToPiece, MAX_REPEATS, newRepeat, repeatsActive, type RepeatModule as RepeatModuleParams, type RepeatParams } from '../engine/repeatParams'
 import { ModuleExample, bigOf, editThumb } from './RecipeThumb'
 import { loadEdit, saveEdit, thumbKey, type PhotoEdit } from '../storage/photoEdits'
 import { MaskSettings, type PickStep, type Picking, type PickingState, BrushBox } from './MasksPanel'
@@ -177,6 +181,7 @@ import { useSettled } from './useSettled'
 import {
   DEFAULT_RIGHT,
   leftOpenStore,
+  panelPageStore,
   rightOpenStore,
   setGroups,
   setLeftOpen,
@@ -204,7 +209,7 @@ import { StrengthControls } from './StrengthControls'
 import { QuickEffects, REPEAT_QUICK, type QuickEffect } from './quickEffects'
 import { useLingering } from './useLingering'
 import { setBypass, setLoupe, setSmall, setZoom, setZoomState, stepZoom, useBypass, useFitAsked, useIgSim, useLoupe, useSmall, useZoom } from './state/view'
-import { CATEGORIES, MODULES, MODULE_BY_ID, categoryOrder, inUse, presetKind, resetModule, startModule, stopModule, switchOn, moduleOrder, type CategoryId, type StackModuleId } from './moduleCatalog'
+import { CATEGORIES, MODULES, MODULE_BY_ID, categoryOrder, inUse, isStackModule, presetKind, resetModule, startModule, stopModule, switchOn, moduleOrder, type CategoryId, type StackModuleId } from './moduleCatalog'
 import { GROUP_COLOURS, GroupEditor, SlimModule, StackAdd, StackContext, StackRail, StackTitle, groupOf, inTab, type ModuleGroup, type StackApi, type StackTab } from './StackNav'
 import { rulePatch, useRecipeName } from './RecipePicker'
 import { RASTER_SIDE, encodeRaster, rasterBounds, shrinkGrid } from '../engine/maskRaster'
@@ -308,6 +313,16 @@ const markShown = (key: string) => {
 }
 /** Where the last photo opened by hand was exported to: its Save dialog starts there. */
 const LAST_SAVE_DIR = 'export.lastSaveDir'
+/** Something has been exported (from Export, or once it was shown): Cmd+E exports at once from then on. */
+const EXPORT_SEEN = 'export.seen'
+const exportSeen = () => {
+  try {
+    return localStorage.getItem(EXPORT_SEEN) === '1'
+  } catch {
+    return true
+  }
+}
+const markExportSeen = () => markShown(EXPORT_SEEN)
 
 /** Coarse luminance histogram of the loaded image, drawn behind the curve. */
 function computeHistogram(bitmap: ImageBitmap, bins = 48): number[] {
@@ -365,7 +380,7 @@ export function statusDuration(text: string): number {
 
 /** Sample photos, in public/samples. */
 /** The repeat about to be made, before it is in Repeat's list. */
-const NEW_REPEAT: RepeatParams = { ...DEFAULT_REPEAT, enabled: true }
+const NEW_REPEAT: RepeatParams = NEW_REPEAT_PARAMS
 
 const SAMPLES = ['sample-lake.jpg', 'sample-street.jpg', 'sample-moon.jpg']
 
@@ -421,6 +436,8 @@ export function App() {
   const [selectedLight, setSelectedLight] = useState<number | null>(null)
   // Painting a subject mask by hand: which mask, in or out, how big (share of the short side).
   const [brushing, setBrushing] = useState<{ index: number; mode: 'add' | 'remove' } | null>(null)
+  const brushingNow = useRef(false)
+  brushingNow.current = !!brushing
   const [brushSize, setBrushSize] = useLocalStorage('ui.mask.brushSize', 0.04)
   // How an open mask shows on the photo (maskKey.ts MaskView).
   const [maskView, setMaskView] = useLocalStorage<MaskView>('ui.mask.view', 'red')
@@ -1096,7 +1113,10 @@ export function App() {
         } else {
           const loaded = await loadImageFile(photo.blob, photo.name, false)
           // The edit the session kept is this photo's edit.
-          if (loaded) editBase.current = { sha: loaded.sha, saved: true }
+          if (loaded) {
+            editBase.current = { sha: loaded.sha, saved: true }
+            history.reset(OPENED_EDITED)
+          }
         }
         const records = loadSnapshotRecords()
         const rebuilt: Snapshot[] = []
@@ -1113,11 +1133,15 @@ export function App() {
               grain: null,
               thumb: r.thumb,
               photo: r.photo,
+              photoName: r.photoName,
             })
           } catch {
             /* its plate is gone from the library; skip it */
           }
         }
+        // Ones taken before snapshots kept their photo's name: it is looked up from that photo's edit.
+        for (const snap of rebuilt)
+          if (snap.photo && !snap.photoName) snap.photoName = (await loadEdit(snap.photo).catch(() => null))?.name
         if (rebuilt.length) setSnapshots((current) => (current.length ? current : rebuilt))
       } finally {
         restoreDone.current = true
@@ -1175,7 +1199,8 @@ export function App() {
       updatedAt: Date.now(),
     }
     const version = ++editVersion.current
-    void saveEdit(edit).then(() =>
+    // The app waits for it before quitting (platform/quit.ts).
+    void keepUntilWritten(saveEdit(edit)).then(() =>
       editThumb(small, b.photoSeed ?? img.seed, doc, b)
         .then((thumb) => {
           // A later save of the edit carries its own thumbnail; this one is out of date.
@@ -1211,13 +1236,26 @@ export function App() {
     }
     pendingEdit.current = save
     const timer = setTimeout(save, 700)
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      // Overtaken by the next change: this save is not waiting any more. Left
+      // waiting, a change taken back within the wait (Cancel, Esc, undo) to
+      // what was saved left nothing new to save, and quitting or opening
+      // another photo then wrote the change that was taken back.
+      if (pendingEdit.current === save) pendingEdit.current = null
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blend, source, activeLook, activePresetId, image, replaying])
   useEffect(() => {
     const leave = () => flushEdit()
     window.addEventListener('pagehide', leave)
-    return () => window.removeEventListener('pagehide', leave)
+    // The desktop app never gets pagehide: it asks before quitting instead.
+    const stop = onBeforeQuit(leave)
+    startQuitHandling()
+    return () => {
+      window.removeEventListener('pagehide', leave)
+      stop()
+    }
   }, [])
 
   const generator = useGrainGenerator(source, setSource)
@@ -1403,6 +1441,7 @@ export function App() {
         createdAt: snap.createdAt,
         thumb: snap.thumb,
         ...(snap.photo ? { photo: snap.photo } : {}),
+        ...(snap.photoName ? { photoName: snap.photoName } : {}),
         doc: {
           schemaVersion: PRESET_SCHEMA_VERSION,
           name: snap.name,
@@ -1553,6 +1592,7 @@ export function App() {
   const onExportImage = useCallback(async () => {
     if (!image) return setStatus('Open a photo first.')
     if (!source || exporting) return
+    markExportSeen()
     // In the browser, a PNG or TIFF goes to Export, which says it's in the desktop app
     // (a shortcut or the menu land here too). A size over the browser's limit
     // exports at that limit, and says so.
@@ -2265,7 +2305,7 @@ export function App() {
         .catch(() => undefined)
     try {
       const next = await hydrateGrainSource(saved.doc.grainSource).catch(() => hydrateGrainSource(STARTING_LOOK.doc.grainSource))
-      history.reset()
+      history.reset(OPENED_EDITED)
       setSource(next)
       setBlend(saved.doc.blend)
       editBase.current = { sha: saved.id, saved: true }
@@ -2384,7 +2424,7 @@ export function App() {
         doc = { ...doc, blend: { ...doc.blend, effects: { ...doc.blend.effects, shapeSpace: space } } }
       setStatus((now) => (now?.startsWith('Matching ') ? null : now))
     }
-    history.reset()
+    history.reset(OPENED_EDITED)
     setSource(next)
     setBlend(doc.blend)
     if (loaded) editBase.current = { sha: loaded.sha, saved: true }
@@ -2727,7 +2767,7 @@ export function App() {
       image.size,
       image.seed,
     )
-    setSnapshots((list) => [{ ...snap, photo: image.sha }, ...list])
+    setSnapshots((list) => [{ ...snap, photo: image.sha, photoName: image.name }, ...list])
     setStatus(`Took ${snap.name}.`)
   }, [blend, grain, image, photoSnapshots, source])
 
@@ -2846,7 +2886,16 @@ export function App() {
     settings: () => setSettingsOpen(true),
     open: () => void openPhotos(),
     'open-folder': () => libraryAvailable() && void addFolder(),
-    export: () => void onExportImage(),
+    export: () => {
+      // The first export by its key or the menu: Export shows first, so its size and where it saves are seen once.
+      if (image && !exportSeen() && panelPageStore.get() !== 'export') {
+        setRightOpen(true)
+        setPanelPage('export')
+        setStatus(`Check the size and where it saves, then Export. After this, ${keyWords('Cmd+E')} exports at once`)
+        return
+      }
+      void onExportImage()
+    },
     'export-as': () => void exportAs(),
     'export-timelapse': () => timelapseOn && void exportTimelapse(),
     undo: () => (inTextField(document.activeElement) ? document.execCommand('undo') : (trackOnce('undo'), stepHistoryRef.current(true))),
@@ -3052,6 +3101,14 @@ export function App() {
     if (!repeat.fitPending || !repeatSourceMask) return
     const patch = fitRepeatToPiece(repeat, pieceBoxOf(repeatSourceMask), false, repeat.fitPending === 'within', repeat.fitPending === 'any')
     setRepeat({ ...patch, fitPending: undefined })
+    // A path given to start from: it shows on the photo at once, its points there to drag or add to. A
+    // moment later, so making the original is a step of its own (Cancel on the path keeps it); not while
+    // the original is still being painted or selected.
+    // (Not cleared with the effect: clearing fitPending runs it again at once.)
+    if (patch.path)
+      setTimeout(() => {
+        if (!brushingNow.current && !pickingNow.current) setEditingRepeat(true)
+      }, 60)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repeat.fitPending, repeatSourceMask])
   /**
@@ -3097,16 +3154,26 @@ export function App() {
     history.hint(step)
     setEffects({ repeat: repeatWith(patch) })
   }
-  /** While the crop is set on the photo, every change to it is one step (SESSION_STEP). */
   /**
    * The crop as you last set it before turning the photo, and the crop that
    * turning made from it: each turn fits that crop inside the turned photo,
    * so turning back gives it back rather than only ever shrinking it.
    */
   const turnFrom = useRef<{ base: CropParams; made: CropParams } | null>(null)
-  const setCrop = (patch: Partial<CropParams>, step: string | null = editingCropNow.current ? `${SESSION_STEP}crop:${cropSession.current}` : null) => {
-    history.hint(step)
+  /**
+   * While the crop is set on the photo, changes of one kind in a row are one
+   * step (SESSION_STEP): dragging the frame about, or straightening by
+   * degrees. Another kind (a shape chosen, then the photo turned) is a step
+   * of its own, so undo takes back one at a time.
+   */
+  const setCrop = (patch: Partial<CropParams>, step?: string | null) => {
     const now = blend.effects.crop
+    if (step === undefined) {
+      const differs = (k: keyof CropParams) => k in patch && (patch[k] ?? 0) !== (now[k] ?? 0)
+      const kind = differs('quarter') ? 'turn' : differs('angle') ? 'straighten' : differs('aspect') || differs('turned') ? 'shape' : 'frame'
+      step = editingCropNow.current ? `${SESSION_STEP}crop:${cropSession.current}:${kind}` : null
+    }
+    history.hint(step)
     const turning = 'angle' in patch && Object.keys(patch).every((k) => k === 'angle' || k === 'enabled')
     const same = (a: CropParams, b: CropParams) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height && (a.angle ?? 0) === (b.angle ?? 0)
     // Turning on from a crop made by turning: from the crop it was made from. Anything else (moved, sized, undone) is the crop to turn from next.
@@ -3235,6 +3302,8 @@ export function App() {
    * selection.
    */
   const [picking, setPicking] = useState<Picking | null>(null)
+  const pickingNow = useRef(false)
+  pickingNow.current = !!picking
   // Esc with nothing being edited lets go of a module's own mask left selected (a streak's subject,
   // Repeat's piece): it is shown on the photo only while open, and it has no row in the Masks list.
   useEffect(() => {
@@ -3318,7 +3387,7 @@ export function App() {
         // Repeat's own piece: copied from as soon as it is made.
         const id = newId('mask')
         remember(null)
-        setEffects({ masks: [...masks, { ...DEFAULT_MASK, id, name: 'Piece', outline, raster, owner: 'repeat' }], repeat: { ...repeatWith({ source: id, enabled: true }), enabled: true } })
+        setEffects({ masks: [...masks, { ...DEFAULT_MASK, id, name: 'Original', outline, raster, owner: 'repeat' }], repeat: { ...repeatWith({ source: id, enabled: true }), enabled: true } })
         return { ...p, index: masks.length, shown: reading }
       }
       // A streak's subject is its own, kept in the streak, not the Masks list.
@@ -3796,7 +3865,7 @@ export function App() {
       height: pf.height / sf.height,
     }
     const id = newId('mask')
-    const made = { ...DEFAULT_MASK, id, name: owner ? 'Painted piece' : `Painted ${n}`, outline: rasterOutline(raster), raster, ...(owner ? { owner } : ownedFor(target)) }
+    const made = { ...DEFAULT_MASK, id, name: owner ? 'Painted original' : `Painted ${n}`, outline: rasterOutline(raster), raster, ...(owner ? { owner } : ownedFor(target)) }
     history.hint(`${WHOLE_STEP}a painted mask`)
     setEffects({ masks: [...masks, made], ...(owner ? { repeat: { ...repeatWith({ source: id, enabled: true }), enabled: true } } : usedBy(target ?? null, id, made.name)) })
     if (!owner) switchOnFor(target)
@@ -3862,7 +3931,7 @@ export function App() {
       setMaskEditing(false)
       setMaskSolo(false)
     }
-    history.hint(`${WHOLE_STEP}removing Repeat's piece`)
+    history.hint(`${WHOLE_STEP}removing Repeat's original`)
     setEffects({
       ...(m?.owner ? { masks: blend.effects.masks.filter((_, j) => j !== i) } : {}),
       repeat: repeatWith({ source: null }),
@@ -4594,6 +4663,9 @@ export function App() {
       }
       if (el.closest('.section-toggle')) return void (ready && mod.classList.contains('collapsed') && editCollage(true))
       if (el.closest('.module-switch') || el.closest('.section-head')) return
+      // Removing something (a piece, an image) or its menu: just that, without starting to edit.
+      // A piece's edit button starts and stops editing itself.
+      if (el.closest('.item-remove, .item-more, .item-menu, .item-edit, .collage-tile-remove')) return
       if (ready && !editing) editCollage(true)
     }
     const onOpen = (e: Event) => (e as CustomEvent<string>).detail === 'collage' && collageFocus.current.ready && editCollage(true)
@@ -4847,6 +4919,10 @@ export function App() {
   const doneFamily = (f: OnPhotoFamily) => (makingNew ? pressKey('Enter') : endFamily(f))
 
   /** The one thing being edited on the photo, as its box in the panel shows it (EditBox), or none. */
+  // An outline being drawn: Done waits for enough points to close it, and says so.
+  const drawnPoints = useStore(draftPoints)
+  const outlineDone = (where: string): Partial<EditView> =>
+    drawnPoints >= OUTLINE_POINTS ? {} : { doneDisabled: true, doneTitle: `Click at least ${OUTLINE_POINTS} points ${where} first` }
   const editView: EditView | null = (() => {
     if (openingPhoto || !image) return null
     const masks = blend.effects.masks
@@ -4878,6 +4954,7 @@ export function App() {
         cancelTitle: 'Stop drawing it (Esc)',
         onDone: () => pressKey('Enter'),
         doneTitle: 'Close the shape (Enter)',
+        ...outlineDone('for its shape'),
       }
     const sh = streakSession ? blend.effects.streaks.shapes[streakSession.index] : undefined
     if (streakSession && sh)
@@ -4925,7 +5002,7 @@ export function App() {
       onDone: () => doneFamily(f),
       doneTitle: makingNew ? 'Finish it (Enter)' : 'Keep the changes (Enter)',
     })
-    if (maskDrawing) return { at: newMaskAt, home: newMaskHome, name: 'Drawing a new mask', hint: 'Click round it', ...family('masks') }
+    if (maskDrawing) return { at: newMaskAt, home: newMaskHome, name: 'Drawing a new mask', hint: 'Click round it', ...family('masks'), ...outlineDone('round it') }
     if (maskPlacing) return { at: newMaskAt, home: newMaskHome, name: maskPlacing === 'radial' ? 'Placing a radial mask' : 'Placing a gradient mask', hint: maskPlacing === 'radial' ? 'Drag from the middle out' : 'Drag from full to faded', ...family('masks') }
     // Brushing: the mask brushed (a streak's subject or Repeat's piece is not the one open in the Masks list).
     const mask = brushing ? masks[brushing.index] : selectedMask !== null ? masks[selectedMask] : undefined
@@ -4944,7 +5021,7 @@ export function App() {
           <BrushBox
             mode={brushing.mode}
             onMode={(mode) => setBrushing({ index: brushing.index, mode })}
-            what={mask.owner === 'repeat' ? 'piece' : mask.owner === 'streak' ? 'subject' : 'mask'}
+            what={mask.owner === 'repeat' ? 'original' : mask.owner === 'streak' ? 'subject' : 'mask'}
             size={brushSize}
             onSize={setBrushSize}
             similar={brushByColour}
@@ -4962,7 +5039,7 @@ export function App() {
         ) : undefined,
         ...family('masks'),
       }
-    if (drawingPiece) return { at: repeatAt < repeats.items.length ? `repeat/${repeatAt}` : 'repeat', home: 'repeat', name: 'Drawing what to copy', hint: 'Click round what to copy', ...family('repeat') }
+    if (drawingPiece) return { at: repeatAt < repeats.items.length ? `repeat/${repeatAt}` : 'repeat', home: 'repeat', name: 'Drawing what to copy', hint: 'Click round what to copy', ...family('repeat'), ...outlineDone('round what to copy') }
     if (editingRepeat) {
       const r = repeats.items[repeatAt]
       const hint = !r
@@ -4972,7 +5049,9 @@ export function App() {
           : r.layout === 'placed'
             ? 'Click to place a copy'
             : 'Drag the lines onto its edges'
-      return { at: `repeat/${repeatAt}`, home: 'repeat', name: `Editing Repeat ${repeatAt + 1}`, hint, ...family('repeat') }
+      // A path or placed copies: the box where its button is, under Layout; a grid's lines: over the repeat's tabs.
+      const at = r && r.layout !== 'grid' ? `repeat/${repeatAt}/path` : `repeat/${repeatAt}`
+      return { at, home: 'repeat', name: r?.layout === 'path' ? `Repeat ${repeatAt + 1}: path` : `Editing Repeat ${repeatAt + 1}`, hint, ...family('repeat') }
     }
     if (lightDrawing) return { at: 'lighting', home: 'lighting', name: 'Drawing a light', hint: 'Click round where light falls', ...family('lighting') }
     const light = selectedLight !== null ? lighting.lights[selectedLight] : undefined
@@ -5131,6 +5210,20 @@ export function App() {
     if (!rightOpen) setRightOpen(true)
     showModuleNow(id, 'grain:open-module-mask')
   }
+  // Another module from a module's own link (SeeAlso): shown where it lives, open.
+  const showModuleRef = useRef<(id: StackModuleId) => void>(() => undefined)
+  showModuleRef.current = (id) => {
+    if (!rightOpen) setRightOpen(true)
+    showModuleNow(id)
+  }
+  useEffect(() => {
+    const on = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail
+      if (isStackModule(id)) showModuleRef.current(id)
+    }
+    window.addEventListener('grain:show-module', on)
+    return () => window.removeEventListener('grain:show-module', on)
+  }, [])
   const showModuleNow = (id: StackModuleId, opening = 'grain:open-module') => {
     const def = MODULE_BY_ID[id]
     // Found outside what is in view (search, Cmd+K, a recipe's list): show it
@@ -5436,8 +5529,9 @@ export function App() {
         return next
       }),
     })
-  /** A style's leaks: another one like it every click, in the style's colour. */
+  /** A style's leaks, in the style's colour. Choosing the style already chosen leaves them as they are: Shuffle lays them out anew. */
   const applyLeakStyle = (style: LeakStyleDef) => {
+    if (blend.effects.leaks.style === style.id && blend.effects.leaks.spots.length && blend.effects.leaks.amount > 0) return
     track('leak_style', style.id)
     const layoutSeed = Math.floor(Math.random() * 2 ** 31)
     setLeaks({
@@ -5456,7 +5550,9 @@ export function App() {
    * which rarely suits these pictures.
    */
   const unchosenPaper = (b: BorderParams) => b.colour.every((v, i) => Math.abs(v - DEFAULT_BORDER.colour[i]) < 1e-6)
-  const setBorder = (patch: Partial<BorderParams>) => {
+  /** `step` names the change in History (a border style chosen: "the Instant border"). */
+  const setBorder = (patch: Partial<BorderParams>, step?: string) => {
+    if (step) history.hint(`${WHOLE_STEP}${step}`)
     const was = blend.border
     const next = { ...was, ...patch }
     const appears = was.width <= 0 && was.bottomExtra <= 0 && (next.width > 0 || next.bottomExtra > 0)
@@ -6116,6 +6212,7 @@ export function App() {
             }}
             snapshots={{
               snapshots: photoSnapshots,
+              photo: image?.sha,
               compareId,
               canTake: !!image && !!grain,
               onTake: takeSnapshot,
@@ -6141,6 +6238,7 @@ export function App() {
                   photo={image.seed}
                   region={fillRegion}
                   onArrange={setArrange}
+                  onStatus={setStatus}
                   onClose={() => {
                     startArranging(false)
                     setFillRegion(null)
@@ -6436,8 +6534,8 @@ export function App() {
                         const id = newId('mask')
                         if (drawingPiece) {
                           // Repeat's own piece: copied from at once, its outline left to reshape.
-                          history.hint(`${WHOLE_STEP}drawing Repeat's piece`)
-                          setEffects({ masks: [...masks, { ...DEFAULT_MASK, id, name: 'Piece', outline, owner: 'repeat' }], repeat: { ...repeatWith({ source: id, enabled: true }), enabled: true } })
+                          history.hint(`${WHOLE_STEP}drawing Repeat's original`)
+                          setEffects({ masks: [...masks, { ...DEFAULT_MASK, id, name: 'Original', outline, owner: 'repeat' }], repeat: { ...repeatWith({ source: id, enabled: true }), enabled: true } })
                           setSelectedMask(masks.length)
                           setMaskDrawing(false)
                           setDrawingPiece(false)

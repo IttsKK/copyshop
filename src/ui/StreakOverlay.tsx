@@ -1,6 +1,7 @@
 import { outlineRuns } from '../engine/maskShapes'
 import { keyWords } from '../platform/os'
 import { useEffect, useRef, useState } from 'react'
+import { draftPoints } from './state/draft'
 import { toScene, toView, viewLine } from './lensView'
 import { sampleOutline, type Point } from '../engine/leaks'
 import { MAX_CONVERGE, MAX_STREAK_POINTS, pathFlow, radialCircle, samplePath, streakCoords, streakMirrorAt, streakPos, streakVanish } from '../engine/streaks'
@@ -185,6 +186,11 @@ export function StreakOverlay({ editor, frame, region: shown, css, measure }: Pr
   const svg = useRef<SVGSVGElement>(null)
   const drag = useRef<Drag | null>(null)
   const [draft, setDraft] = useState<Point[]>([])
+  // Its count, for Done in the edit's box (state/draft.ts).
+  useEffect(() => {
+    draftPoints.set(draft.length)
+  }, [draft.length])
+  useEffect(() => () => draftPoints.set(0), [])
   // Undo while drawing: the draft as it was before each step — a click, a
   // traced stroke, a point moved or deleted — so Cmd+Z takes back a whole
   // stroke or move at a time, and Cmd+Shift+Z puts it back.

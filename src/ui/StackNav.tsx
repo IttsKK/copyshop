@@ -163,7 +163,7 @@ export function StackRail({ tab, onTab, groups, usedIn, activeCount, onEditGroup
         <CategoryIcon tab="active" size={17} />
       </RailButton>
       <span className="rail-sep" />
-      <RailButton on={modulesShown && tab === 'base'} tint={base.tint} name={base.label} label={base.short} hint={`only for unedited photos; ${inUseText(usedIn('base'))}`} used={usedIn('base') > 0} className="base" onClick={() => onTab('base')}>
+      <RailButton on={modulesShown && tab === 'base'} tint={base.tint} name={base.label} label={base.short} hint={`correcting the photo's brightness and colour, before the look (a photo already edited needs little here); ${inUseText(usedIn('base'))}`} used={usedIn('base') > 0} className="base" onClick={() => onTab('base')}>
         <CategoryIcon tab="base" size={17} />
       </RailButton>
       {RAIL_CATEGORIES.map((c) => (

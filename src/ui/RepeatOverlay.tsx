@@ -251,7 +251,7 @@ function RepeatPoints({ editor, frame, region, css }: Props) {
       {startCss && (
         <g className="repeat-start" transform={`translate(${startCss.x} ${startCss.y})`}>
           <rect x={-6} y={-6} width={12} height={12} transform="rotate(45)" />
-          <title>{r.pieceOnPath === 'middle' ? 'The piece: the path runs through it' : 'The piece: the path starts here'}</title>
+          <title>{r.pieceOnPath === 'middle' ? 'The original: the path runs through it' : 'The original: the path starts here'}</title>
         </g>
       )}
       {css2.map((p, i) => (

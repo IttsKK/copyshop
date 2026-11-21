@@ -65,10 +65,18 @@ export interface HistoryView {
 
 /** The first row: the photo as opened, or, once the oldest steps were dropped (HISTORY_LIMIT), as far back as undo goes. */
 export const OPENED = 'Opened'
+/** The first row for a photo that opened with the edit it was left with: undo stops there, not at the photo as it is. */
+export const OPENED_EDITED = 'Opened with its edit'
 export const OLDEST = 'Earlier steps'
 
-export function historyView<S>(past: readonly StepEntry<S>[], future: readonly StepEntry<S>[], openedAt: number, trimmed: boolean): HistoryView {
-  const steps: HistoryStep[] = [{ title: trimmed ? OLDEST : OPENED, at: openedAt }]
+export function historyView<S>(
+  past: readonly StepEntry<S>[],
+  future: readonly StepEntry<S>[],
+  openedAt: number,
+  trimmed: boolean,
+  opened: string = OPENED,
+): HistoryView {
+  const steps: HistoryStep[] = [{ title: trimmed ? OLDEST : opened, at: openedAt }]
   for (const e of past) steps.push({ title: e.title, at: e.at })
   for (let i = future.length - 1; i >= 0; i--) steps.push({ title: future[i].title, at: future[i].at })
   return { steps, current: past.length }

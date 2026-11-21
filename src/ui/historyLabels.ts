@@ -26,11 +26,12 @@ const PHRASES: [RegExp, (...m: string[]) => string][] = [
   [/^the (.+) palette$/, (n) => `Palette: ${n}`],
   [/^the (.+) curve$/, (n) => `Curve: ${n}`],
   [/^the (.+) stamp$/, (n) => `Date stamp: ${n}`],
+  [/^the (.+) border$/, (n) => `Border: ${n}`],
   [/^the colour onto the palette$/, () => 'Colour added to the palette'],
   [/^the palette[’'](?:s)? (.+)$/, (what) => `Palette ${what}`],
   [/^where the palette leads$/, () => 'Palette lead'],
   [/^where the palette[’'](?:s)? colour comes from$/, () => 'Palette colour source'],
-  [/^choosing what Repeat copies$/, () => 'Repeat piece chosen'],
+  [/^choosing what Repeat copies$/, () => 'Repeat original chosen'],
   [/^clearing everything$/, () => 'Everything cleared'],
   [/^starting over$/, () => 'Started over'],
   [/^a new photo, (.+)$/, (n) => `Opened ${n}`],
@@ -154,7 +155,7 @@ const FIELDS: Partial<Record<StackModuleId, Record<string, string>>> = {
   grain: {
     amount: 'strength',
     chroma: 'colour',
-    grainScale: 'scale',
+    grainScale: 'pattern scale',
     plateFlatten: 'flatten',
     grainFollowsColour: 'follows colour',
     response: 'response curve',
@@ -166,7 +167,7 @@ const FIELDS: Partial<Record<StackModuleId, Record<string, string>>> = {
   border: { bottomExtra: 'bottom', irregularity: 'edge', paper: 'surface', edge: 'edge' },
   exposure: {},
   balance: {},
-  tone: { exposure: 'push', shoulder: 'roll-off', structureRadius: 'detail size' },
+  tone: { exposure: 'film exposure', shoulder: 'soft highlights', structureRadius: 'detail size' },
   light: { glowRadius: 'radius', glowThreshold: 'glow from', glowColour: 'colour' },
   edges: { rim: 'edge glow', rimRadius: 'reach' },
   solarize: { solarize: 'reverse', solarizeFrom: 'from', halo: 'lines', haloRadius: 'line width' },
@@ -345,6 +346,54 @@ const ITEM_FIELDS: Record<string, string> = {
   carry: 'carries',
 }
 
+/** A repeat's fields, as Repeat's panel names them. */
+const REPEAT_FIELDS: Record<string, string> = {
+  layout: 'layout',
+  across: 'copies across',
+  up: 'copies up',
+  gapX: 'spacing',
+  gapY: 'spacing',
+  spacing: 'spacing',
+  stagger: 'stagger',
+  both: 'both sides',
+  mirror: 'mirror',
+  angle: 'angle',
+  vanish: 'perspective',
+  path: 'path',
+  count: 'copies',
+  followPath: 'turn with the path',
+  straight: 'straight lines',
+  pieceOnPath: 'where the original is',
+  firstToLast: 'which way it runs',
+  placed: 'placed copies',
+  size: 'size',
+  turn: 'turn',
+  turnEase: 'twist',
+  opacity: 'opacity',
+  behind: 'copies behind or in front',
+  blend: 'mode',
+  source: 'original',
+}
+
+/** A collage piece's fields, as Collage's panel names them. */
+const PIECE_FIELDS: Record<string, string> = {
+  tolerance: 'reach',
+  seal: 'stop at thin lines',
+  soften: 'soften',
+  flip: 'flip',
+  match: 'match light',
+  brightness: 'brightness',
+  takeLook: 'match the look',
+  detail: 'photo detail',
+  fillHoles: 'fill holes',
+  throughLeaves: 'fill all of this sky',
+  keepLight: 'keep its light',
+  relight: 'light the photo',
+  smooth: 'smooth image',
+  image: 'image',
+  opacity: 'opacity',
+}
+
 /** A mask's fields, as its panel names them (Edge: Follow photo, Width, Compare, Level, Softness). */
 const MASK_FIELDS: Record<string, string> = {
   key: 'follow photo',
@@ -367,7 +416,7 @@ const STREAK_KEY_FIELDS: Record<string, string> = {
 }
 
 /** Bookkeeping a placed thing carries, never named in History: what a step changed is told by the rest. */
-const INTERNAL = new Set(['fitPending', 'beforeExtend', 'lengthBeforeExtend', 'keyWas', 'at', 'updatedAt', 'seed'])
+const INTERNAL = new Set(['fitPending', 'beforeExtend', 'lengthBeforeExtend', 'keyWas', 'at', 'updatedAt', 'seed', 'id'])
 
 /** A mask's edge as its Follow photo choice names it, when that is what changed. */
 function maskEdgeTitle(keys: string[], b: Rec): string | null {
@@ -402,10 +451,18 @@ function itemTitle(a: unknown, b: unknown, noun: string, i: number): string {
   }
   // A shape's outline follows its circle or gradient: name the change to those.
   if (keys.includes('radial') || keys.includes('gradient')) keys = keys.filter((k) => k !== 'outline')
+  // A repeat: its settings by the panel's names (its angle and size are settings, not a turn or a resize of it).
+  if (noun === 'Repeat') {
+    if (keys.length === 1 && keys[0] === 'path') {
+      const had = Array.isArray(a.path) && a.path.length > 0
+      return `${name}: path ${!had ? 'set' : shifted(a.path, b.path) ? 'moved' : 'changed'}`
+    }
+    return `${name}: ${listWords([...new Set(keys.map((k) => REPEAT_FIELDS[k] ?? humanize(k)))])}`
+  }
   const moves = keys.map((k) => motion(k, a[k], b[k]))
   if (moves.length > 0 && moves.every((m) => m !== null)) return `${name} ${new Set(moves).size === 1 ? moves[0] : 'reshaped'}`
   // One setting, or several that read as one (both ends of where a streak's tone changes).
-  const own = noun === 'Mask' ? MASK_FIELDS : noun === 'Streak' ? STREAK_KEY_FIELDS : {}
+  const own = noun === 'Mask' ? MASK_FIELDS : noun === 'Streak' ? STREAK_KEY_FIELDS : noun === 'Piece' ? PIECE_FIELDS : {}
   const named = [...new Set(keys.map((k) => own[k] ?? ITEM_FIELDS[k] ?? humanize(k)))]
   return named.length ? `${name}: ${listWords(named)}` : `${name} changed`
 }

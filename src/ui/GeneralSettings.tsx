@@ -1,4 +1,4 @@
-import { showInFilesLabel } from '../platform/os'
+import { isMac, showInFilesLabel } from '../platform/os'
 import { openUrl } from '../platform/native'
 import { useEffect, useState } from 'react'
 import { revealInFinder } from '../platform/native'
@@ -9,7 +9,7 @@ import { diskFolder } from '../storage/disk'
 import { libraryAvailable, loadRecent, onRecent, removeRecent } from '../storage/library'
 import { LISTED_LOOKS, NONE_LOOK } from './looks'
 import { DesktopAppSettings } from './DesktopAppSettings'
-import { launchStore, reduceMotionStore, startLookStore, useLaunch, useReduceMotion, useStartLook } from './state/settings'
+import { launchStore, reduceMotionStore, singleModuleStore, startLookStore, useLaunch, useReduceMotion, useSingleModule, useStartLook } from './state/settings'
 import { OFFICIAL } from '../platform/build'
 
 interface Props {
@@ -31,6 +31,7 @@ export function GeneralSettings({ onIntro, onReport, onTour, onStatus }: Props) 
   const app = libraryAvailable()
   const launch = useLaunch()
   const startLook = useStartLook()
+  const singleModule = useSingleModule()
   const reduceMotion = useReduceMotion()
   const [recent, setRecent] = useState(0)
   useEffect(() => {
@@ -67,6 +68,10 @@ export function GeneralSettings({ onIntro, onReport, onTour, onStatus }: Props) 
               </option>
             ))}
           </select>
+        </label>
+        <label className="check-row" title={`Opening a module folds the others. ${isMac() ? 'Option' : 'Alt'}-click a module to open it beside them.`}>
+          <input type="checkbox" checked={singleModule} onChange={(e) => singleModuleStore.set(e.target.checked)} />
+          Open one module at a time
         </label>
         <label className="check-row">
           <input type="checkbox" checked={reduceMotion} onChange={(e) => reduceMotionStore.set(e.target.checked)} />

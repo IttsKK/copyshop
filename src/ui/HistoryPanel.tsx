@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, type KeyboardEvent } from 'react'
 import { useHistoryView, type HistorySource } from './history'
-import { groupSteps, type StepGroup } from './historySteps'
+import { groupSteps, OPENED_EDITED, type StepGroup } from './historySteps'
 
 interface Props {
   /** useEditHistory's result (only subscribe, view and jumpTo are used). */
@@ -82,7 +82,9 @@ export function HistoryPanel({ history, onJump }: Props) {
           ))
           .reverse()}
       </div>
-      {groups.length === 1 && <p className="muted history-note">No changes yet.</p>}
+      {groups.length === 1 && (
+        <p className="muted history-note">{groups[0].title === OPENED_EDITED ? 'No changes since it opened.' : 'No changes yet.'}</p>
+      )}
       {undone && <p className="muted history-note">Greyed steps come back with redo until you make a change.</p>}
     </section>
   )

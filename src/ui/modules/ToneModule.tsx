@@ -13,7 +13,7 @@ export function ToneModule({ blend, setEffects }: Props) {
     <Module id="tone" title="Tone">
       <Slider
         label="Film exposure"
-        title="Push the picture up into the film's roll-off, as overexposed film is: pale and washed. Down, it sits deeper in the film's toe. For correcting a photo's brightness, use Base photo → Exposure."
+        title="Push the picture up into the film's roll-off, as overexposed film is: pale and washed. Down, it sits deeper in the film's toe. It is part of the look; to correct the photo's own brightness first, use Exposure under Base."
         value={blend.effects.exposure} def={FACTORY.effects.exposure}
         min={-2}
         max={2}

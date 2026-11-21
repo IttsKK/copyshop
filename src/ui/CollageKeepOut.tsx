@@ -11,6 +11,13 @@ const SIDE = 256
 /** The image on screen at most this big. */
 const VIEW_W = 640
 const VIEW_H = 440
+/** What the card's other parts take: its padding across, and its title, images, tools and margins down. */
+const CARD_SIDES = 40 + 34
+const CARD_REST = 300
+const roomFor = () => ({
+  w: Math.max(200, Math.min(VIEW_W, window.innerWidth - CARD_SIDES)),
+  h: Math.max(140, Math.min(VIEW_H, window.innerHeight * 0.9 - CARD_REST)),
+})
 
 type Tool = 'select' | 'brush' | 'erase'
 
@@ -49,7 +56,15 @@ export function CollageKeepOut({ images, start, onClose }: { images: CollageImag
     void setCollageKeepOut(img.id, any ? { ...next, at: Date.now() } : null)
   }
 
-  const k = img ? Math.min(VIEW_W / img.bitmap.width, VIEW_H / img.bitmap.height) : 1
+  // The image as big as the window has room for, up to VIEW_W by VIEW_H: in a small window the whole
+  // card (its images, the tools, Done) fits on screen, not cut off at its foot.
+  const [room, setRoom] = useState(() => roomFor())
+  useEffect(() => {
+    const on = () => setRoom(roomFor())
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [])
+  const k = img ? Math.min(room.w / img.bitmap.width, room.h / img.bitmap.height) : 1
   const vw = img ? Math.round(img.bitmap.width * k) : VIEW_W
   const vh = img ? Math.round(img.bitmap.height * k) : VIEW_H
   const photo = useRef<HTMLCanvasElement>(null)
@@ -140,11 +155,14 @@ export function CollageKeepOut({ images, start, onClose }: { images: CollageImag
         }}
       >
         <header>
-          <h2>Parts not to use</h2>
+          <h2 title="Fill gaps keeps these parts out of the gaps it fills, and fills them again when you close this. Images you placed in a gap by hand stay as they are.">
+            Parts not to use
+          </h2>
           <button className="icon" title="Close (Esc)" onClick={onClose}>
             ×
           </button>
         </header>
+        <p className="keepout-hint">Fill gaps leaves these out</p>
         <div className="keepout-body">
           <div className="keepout-images" role="tablist" aria-label="Images">
             {images.map((i) => (

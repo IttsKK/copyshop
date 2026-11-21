@@ -24,8 +24,10 @@ export interface Snapshot {
   grain: GrainTexture | null
   /** Small data URL for the list. */
   thumb: string
-  /** The photo it was taken on (its SHA-256). Kept for reference; the list shows every snapshot on every photo. */
+  /** The photo it was taken on (its SHA-256). The list shows every snapshot on every photo, saying which photo each is from. */
   photo?: string
+  /** That photo's file name. */
+  photoName?: string
 }
 
 let thumbEngine: GrainEngine | null = null
@@ -75,6 +77,17 @@ export function describeSnapshot(snapshot: Snapshot, now = new Date()): string {
   const time = at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
   if (at.toDateString() === now.toDateString()) return `Today, ${time}`
   return `${at.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${time}`
+}
+
+/**
+ * Which photo it was taken on, seen from the open one (`photo`, its SHA-256):
+ * snapshots are one list on every photo, so one from another photo says so.
+ * Null when that isn't known (taken before snapshots noted their photo).
+ */
+export function snapshotSource(snapshot: Snapshot, photo: string | undefined): string | null {
+  if (!snapshot.photo) return null
+  if (snapshot.photo === photo) return 'This photo'
+  return snapshot.photoName ?? 'Another photo'
 }
 
 /** The next free "Snapshot N": one more than the highest, so a deleted one's number isn't given out twice. */

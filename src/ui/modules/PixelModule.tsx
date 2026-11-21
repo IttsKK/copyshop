@@ -1,6 +1,6 @@
 import { FIXED_PALETTES } from '../../engine/pixelPalettes'
 import type { BlendParams, EffectParams, PaletteId } from '../../engine/types'
-import { Module, Slider } from '../controls'
+import { Module, SeeAlso, Slider } from '../controls'
 import { FACTORY } from '../moduleCatalog'
 
 const PALETTE_CHOICES: { id: PaletteId; label: string; hint: string }[] = [
@@ -100,6 +100,7 @@ export function PixelModule({ blend, setEffects }: Props) {
           />
         </>
       )}
+      <SeeAlso links={[['Fine dots in a few colours', 'dither', 'Dither'], ['Printed dots', 'halftone', 'Halftone']]} />
     </Module>
   )
 }

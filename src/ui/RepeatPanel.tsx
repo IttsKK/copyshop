@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { RepeatCopiesPicture } from './SettingPictures'
 import { AngleDial } from './AngleDial'
-import { DEFAULT_REPEAT, type RepeatParams } from '../engine/repeatParams'
+import { DEFAULT_REPEAT, repeatCopyCount, type RepeatParams } from '../engine/repeatParams'
 import type { MaskShape } from '../engine/types'
 import { ModuleActions, RangeSlider, Slider } from './controls'
 import { MaskGlyph, type AddKind } from './maskKinds'
@@ -9,6 +9,8 @@ import { MaskGlyph, type AddKind } from './maskKinds'
 interface Props {
   /** The box of an edit going on in this repeat (its pencil, EditBox), shown over its tabs, as a streak's is. */
   editBox?: ReactNode
+  /** The box for setting its path or placed copies on the photo, where its button is (EditBox). */
+  pathBox?: ReactNode
   repeat: RepeatParams
   /** What it copies: its own piece (or, from an older edit, a mask from the Masks list). */
   piece: MaskShape | null
@@ -48,6 +50,27 @@ interface Props {
 
 type RepeatTab = 'layout' | 'copies' | 'blend' | 'piece'
 
+/** Most copies along a path (its Copies slider's end). */
+const PATH_MOST = 40
+
+/**
+ * Switching between Grid and Path keeps how many copies there are: a grid's
+ * copies become as many along the path, and a path's as many in the grid's
+ * one row or column. A grid of rows and columns at once is left as it is.
+ */
+function sameCopies(r: RepeatParams, to: RepeatParams['layout']): Partial<RepeatParams> {
+  // A path not drawn yet is given one to start from (fitRepeat), so the copies show at once.
+  if (r.layout === 'grid' && to === 'path') return { count: Math.max(1, Math.min(PATH_MOST, repeatCopyCount(r))), ...(r.path.length ? {} : { fitPending: 'reach' as const }) }
+  if (to === 'path' && !r.path.length) return { fitPending: 'reach' }
+  if (r.layout === 'path' && to === 'grid') {
+    // One row or column only: there the count reads straight across.
+    if (r.across !== 0 && r.up !== 0) return {}
+    const n = Math.max(1, Math.min(20, Math.round(r.both ? r.count / 2 : r.count)))
+    return r.across !== 0 ? { across: Math.sign(r.across) * n } : { up: (Math.sign(r.up) || 1) * n }
+  }
+  return {}
+}
+
 const pct = (v: number) => `${Math.round(v * 100)}%`
 const signedPct = (v: number) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`
 const count = (v: number) => `${v > 0 ? '+' : ''}${Math.round(v)}`
@@ -67,6 +90,7 @@ const MAKE: { kind: AddKind; name: string; line: string; title: string }[] = [
  */
 export function RepeatPanel({
   editBox,
+  pathBox,
   repeat: r,
   piece,
   hasImage,
@@ -119,7 +143,7 @@ export function RepeatPanel({
     ['layout', 'Layout'],
     ['copies', 'Copies'],
     ['blend', 'Blend'],
-    ['piece', 'Piece'],
+    ['piece', 'Original'],
   ]
   return (
     <>
@@ -163,17 +187,31 @@ export function RepeatPanel({
         <div className="segmented">
           {(
             [
-              ['grid', 'Grid', 'Rows and columns of copies, out from the piece'],
               ['path', 'Path', 'Copies spread along a line or curve you draw'],
               ['placed', 'Placed', 'A copy wherever you click'],
+              ['grid', 'Grid', 'Rows and columns of copies, out from the original'],
             ] as const
           ).map(([id, label, hint]) => (
-            <button key={id} className={r.layout === id ? 'on' : ''} title={hint} onClick={() => set({ layout: id })}>
+            <button key={id} className={r.layout === id ? 'on' : ''} title={hint} onClick={() => r.layout !== id && set({ layout: id, ...sameCopies(r, id) })}>
               {label}
             </button>
           ))}
         </div>
       </div>
+      {/* Path and Placed: set on the photo, right under the layout; while it is, its Cancel and Done are here. */}
+      {r.layout !== 'grid' &&
+        (editing && pathBox ? (
+          pathBox
+        ) : (
+          <ModuleActions>
+            <button className={editing ? 'on' : ''} disabled={!hasImage} onClick={onEdit}>
+              {r.layout === 'path' ? (r.path.length ? 'Edit path on photo' : 'Draw path on photo') : 'Place on photo'}
+            </button>
+            {(r.layout === 'path' ? r.path.length : r.placed.length) > 0 && (
+              <button onClick={() => set(r.layout === 'path' ? { path: [] } : { placed: [] }, 'clear')}>Clear</button>
+            )}
+          </ModuleActions>
+        ))}
       {r.layout === 'grid' && (
         <>
           <Slider label="Across" title={r.both ? 'Copies each side, left and right' : 'Copies to the right (or, below 0, the left)'} value={r.across} min={r.both ? 0 : -20} max={20} step={1} format={r.both ? (v) => `${Math.round(v)} each side` : count} onChange={(across) => set({ across })} />
@@ -191,7 +229,7 @@ export function RepeatPanel({
           {/* How far apart the copies are, beside how many there are. */}
           <RangeSlider
             label="Spacing"
-            title="How far each copy is from the one before, first to last, as a share of the piece: 100% side by side, less overlapping. Their size does not change it."
+            title="How far each copy is from the one before, first to last, as a share of the original: 100% side by side, less overlapping. Their size does not change it."
             // An edit from before Spacing shows its gap, and takes up Spacing when this is moved.
             value={r.spacing ?? [1 + (r.up !== 0 ? r.gapY : r.gapX), 1 + (r.up !== 0 ? r.gapY : r.gapX)]}
             def={[1, 1]}
@@ -255,13 +293,13 @@ export function RepeatPanel({
       {r.layout === 'path' && (
         <>
           <div className="field valued">
-            <span title="Where the piece is on the path">Piece</span>
+            <span title="Where the original is on the path">Original</span>
             <div className="segmented">
               {(
                 [
-                  ['start', 'At the start', 'The path starts at the piece, and the copies run on from it to the end'],
-                  ['middle', 'In the middle', 'The path runs through the piece, and the copies go both ways from it, toward each end. Draw the path across the piece.'],
-                  ['off', 'Not on it', 'The path is apart from the piece: the first copy is at its first point'],
+                  ['start', 'At the start', 'The path starts at the original, and the copies run on from it to the end'],
+                  ['middle', 'In the middle', 'The path runs through the original, and the copies go both ways from it, toward each end. Draw the path across the original.'],
+                  ['off', 'Not on it', 'The path is apart from the original: the first copy is at its first point'],
                 ] as const
               ).map(([id, label, hint]) => (
                 <button key={id} className={r.pieceOnPath === id ? 'on' : ''} title={hint} onClick={() => set({ pieceOnPath: id })}>
@@ -302,16 +340,6 @@ export function RepeatPanel({
           </label>
         </>
       )}
-      {r.layout !== 'grid' && (
-        <ModuleActions>
-          <button className={editing ? 'on' : ''} disabled={!hasImage} onClick={onEdit}>
-            {r.layout === 'path' ? (r.path.length ? 'Edit path on photo' : 'Draw path on photo') : 'Place on photo'}
-          </button>
-          {(r.layout === 'path' ? r.path.length : r.placed.length) > 0 && (
-            <button onClick={() => set(r.layout === 'path' ? { path: [] } : { placed: [] }, 'clear')}>Clear</button>
-          )}
-        </ModuleActions>
-      )}
       </>
       )}
       {tab === 'copies' && (
@@ -320,13 +348,13 @@ export function RepeatPanel({
         <RepeatCopiesPicture r={r} />
         {r.layout === 'path' && r.pieceOnPath === 'middle' && (
           <div className="field valued">
-            <span title="Which way first to last goes, with the piece in the middle of the path">Runs</span>
+            <span title="Which way first to last goes, with the original in the middle of the path">Runs</span>
             <div className="segmented">
               {(
                 [
-                  ['out', 'Out', 'Out from the piece both ways: a copy one step out is the same on either side, and the shorter side stops sooner'],
-                  ['along', 'Start to end', 'Along the whole path, from its first point to its last, through the piece'],
-                  ['back', 'End to start', 'Along the whole path, from its last point to its first, through the piece'],
+                  ['out', 'Out', 'Out from the original both ways: a copy one step out is the same on either side, and the shorter side stops sooner'],
+                  ['along', 'Start to end', 'Along the whole path, from its first point to its last, through the original'],
+                  ['back', 'End to start', 'Along the whole path, from its last point to its first, through the original'],
                 ] as const
               ).map(([id, label, hint]) => (
                 <button key={id} className={(r.firstToLast ?? 'out') === id ? 'on' : ''} title={hint} onClick={() => set({ firstToLast: id })}>
@@ -338,7 +366,7 @@ export function RepeatPanel({
         )}
         <RangeSlider
           label="Size"
-          title="The first copy's size and the last's, against the piece's own: both under 100% and the copies shrink away"
+          title="The first copy's size and the last's, against the original's own: both under 100% and the copies shrink away"
           value={r.size}
           def={DEFAULT_REPEAT.size}
           min={0.1}
@@ -387,12 +415,12 @@ export function RepeatPanel({
       {tab === 'blend' && (
       <div className="colour-group">
         <div className="field valued">
-          <span title="Whether the copies go behind the piece itself or over it">Copies</span>
+          <span title="Whether the copies go behind the original itself or over it">Copies</span>
           <div className="segmented">
-            <button className={r.behind ? 'on' : ''} title="The piece itself stays in front of its copies" onClick={() => set({ behind: true })}>
+            <button className={r.behind ? 'on' : ''} title="The original itself stays in front of its copies" onClick={() => set({ behind: true })}>
               Behind
             </button>
-            <button className={!r.behind ? 'on' : ''} title="Copies over everything, the piece included" onClick={() => set({ behind: false })}>
+            <button className={!r.behind ? 'on' : ''} title="Copies over everything, the original included" onClick={() => set({ behind: false })}>
               In front
             </button>
           </div>

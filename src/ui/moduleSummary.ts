@@ -88,7 +88,7 @@ export function moduleSummary(id: StackModuleId, b: BlendParams): string {
       return join([`${e.leaks.spots.length} ${e.leaks.spots.length === 1 ? 'spot' : 'spots'}`, `${pct(e.leaks.amount)}%`])
     case 'grain':
       // As the sliders read: Strength on its square-root scale.
-      return join([`Strength ${Math.round(Math.sqrt(b.amount) * 100)}`, b.grainScale !== 1 && `Scale ${b.grainScale.toFixed(2)}×`, b.chroma < 1 && `Colour ${pct(b.chroma)}`])
+      return join([`Strength ${Math.round(Math.sqrt(b.amount) * 100)}`, b.grainScale !== 1 && `Pattern scale ${b.grainScale.toFixed(2)}×`, b.chroma < 1 && `Colour ${pct(b.chroma)}`])
     case 'dither':
       return join([e.dither.pattern === 'ordered' ? 'Ordered' : 'Stipple', `${e.dither.steps} steps`, `${pct(e.dither.amount)}%`])
     case 'pixel':

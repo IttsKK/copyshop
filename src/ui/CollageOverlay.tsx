@@ -290,6 +290,51 @@ export function CollageOverlay({ editor, frame, region, css }: Props) {
     return () => window.removeEventListener('pointermove', onMove)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, editor.moving, editor.armed, editor.seed, frame.x, frame.y, frame.width, frame.height, region.x, region.y, sx, sy])
+  // Laying an image in, or filling gaps: the gap a click there would fill,
+  // shown under the pointer before the click. Worked out once the pointer
+  // rests, and not again while it stays inside the gap found.
+  const choosing = editor.armed || !!editor.cells
+  const [aim, setAim] = useState<ReturnType<typeof cellArea>>(null)
+  useEffect(() => {
+    setAim(null)
+    if (!choosing) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let last: ReturnType<typeof cellArea> = null
+    const has = (g: NonNullable<typeof last>, x: number, y: number) => {
+      const gx = Math.floor(x * g.grid.w)
+      const gy = Math.floor(y * g.grid.h)
+      const [x0, y0, x1, y1] = g.box
+      return gx >= x0 && gy >= y0 && gx <= x1 && gy <= y1 && g.region[(gy - y0) * (x1 - x0 + 1) + gx - x0] !== 0
+    }
+    const onMove = (e: PointerEvent) => {
+      const el = host.current
+      if (!el) return
+      const b = el.getBoundingClientRect()
+      const fx = ((e.clientX - b.left) / sx + region.x - frame.x) / frame.width
+      const fy = ((e.clientY - b.top) / sy + region.y - frame.y) / frame.height
+      const over = (e.target as Element | null)?.closest?.('.preview-canvas') && fx >= 0 && fy >= 0 && fx < 1 && fy < 1
+      if (!over || e.buttons) {
+        clearTimeout(timer)
+        last = null
+        setAim(null)
+        return
+      }
+      if (last && has(last, fx, fy)) return
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        // A gap already chosen for filling shows as it is.
+        const g = cellArea(editor.seed, { x: fx, y: fy })
+        last = g && !cells.some((c) => c && has(c, fx, fy)) ? g : null
+        setAim(last)
+      }, 40)
+    }
+    window.addEventListener('pointermove', onMove)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('pointermove', onMove)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [choosing, cells, editor.seed, editor.version, frame.x, frame.y, frame.width, frame.height, region.x, region.y, sx, sy])
   // The rest of the image, faint, only while it is moved, sized or turned,
   // and only outside its piece: inside, the real result shows untouched.
   const selMaps = editor.selected !== null ? pieces[editor.selected] : null
@@ -464,6 +509,40 @@ export function CollageOverlay({ editor, frame, region, css }: Props) {
                 c.getContext('2d')!.drawImage(cellTintOf(g.region, w, h), 0, 0)
               }}
             />
+          )
+        })()}
+      {aim &&
+        (() => {
+          const [x0, y0, x1, y1] = aim.box
+          const w = x1 - x0 + 1
+          const h = y1 - y0 + 1
+          const at = gapPlace(aim)
+          return (
+            <span key={`aim:${x0},${y0},${w},${h}`}>
+              <canvas
+                className="collage-aim"
+                style={at}
+                ref={(c) => {
+                  if (!c || c.dataset.done) return
+                  c.dataset.done = '1'
+                  c.width = w
+                  c.height = h
+                  // Amber, the app's own colour: a blue tint was lost on the blue sky it mostly falls on.
+                  c.getContext('2d')!.drawImage(regionTintOf(aim.region, w, h, [255, 184, 80]), 0, 0)
+                }}
+              />
+              <canvas
+                className="collage-gap"
+                style={at}
+                ref={(c) => {
+                  if (!c || c.dataset.done) return
+                  c.dataset.done = '1'
+                  c.width = w
+                  c.height = h
+                  c.getContext('2d')!.drawImage(outlineOf(aim.region, w, h), 0, 0)
+                }}
+              />
+            </span>
           )
         })()}
       {pieces.map((maps, i) =>

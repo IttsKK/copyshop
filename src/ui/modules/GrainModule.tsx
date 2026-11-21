@@ -80,7 +80,7 @@ export function GrainModule({ generator, image, grain, layer, setError, blend, s
         <>
           <Slider
             label="Size"
-            title="Clump size in plate pixels"
+            title="How big the grains are; they stay sharp. Pattern scale, in Fine-tune, enlarges the whole pattern instead, softer."
             value={generator.params.grainSize}
             min={0}
             max={1}
@@ -112,8 +112,8 @@ export function GrainModule({ generator, image, grain, layer, setError, blend, s
       ) : (
         <>
           <Slider
-        label="Scale"
-        title="Stretches the whole grain pattern bigger or smaller. Size grows the grains themselves and keeps them sharper; Scale enlarges them softer."
+        label="Pattern scale"
+        title="Enlarges or shrinks the whole grain pattern, as zooming into it would: bigger is softer. Size makes the grains themselves bigger and keeps them sharp."
         value={blend.grainScale} def={FACTORY.grainScale}
         min={0}
         max={1}
@@ -138,8 +138,8 @@ export function GrainModule({ generator, image, grain, layer, setError, blend, s
         {generator.mode === 'generate' && (
           <>
             <Slider
-        label="Scale"
-        title="Stretches the whole grain pattern bigger or smaller. Size grows the grains themselves and keeps them sharper; Scale enlarges them softer."
+        label="Pattern scale"
+        title="Enlarges or shrinks the whole grain pattern, as zooming into it would: bigger is softer. Size makes the grains themselves bigger and keeps them sharp."
         value={blend.grainScale} def={FACTORY.grainScale}
         min={0}
         max={1}

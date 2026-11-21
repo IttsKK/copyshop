@@ -153,7 +153,7 @@ export function RepeatModule({ items, open, onOpen, onMake, onRemove, onToggle, 
             { label: 'Copy settings', title: 'Copy its layout, spacing, sizes, turn, opacity and blend to paste onto another repeat', onClick: () => copySettings(i), apart: true },
             {
               label: clip ? `Paste settings from ${clip}` : 'Paste settings',
-              title: clip ? `Give it ${clip}'s layout and look; its piece, path and placed copies stay its own` : 'Copy another repeat’s settings first',
+              title: clip ? `Give it ${clip}'s layout and look; its original, path and placed copies stay its own` : 'Copy another repeat’s settings first',
               disabled: !clip,
               onClick: () => pasteSettings(i),
             },
@@ -174,6 +174,7 @@ export function RepeatModule({ items, open, onOpen, onMake, onRemove, onToggle, 
         {openOne !== null && (
           <RepeatPanel
             editBox={<EditBox at={`repeat/${openOne}`} />}
+            pathBox={<EditBox at={`repeat/${openOne}/path`} />}
             repeat={repeat}
             piece={piece}
             masks={listedMasks}

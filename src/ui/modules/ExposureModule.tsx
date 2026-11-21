@@ -22,7 +22,7 @@ export function ExposureModule({ baseFx, setBase, image, autoExposure }: Props) 
       <Slider
         track={TRACKS.exposure}
         label="Exposure"
-        title="Brighter or darker, in stops"
+        title="Brighter or darker, in stops: correcting the photo itself, before the look. Film exposure, in Tone, is part of the look: pale overexposed film, or deep and dense."
         value={baseFx.exposure} def={FACTORY.effects.base.exposure}
         min={-3}
         max={3}

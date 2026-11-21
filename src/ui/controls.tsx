@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { EditBox } from './EditBox'
+import { singleModuleStore } from './state/settings'
 import { inTextField } from './shortcuts'
 import { isMac } from '../platform/os'
 import type { MaskShape, SectionMask } from '../engine/types'
@@ -802,10 +803,12 @@ export function Module({ id, title, summary, children }: ModuleProps) {
         <button
           className="section-toggle"
           aria-expanded={!collapsed}
-          title={`${isMac() ? '⌥' : 'Alt'}-click: open only ${lower}`}
+          title={singleModuleStore.get() ? `${isMac() ? '⌥' : 'Alt'}-click: open ${lower} beside the others` : `${isMac() ? '⌥' : 'Alt'}-click: open only ${lower}`}
           onClick={(e) => {
-            // Option-click: this one open, every other folded (Lightroom's solo).
-            if (e.altKey) {
+            // Opening one: the others fold (Settings: Open one module at a time), or with Option-click when that
+            // is off. Option-click with it on opens this one beside the rest.
+            const single = singleModuleStore.get()
+            if ((collapsed && single !== e.altKey) || (!collapsed && e.altKey && !single)) {
               window.dispatchEvent(new CustomEvent('grain:fold-others', { detail: id }))
               if (collapsed) unfold()
               return
@@ -1063,6 +1066,29 @@ export function Shuffle({ onShuffle, what }: { onShuffle: () => void; what: stri
 }
 
 /** The row under a module's controls: its on-photo tools and Shuffle, in one place. */
+/** Show another module where it lives, open (App: showModuleNow). */
+export const showModule = (id: string) => window.dispatchEvent(new CustomEvent('grain:show-module', { detail: id }))
+
+/**
+ * Modules that make something like this one, at its foot: "Bigger squares:
+ * Pixel art". Each goes to that module, open.
+ */
+export function SeeAlso({ links }: { links: [string, string, string][] }) {
+  return (
+    <p className="see-also">
+      {links.map(([want, id, name], i) => (
+        <span key={id}>
+          {i > 0 && ' · '}
+          {want}:{' '}
+          <button className="link" onClick={() => showModule(id)}>
+            {name}
+          </button>
+        </span>
+      ))}
+    </p>
+  )
+}
+
 export function ModuleActions({ children }: { children: ReactNode }) {
   return <div className="module-actions-row">{children}</div>
 }

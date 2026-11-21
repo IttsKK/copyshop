@@ -40,7 +40,7 @@ const PAPERS: { name: string; colour: [number, number, number] }[] = [
 
 interface Props {
   blend: BlendParams
-  setBorder: (patch: Partial<BorderParams>) => void
+  setBorder: (patch: Partial<BorderParams>, step?: string) => void
   palette: Palette
   papers: { label: string; colour: Rgb }[] | null
   /** Use one of your saved borders, as its ⋯ menu would. */
@@ -117,7 +117,7 @@ function GradientControls({
 }: {
   b: BorderParams
   fill: 'linear' | 'radial'
-  setBorder: (patch: Partial<BorderParams>) => void
+  setBorder: (patch: Partial<BorderParams>, step?: string) => void
   palette: Palette
   swatches: { label: string; colour: Rgb }[]
 }) {
@@ -231,7 +231,7 @@ export function BorderModule({ blend, setBorder, palette, papers, onApplyPart }:
             title={s.hint}
             onClick={() => {
               track('border_style', s.id)
-              setBorder(s.patch)
+              setBorder(s.patch, `the ${s.name} border`)
             }}
           >
             <BorderSwatch s={s.patch} />

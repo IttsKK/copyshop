@@ -603,6 +603,35 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+/// Set once the page has been asked to save and quit.
+#[cfg(desktop)]
+static QUIT_ASKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// How long the page has to save before the app quits without it.
+#[cfg(desktop)]
+const QUIT_GRACE: std::time::Duration = std::time::Duration::from_secs(4);
+
+/// Quitting (the menu's Quit or Exit, closing the window): the page is asked
+/// first, as `quit-requested` (src/platform/quit.ts). It saves the open
+/// photo's edit, whose last change otherwise waits a moment to be written,
+/// and calls quit_app once that is on disk. A page that doesn't answer (it
+/// crashed, or is stuck) is quit without after a few seconds, and asking
+/// again quits at once.
+#[cfg(desktop)]
+fn request_quit(app: &AppHandle) {
+    use std::sync::atomic::Ordering;
+    if QUIT_ASKED.swap(true, Ordering::SeqCst) {
+        return app.exit(0);
+    }
+    if app.emit("quit-requested", ()).is_err() {
+        return app.exit(0);
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(QUIT_GRACE);
+        app.exit(0);
+    });
+}
+
 /// When the app last quit properly (ms since 1970), from a note written as it
 /// quits. The page compares it with its own last sign of life to tell a quit
 /// from a crash (src/platform/watchdog.ts): the window never says it closed.
@@ -639,9 +668,9 @@ struct MenuItems(HashMap<String, MenuItem<Wry>>);
 ///
 /// Windows and Linux have no app menu: Settings is at the end of Edit, Exit
 /// (Quit on Linux) at the end of File, About in Help, and there is no Window
-/// menu. Their Exit and Full Screen are the app's own items (EXIT and
-/// FULLSCREEN, handled here, never sent to the page): the system's do
-/// nothing there. CmdOrCtrl is Ctrl there.
+/// menu. Their Full Screen is the app's own item (FULLSCREEN, handled here,
+/// never sent to the page): the system's does nothing there. CmdOrCtrl is
+/// Ctrl there. Quit (Exit) is the app's own everywhere: see request_quit.
 fn build_menu(app: &AppHandle) -> tauri::Result<(Menu<Wry>, HashMap<String, MenuItem<Wry>>)> {
     let mut items = HashMap::new();
     let mut item = |id: &str, label: &str, key: Option<&str>| -> tauri::Result<MenuItem<Wry>> {
@@ -665,7 +694,9 @@ fn build_menu(app: &AppHandle) -> tauri::Result<(Menu<Wry>, HashMap<String, Menu
             &PredefinedMenuItem::hide_others(app, None)?,
             &PredefinedMenuItem::show_all(app, None)?,
             &sep()?,
-            &PredefinedMenuItem::quit(app, None)?,
+            // The app's own Quit, not the system's: that one ends the app
+            // at once, before the page has saved the edit's last change.
+            &MenuItem::with_id(app, QUIT, "Quit copyshop", true, Some("CmdOrCtrl+Q"))?,
         ],
     )?;
     let file = Submenu::with_items(
@@ -683,9 +714,9 @@ fn build_menu(app: &AppHandle) -> tauri::Result<(Menu<Wry>, HashMap<String, Menu
             #[cfg(target_os = "macos")]
             &PredefinedMenuItem::close_window(app, None)?,
             #[cfg(target_os = "windows")]
-            &MenuItem::with_id(app, EXIT, "Exit", true, None::<&str>)?,
+            &MenuItem::with_id(app, QUIT, "Exit", true, None::<&str>)?,
             #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-            &MenuItem::with_id(app, EXIT, "Quit", true, Some("CmdOrCtrl+Q"))?,
+            &MenuItem::with_id(app, QUIT, "Quit", true, Some("CmdOrCtrl+Q"))?,
         ],
     )?;
     let edit = Submenu::with_items(
@@ -793,9 +824,10 @@ fn build_menu(app: &AppHandle) -> tauri::Result<(Menu<Wry>, HashMap<String, Menu
     Ok((menu, items))
 }
 
-/// Off the Mac: the menu's own Exit, and Full Screen.
-#[cfg(not(target_os = "macos"))]
-const EXIT: &str = "app-exit";
+/// The menu's own Quit (Exit on Windows).
+#[cfg(desktop)]
+const QUIT: &str = "app-quit";
+/// Off the Mac: the menu's own Full Screen.
 #[cfg(not(target_os = "macos"))]
 const FULLSCREEN: &str = "app-fullscreen";
 
@@ -821,9 +853,11 @@ pub fn run() {
         })
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
+            if id == QUIT {
+                return request_quit(app);
+            }
             #[cfg(not(target_os = "macos"))]
             match id {
-                EXIT => return app.exit(0),
                 FULLSCREEN => {
                     if let Some(window) = app.get_webview_window("main") {
                         let full = window.is_fullscreen().unwrap_or(false);
@@ -836,6 +870,16 @@ pub fn run() {
             // The system's items (Copy, Hide...) do their own work.
             if app.state::<MenuItems>().0.contains_key(id) {
                 let _ = app.emit("menu", id);
+            }
+        })
+        .on_window_event(|window, event| {
+            // The window's close button (and Close Window): this one window
+            // is the app, so closing it quits, saving first.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if !QUIT_ASKED.load(std::sync::atomic::Ordering::SeqCst) {
+                    api.prevent_close();
+                    request_quit(window.app_handle());
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -865,10 +909,18 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while running copyshop")
-        .run(|_app, event| {
-            if let tauri::RunEvent::Exit = event {
-                note_clean_exit();
+        .run(|app, event| match event {
+            // Asked to quit from outside the menu (Windows' taskbar, say):
+            // the page saves first as well. app.exit (quit_app) has a code
+            // and goes ahead.
+            tauri::RunEvent::ExitRequested { code: None, api, .. } => {
+                if !QUIT_ASKED.load(std::sync::atomic::Ordering::SeqCst) {
+                    api.prevent_exit();
+                    request_quit(app);
+                }
             }
+            tauri::RunEvent::Exit => note_clean_exit(),
+            _ => {}
         });
 }
 

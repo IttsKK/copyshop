@@ -123,6 +123,8 @@ export interface StoredSnapshot {
   thumb: string
   /** The photo it was taken on (its SHA-256); missing on ones from before they were kept per photo. */
   photo?: string
+  /** That photo's file name, shown on the snapshot on other photos. */
+  photoName?: string
 }
 
 export function loadSnapshotRecords(): StoredSnapshot[] {
@@ -138,6 +140,7 @@ export function loadSnapshotRecords(): StoredSnapshot[] {
           doc: parsePreset(r.doc),
           thumb: typeof r.thumb === 'string' ? r.thumb : '',
           ...(typeof r.photo === 'string' ? { photo: r.photo } : {}),
+          ...(typeof r.photoName === 'string' ? { photoName: r.photoName } : {}),
         })
       } catch {
         /* one unreadable snapshot should not cost the rest */

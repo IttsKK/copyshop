@@ -4,7 +4,7 @@ import type { OutputSettings } from '../storage/presets'
 import type { GrainSource } from '../sources/GrainSource'
 import type { Look } from './looks'
 import { changeTitle, wholeTitle } from './historyLabels'
-import { historyView, travel, type HistoryView, type StepEntry } from './historySteps'
+import { historyView, OPENED, travel, type HistoryView, type StepEntry } from './historySteps'
 
 export type { HistoryStep, HistoryView } from './historySteps'
 
@@ -49,6 +49,8 @@ function startHistory() {
     suspended: false,
     /** When the photo was opened: the first row of the list. */
     openedAt,
+    /** That row's title: OPENED, or OPENED_EDITED for a photo that opened with its saved edit. */
+    opened: OPENED as string,
     /** The oldest steps were dropped (HISTORY_LIMIT): the first row is no longer the photo as opened. */
     trimmed: false,
     listeners: new Set<() => void>(),
@@ -82,7 +84,7 @@ export function useEditHistory(state: EditState, restore: (to: EditState) => voi
   /** The list changed: a new snapshot for the panel. */
   const changedList = () => {
     const r = h.current
-    r.view = historyView(r.past, r.future, r.openedAt, r.trimmed)
+    r.view = historyView(r.past, r.future, r.openedAt, r.trimmed, r.opened)
     for (const l of r.listeners) l()
   }
 
@@ -205,8 +207,9 @@ export function useEditHistory(state: EditState, restore: (to: EditState) => voi
        * Another photo: its edit has a history of its own, so undo never puts
        * one photo's edit on another. The change that opens it is not a step.
        */
-      reset: () => {
+      reset: (opened: string = OPENED) => {
         const r = h.current
+        r.opened = opened
         r.past = []
         r.future = []
         r.sig = ''

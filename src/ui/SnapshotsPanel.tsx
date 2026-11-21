@@ -1,8 +1,10 @@
 import { RestoreIcon } from './icons'
-import { describeSnapshot, type Snapshot } from './snapshots'
+import { describeSnapshot, snapshotSource, type Snapshot } from './snapshots'
 
 interface Props {
   snapshots: Snapshot[]
+  /** The open photo (its SHA-256): each snapshot says whether it was taken on it or on which other. */
+  photo?: string
   /** The one pinned for comparing, if any. */
   compareId: string | null
   canTake: boolean
@@ -23,7 +25,7 @@ interface Props {
  * for the current view and kept, and the rest are rendered ahead while the
  * app is idle (PreviewCanvas), so pointing down the list is quick.
  */
-export function SnapshotsPanel({ snapshots, compareId, canTake, onTake, includePlaced, onIncludePlaced, onHover, onCompare, onRestore, onDelete }: Props) {
+export function SnapshotsPanel({ snapshots, photo, compareId, canTake, onTake, includePlaced, onIncludePlaced, onHover, onCompare, onRestore, onDelete }: Props) {
   return (
     <section className="snapshots-panel">
       <h2 title="A snapshot keeps the edit as it is now. Point at one to compare, click to keep comparing, ↺ to go back to it.">Snapshots</h2>
@@ -39,7 +41,9 @@ export function SnapshotsPanel({ snapshots, compareId, canTake, onTake, includeP
       </label>
       <div className="snapshot-list" onPointerLeave={() => onHover(null)}>
         {snapshots.length === 0 && <p className="muted">No snapshots yet.</p>}
-        {snapshots.map((snap) => (
+        {snapshots.map((snap) => {
+          const from = snapshotSource(snap, photo)
+          return (
           <div key={snap.id} className={compareId === snap.id ? 'snapshot on' : 'snapshot'}>
             <button
               className="snapshot-main"
@@ -51,17 +55,31 @@ export function SnapshotsPanel({ snapshots, compareId, canTake, onTake, includeP
               <img src={snap.thumb} alt="" />
               <span>
                 <strong>{snap.name}</strong>
+                {from && (
+                  <em className={from === 'This photo' ? undefined : 'snapshot-other'} title={from === 'This photo' ? 'Taken on this photo' : `Taken on ${from}`}>
+                    {from}
+                  </em>
+                )}
                 <em>{describeSnapshot(snap)}</em>
               </span>
             </button>
-            <button className="icon-btn flush" title="Go back to this snapshot" onClick={() => onRestore(snap.id)}>
+            <button
+              className="icon-btn flush"
+              title={
+                includePlaced
+                  ? 'Put this snapshot’s whole edit on the open photo: its settings, streaks, masks and collage'
+                  : 'Put this snapshot’s settings on the open photo, as a look: its streaks, masks and collage are left out'
+              }
+              onClick={() => onRestore(snap.id)}
+            >
               <RestoreIcon />
             </button>
             <button className="icon" title="Delete snapshot" onClick={() => onDelete(snap.id)}>
               ×
             </button>
           </div>
-        ))}
+          )
+        })}
       </div>
     </section>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { CollageArrange } from '../engine/types'
 import { listCollageImages, onCollageImage, type CollageImage } from '../storage/collageImages'
 import { Disclosure, Slider } from './controls'
@@ -16,6 +17,8 @@ interface Props {
   onClose: () => void
   /** Cancel: what it filled goes, back to before it opened. */
   onCancel: () => void
+  /** A line for the status bar: what closing Parts not to use did. */
+  onStatus?: (text: string) => void
 }
 
 const FLOWS: [CollageArrange['flow'], string][] = [
@@ -45,7 +48,7 @@ export const regionOf = (c: CollageArrange['cells'][number], i: number) => c.gro
  * warmth, tone or hue, their light and colour evened out. Closing it (or
  * Esc) leaves what it filled as ordinary pieces.
  */
-export function CollageFillWindow({ arrange: a, photo, region, onArrange, onClose, onCancel }: Props) {
+export function CollageFillWindow({ arrange: a, photo, region, onArrange, onClose, onCancel, onStatus }: Props) {
   // Moved by its title, off the gaps it covers.
   const [at, setAt] = useState({ x: 0, y: 0 })
   const dragFrom = useRef<{ x: number; y: number; at: { x: number; y: number } } | null>(null)
@@ -59,6 +62,8 @@ export function CollageFillWindow({ arrange: a, photo, region, onArrange, onClos
     if (d) setAt({ x: d.at.x + e.clientX - d.x, y: d.at.y + e.clientY - d.y })
   }
   const onHeadUp = () => (dragFrom.current = null)
+  // Small: only its title, Cancel and Done, so the photo can be judged.
+  const [small, setSmall] = useState(false)
   const [images, setImages] = useState<CollageImage[]>([])
   /** Marking parts of the images not to use: open, at this image. */
   const [marking, setMarking] = useState<string | null | false>(false)
@@ -114,12 +119,24 @@ export function CollageFillWindow({ arrange: a, photo, region, onArrange, onClos
   return (
     <div className="fill-window" role="dialog" aria-label="Fill gaps" style={{ transform: `translate(${at.x}px, ${at.y}px)` }}>
       <header className="fill-head" title="Drag to move this window" onPointerDown={onHeadDown} onPointerMove={onHeadMove} onPointerUp={onHeadUp} onPointerCancel={onHeadUp}>
+        <span className="fill-grip" aria-hidden="true" />
         <b>Fill gaps</b>
         <span className="fill-count">
           {a.cells.length ? `${a.cells.length} ${a.cells.length === 1 ? 'gap' : 'gaps'} · ${regions} ${regions === 1 ? 'region' : 'regions'}` : 'Click gaps on the photo'}
         </span>
+        <button
+          className="fill-close"
+          aria-expanded={!small}
+          title={small ? 'Show the settings again' : 'Make this window small, off the photo: only Cancel and Done'}
+          aria-label={small ? 'Show settings' : 'Make small'}
+          onClick={() => setSmall(!small)}
+        >
+          {small ? '+' : '−'}
+        </button>
       </header>
 
+      {!small && (
+      <>
       {region !== null && inRegion.length > 0 && (
         <div className="field valued fill-region">
           <span title={`Region ${regionNumber}: ${inRegion.length === 1 ? '1 gap' : `${inRegion.length} gaps`}, one image across them`}>Region {regionNumber}</span>
@@ -159,37 +176,23 @@ export function CollageFillWindow({ arrange: a, photo, region, onArrange, onClos
           {marked.length === 1 ? `Marked parts of ${marked[0].name} are left out` : `Marked parts of ${marked.length} images are left out`}
         </p>
       )}
-      {marking !== false && images.length > 0 && (
+      {/* Over the whole window, not inside this one: drawn here, the small window's own scrolling and its
+          moving (a transform) cut it to the window's size. */}
+      {marking !== false && images.length > 0 && createPortal(
         <CollageKeepOut
           images={images}
           start={marking}
           onClose={() => {
             setMarking(false)
-            // Filled again, keeping to what was marked.
-            if (a.cells.length) onArrange(a, true, null)
+            // Filled again, keeping to what was marked, and saying so.
+            if (!a.cells.length) return
+            onArrange(a, true, null)
+            onStatus?.(images.some((i) => i.keepOut) ? 'Filled the gaps again without the marked parts' : 'Filled the gaps again')
           }}
-        />
+        />,
+        document.body,
       )}
 
-      <div className="field valued">
-        <span title="Which way the images run across the photo, and what they are put in order by">Order</span>
-        <select value={a.flow} aria-label="Order runs" onChange={(e) => set({ flow: e.target.value as CollageArrange['flow'] })}>
-          {FLOWS.map(([v, label]) => (
-            <option key={v} value={v}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </div>
-      {a.flow !== 'none' && (
-        <div className="segmented fill-by">
-          {BY.map(([v, label, title]) => (
-            <button key={v} className={a.by === v ? 'on' : ''} title={title} onClick={() => set({ by: v })}>
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
       <Slider
         label="Image size"
         title="How big the images are, as a share of the photo's width, alike so their clouds match. A region bigger than that gets its image grown to cover it."
@@ -200,27 +203,47 @@ export function CollageFillWindow({ arrange: a, photo, region, onArrange, onClos
         format={(v) => `${Math.round(2 ** v * 100)}%`}
         onChange={(v) => set({ size: 2 ** v })}
       />
-      <Slider
-        label="Match light"
-        title="How far each image's brightness is matched to the sky it replaces. Full keeps the photo's own light; lower lets the images' own brightness show."
-        value={a.match}
-        min={0}
-        max={1}
-        step={0.01}
-        format={pct}
-        onChange={(match) => set({ match })}
-      />
-      <Slider
-        label="Harmony"
-        title="Pulls every image's colour toward the colour they share, so none jumps out"
-        value={a.harmony}
-        min={0}
-        max={1}
-        step={0.01}
-        format={pct}
-        onChange={(harmony) => set({ harmony })}
-      />
-      <Disclosure id="fill-more" title="More">
+      {/* Order and colour: there to change, after the images and their size. */}
+      <Disclosure id="fill-more" title="Order and colour">
+        <div className="field valued">
+          <span title="Which way the images run across the photo, and what they are put in order by">Order</span>
+          <select value={a.flow} aria-label="Order runs" onChange={(e) => set({ flow: e.target.value as CollageArrange['flow'] })}>
+            {FLOWS.map(([v, label]) => (
+              <option key={v} value={v}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {a.flow !== 'none' && (
+          <div className="segmented fill-by">
+            {BY.map(([v, label, title]) => (
+              <button key={v} className={a.by === v ? 'on' : ''} title={title} onClick={() => set({ by: v })}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        <Slider
+          label="Match light"
+          title="How far each image's brightness is matched to the sky it replaces. Full keeps the photo's own light; lower lets the images' own brightness show."
+          value={a.match}
+          min={0}
+          max={1}
+          step={0.01}
+          format={pct}
+          onChange={(match) => set({ match })}
+        />
+        <Slider
+          label="Harmony"
+          title="Pulls every image's colour toward the colour they share, so none jumps out"
+          value={a.harmony}
+          min={0}
+          max={1}
+          step={0.01}
+          format={pct}
+          onChange={(harmony) => set({ harmony })}
+        />
         <Slider
           label="Keep to order"
           title="How closely the images keep to the order: low mixes them evenly, high lays them out strictly in sequence"
@@ -257,6 +280,9 @@ export function CollageFillWindow({ arrange: a, photo, region, onArrange, onClos
         </label>
       </Disclosure>
 
+      </>
+      )}
+
       <div className="row fill-done">
         <button title="Take off what this window filled: back to before it opened (Esc)" onClick={onCancel}>
           Cancel
@@ -265,7 +291,7 @@ export function CollageFillWindow({ arrange: a, photo, region, onArrange, onClos
           Done
         </button>
       </div>
-      <div className="row fill-actions">
+      {!small && <div className="row fill-actions">
         <button
           disabled={!a.cells.length}
           title="The same gaps and images, laid out another way"
@@ -276,7 +302,7 @@ export function CollageFillWindow({ arrange: a, photo, region, onArrange, onClos
         <button disabled={!a.cells.length} title="Take every gap off: what it filled goes" onClick={() => onArrange({ ...a, cells: [] }, true, null)}>
           Clear
         </button>
-      </div>
+      </div>}
     </div>
   )
 }

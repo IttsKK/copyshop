@@ -140,8 +140,13 @@ export const DEFAULT_REPEAT_MODULE: RepeatModule = { enabled: false, items: [] }
 /** Room for this many repeats (each has its own piece, and masks are limited). */
 export const MAX_REPEATS = 6
 
-/** A new repeat for the list: on, and fitted to its piece once it has one. */
-export const newRepeat = (id: string): RepeatParams => ({ ...DEFAULT_REPEAT, id, enabled: true })
+/**
+ * A new repeat for the list: on, along a path (a grid is the less used
+ * layout), and given a starting path once it has a piece.
+ */
+export const newRepeat = (id: string): RepeatParams => ({ ...NEW_REPEAT_PARAMS, id })
+/** What a new repeat starts as. DEFAULT_REPEAT stays a grid: edits saved before keep reading as they were. */
+export const NEW_REPEAT_PARAMS: RepeatParams = { ...DEFAULT_REPEAT, enabled: true, layout: 'path', fitPending: 'reach' }
 
 /** Whether the Repeat module is doing anything: on, with at least one repeat copying. */
 export function repeatsActive(m: RepeatModule | undefined, maskIds: string[]): boolean {
@@ -186,7 +191,31 @@ export function copySpacing(r: RepeatParams, n: number, span: number): number {
  * photo's edge, whole; `within`, only made smaller, if they would run off.
  * Nothing when there is no room that way.
  */
+/**
+ * A path to start from, for a repeat whose path isn't drawn yet: straight,
+ * from the piece's middle toward whichever edge has the most room in pieces,
+ * ending where a copy the piece's size still fits inside the photo.
+ */
+export function startingPath(box: { x: number; y: number; width: number; height: number }): Partial<RepeatParams> {
+  const cx = box.x + box.width / 2
+  const cy = box.y + box.height / 2
+  const w = Math.max(box.width, 1e-3)
+  const h = Math.max(box.height, 1e-3)
+  const ways = [
+    { dx: 1, dy: 0, room: (1 - cx - w / 2) / w },
+    { dx: -1, dy: 0, room: (cx - w / 2) / w },
+    { dx: 0, dy: -1, room: (cy - h / 2) / h },
+    { dx: 0, dy: 1, room: (1 - cy - h / 2) / h },
+  ]
+  const best = ways.reduce((a, b) => (b.room > a.room ? b : a))
+  const reach = Math.max(0.5, best.room) * (best.dx ? w : h)
+  const end = { x: Math.min(1, Math.max(0, cx + best.dx * reach)), y: Math.min(1, Math.max(0, cy + best.dy * reach)) }
+  return { path: [{ x: cx, y: cy }, end], pieceOnPath: 'start' }
+}
+
 export function fitRepeat(r: RepeatParams, box: { x: number; y: number; width: number; height: number }, keepWay = false, within = false, anyWay = false): Partial<RepeatParams> {
+  // A path not drawn yet: a straight one from the piece, the way there is most room for it, to the edge.
+  if (r.layout === 'path') return r.path.length ? {} : startingPath(box)
   // In perspective the copies close in on their point by themselves; turned, the edges are not the box's.
   if (r.layout !== 'grid' || r.vanish || Math.abs(r.angle ?? 0) > 0.5) return {}
   let { across, up } = r
