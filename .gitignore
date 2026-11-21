@@ -1,0 +1,23 @@
+node_modules
+dist
+dist-web
+*.tsbuildinfo
+.DS_Store
+out/
+
+# Tauri build output
+src-tauri/target/
+src-tauri/gen/
+
+# Local-only folders: your own photos and content tooling
+public/photos
+scripts/reels/
+scripts/timelapse/
+design/
+presets/retired/
+
+# Local tool state
+.claude/
+.wrangler/
+__pycache__/
+*.pyc

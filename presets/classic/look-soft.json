@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 4,
+  "name": "Soft",
+  "grainSource": {
+    "kind": "procedural",
+    "id": "procedural",
+    "name": "Generated grain",
+    "params": {
+      "size": 1024,
+      "grainSize": 1.1,
+      "contrast": 0.3,
+      "roughness": 0,
+      "hardness": 0,
+      "clumps": 0.6,
+      "unevenness": 0.18,
+      "chroma": 0.15,
+      "seed": 11
+    }
+  },
+  "blend": {
+    "blendMode": "linearLight",
+    "amount": 0.17,
+    "colorSpace": "srgb",
+    "tiling": "stochastic",
+    "grainScale": 1,
+    "grainRotation": 0,
+    "chroma": 1,
+    "softness": 0.15,
+    "plateNormalise": "centre",
+    "plateFlatten": 0,
+    "plateSampling": "crisp",
+    "response": [
+      {
+        "x": 0,
+        "y": 0.65
+      },
+      {
+        "x": 0.25,
+        "y": 0.92
+      },
+      {
+        "x": 0.42,
+        "y": 1.0
+      },
+      {
+        "x": 0.62,
+        "y": 0.82
+      },
+      {
+        "x": 0.85,
+        "y": 0.46
+      },
+      {
+        "x": 1,
+        "y": 0.35
+      }
+    ],
+    "effects": {
+      "halation": 0.45,
+      "bloom": 0.28,
+      "glowThreshold": 0.48,
+      "glowRadius": 0.07,
+      "shoulder": 0.7,
+      "vignette": 0.28,
+      "defects": {
+        "strength": 0,
+        "dust": 35,
+        "hairs": 0,
+        "scratches": 0,
+        "scanLines": 0,
+        "scanStreaks": 0,
+        "seed": 7
+      },
+      "surge": {
+        "strength": 0,
+        "count": 3,
+        "width": 0.06,
+        "angle": 90,
+        "seed": 1
+      }
+    },
+    "border": {
+      "width": 0,
+      "bottomExtra": 0,
+      "colour": [
+        0.94,
+        0.925,
+        0.895
+      ],
+      "texture": 0.5,
+      "irregularity": 0.35,
+      "grain": 0.7,
+      "seed": 1
+    },
+    "responseMode": "channel",
+    "layerSpread": 0.85
+  },
+  "output": {
+    "jpegQuality": 0.94,
+    "suffix": "_look"
+  }
+}

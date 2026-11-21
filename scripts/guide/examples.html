@@ -1,0 +1,107 @@
+<!doctype html><html><body><script type="module">
+// The Guide's examples: each module on its own on one of the app's sample
+// photos, as it shows in the Guide (public/guide/examples/<module>@<sample>.jpg,
+// and the photo with nothing on it, without@<sample>.jpg). Run by
+// scripts/guide/examples.sh against the dev server on :5178; the pictures are
+// saved through /__save into out/guide/examples, then copied into public/.
+// Only the app's own sample photos, never anyone's own.
+import '/src/sources/ProceduralSource.ts'
+import { hydrateGrainSource } from '/src/sources/GrainSource.ts'
+import { GrainEngine } from '/src/engine/GrainEngine.ts'
+import { decodePhoto } from '/src/pipeline/decode.ts'
+import { MODULES, startModule } from '/src/ui/moduleCatalog.ts'
+import { NONE_LOOK } from '/src/ui/looks.ts'
+import { PART_BUILTINS } from '/src/storage/partBuiltins.ts'
+import { applyPart } from '/src/storage/parts.ts'
+import { DEFAULT_LIGHT } from '/src/engine/lighting.ts'
+
+const LONG = 720
+const log = (m) => fetch('/__save', { method: 'POST', headers: { 'x-filename': 'guide/examples/log.txt' }, body: m })
+const save = (name, blob) => fetch('/__save', { method: 'POST', headers: { 'x-filename': 'guide/examples/' + name }, body: blob })
+
+// Each module's example: which photo, which of its built-in presets, or settings of its own.
+const PLAN = {
+  grain: { photo: 'street', preset: 'Pushed 3200' },
+  colour: { photo: 'street', preset: 'Teal shadows, warm highlights' },
+  tone: { photo: 'street', preset: 'Faded' },
+  light: { photo: 'lake', preset: 'Wide haze' },
+  edges: { photo: 'street', preset: 'Glow and crunch' },
+  solarize: { photo: 'lake', preset: 'Strong reversal' },
+  leaks: { photo: 'lake', preset: 'Corner glow' },
+  border: { photo: 'street', preset: 'Print' },
+  lens: { photo: 'street', preset: 'Cheap lens' },
+  prism: { photo: 'street', preset: 'RGB split' },
+  stamp: { photo: 'street', preset: 'Digital camera' },
+  mono: { photo: 'street', preset: 'Red filter' },
+  dither: { photo: 'lake', preset: 'Coarse stipple' },
+  pixel: { photo: 'street', preset: 'PICO-8' },
+  glass: { photo: 'street', preset: 'Reeded' },
+  halftone: { photo: 'street', preset: 'Riso, teal and orange' },
+  dust: { photo: 'lake', preset: 'Scratched' },
+  // Surge marks are uneven development: they show in the grain, so with grain.
+  surge: { photo: 'lake', preset: 'Strong', with: { grain: 'Coarse' } },
+  exposure: { photo: 'street', base: { exposure: 0.7, contrast: 0.2, shadows: 0.35, lightOn: true } },
+  balance: { photo: 'street', base: { temperature: 0.5, tint: 0.1, colourOn: true } },
+  curve: { photo: 'street', base: { curve: [{ x: 0, y: 0.06 }, { x: 0.25, y: 0.17 }, { x: 0.75, y: 0.86 }, { x: 1, y: 0.96 }], curveOn: true } },
+  // Streaks and Repeat show finished photos instead (public/guide/showcase).
+  lighting: {
+    photo: 'street',
+    fx: () => ({
+      lighting: {
+        enabled: true,
+        lights: [{ ...DEFAULT_LIGHT, id: 'l', name: 'Light 1', strength: 0.45, edge: 0.2, falloff: 0.75, angle: 180, colour: { source: 'manual', colour: [1, 0.66, 0.4] }, outline: [{ x: 0.02, y: 0.42 }, { x: 0.3, y: 0.36 }, { x: 0.48, y: 0.55 }, { x: 0.36, y: 0.8 }, { x: 0.05, y: 0.82 }] }],
+      },
+    }),
+  },
+}
+
+async function photo(name) {
+  const decoded = await decodePhoto(await (await fetch(`/samples/sample-${name}.jpg`)).blob())
+  const s = LONG / Math.max(decoded.width, decoded.height)
+  const w = Math.round(decoded.width * s), h = Math.round(decoded.height * s)
+  const c = new OffscreenCanvas(w, h)
+  const ctx = c.getContext('2d')
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(decoded, 0, 0, w, h)
+  return { bitmap: await createImageBitmap(c), size: { width: w, height: h } }
+}
+
+try {
+  const source = await hydrateGrainSource(NONE_LOOK.doc.grainSource)
+  const none = NONE_LOOK.doc.blend
+  const photos = { street: await photo('street'), lake: await photo('lake') }
+  const only = new URLSearchParams(location.search).get('only')
+  const render = async (name, p, blend) => {
+    const g = await source.getTexture({ targetSize: p.size })
+    const e = new GrainEngine(new OffscreenCanvas(1, 1))
+    const c = e.render({ base: p.bitmap, baseSize: p.size, grain: g.source, grainSize: g.size, grainMean: g.mean, grainSd: g.sd, params: blend, imageSeed: 11 })
+    e.waitForGpu()
+    const oc = new OffscreenCanvas(c.width, c.height)
+    oc.getContext('2d').drawImage(c, 0, 0)
+    await save(name, await oc.convertToBlob({ type: 'image/jpeg', quality: 0.8 }))
+    e.dispose()
+    e.gl.getExtension('WEBGL_lose_context')?.loseContext()
+  }
+  for (const [name, p] of Object.entries(photos)) if (!only) await render(`without@${name}.jpg`, p, none)
+  for (const m of MODULES) {
+    const plan = PLAN[m.id]
+    if (!plan || (only && only !== m.id)) continue
+    let blend = startModule(m.id, none)
+    if (plan.preset) {
+      const part = PART_BUILTINS[m.id].find((x) => x.name === plan.preset)
+      if (!part) throw new Error(`${m.id}: no preset ${plan.preset}`)
+      blend = applyPart(part.data, blend, NONE_LOOK.doc.grainSource).blend
+    }
+    for (const [id, name] of Object.entries(plan.with ?? {})) {
+      const part = PART_BUILTINS[id].find((x) => x.name === name)
+      blend = applyPart(part.data, startModule(id, blend), NONE_LOOK.doc.grainSource).blend
+    }
+    if (plan.base) blend = { ...blend, effects: { ...blend.effects, base: { ...blend.effects.base, ...plan.base } } }
+    if (plan.fx) blend = { ...blend, effects: { ...blend.effects, ...plan.fx(blend) } }
+    await render(`${m.id}@${plan.photo}.jpg`, photos[plan.photo], blend)
+  }
+  await log('done')
+} catch (err) {
+  await log('ERR ' + (err?.stack ?? err))
+}
+</script></body></html>

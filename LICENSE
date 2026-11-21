@@ -1,0 +1,54 @@
+copyshop License
+
+Copyright (c) 2026 Caelan Redekopp. All rights reserved.
+
+copyshop is source-available, not open source. Its source code is published so
+you can read it, learn from it, report and fix problems, and build copyshop for
+yourself. Buying copyshop at https://getcopyshop.com gets you the official
+builds: signed, kept up to date, and supported.
+
+1. What you may do
+
+   a. Read, study and modify the source code.
+   b. Build copyshop from the source code, with or without your changes, and
+      run that build on your own devices, for your own use.
+   c. Use your build for any work, personal or commercial. The images you make
+      with copyshop are yours.
+   d. Publish changes to the source code as source code (for example a fork
+      or a patch on GitHub), under this same license.
+
+2. What you may not do
+
+   a. Share, sell, give away or otherwise distribute builds of copyshop or of a
+      modified version of it, in any form: app bundles, installers, packages,
+      disk images, or a version hosted on the web for others to use.
+   b. Offer copyshop, or a modified version of it, to others as a product or
+      a service.
+   c. Use the source code, in whole or in substantial part, in another
+      product.
+   d. Use the copyshop name or icon for a modified version, or in a way that
+      suggests it is an official build.
+   e. Remove or change this license or the copyright notices.
+
+3. Contributions
+
+   By submitting a contribution (a pull request, a patch or code in an issue),
+   you grant Caelan Redekopp a perpetual, worldwide, non-exclusive,
+   royalty-free license to use, modify and distribute it as part of copyshop,
+   including in official builds, and you confirm you have the right to do so.
+
+4. Third-party parts
+
+   Parts of copyshop are other people's work under their own licenses: the
+   libraries it depends on and the subject-selection model in public/models.
+   Those terms apply to those parts. See THIRD_PARTY.md.
+
+5. No warranty
+
+   copyshop is provided "as is", without warranty of any kind, express or
+   implied, including the warranties of merchantability, fitness for a
+   particular purpose and non-infringement. In no event shall the author be
+   liable for any claim, damages or other liability arising from the use of
+   copyshop or the inability to use it.
+
+If you are unsure whether something is allowed, write to hello@getcopyshop.com.

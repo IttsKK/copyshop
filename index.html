@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>copyshop</title>
+    <meta name="description" content="A photo workspace in your browser: film looks, streaks, repeats, dither, prints and more." />
+    <link rel="icon" href="/assets/icon.png" />
+    <script>
+      // The app is made for a computer. A phone opening the published version
+      // (/app/) goes to the site instead, where it can send the link to a
+      // computer (site/src/components/SendLink.astro). ?phone opens it anyway.
+      // Not in development, and never in the desktop app (served from /).
+      try {
+        var phone = matchMedia('(pointer: coarse) and (max-width: 47.99rem), (pointer: coarse) and (max-height: 29.99rem)').matches
+        if (phone && location.pathname.indexOf('/app/') === 0 && !/[?&]phone\b/.test(location.search) && !/send=/.test(location.hash)) location.replace('/')
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

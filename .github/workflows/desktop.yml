@@ -1,0 +1,72 @@
+# The desktop app for Windows (NSIS installer) and Linux (AppImage and .deb),
+# unsigned, kept as workflow artifacts. The bundle targets come from
+# src-tauri/tauri.windows.conf.json and tauri.linux.conf.json.
+#
+# The Mac app is not built here: tauri.conf.json signs it with a Developer ID
+# certificate that only the Mac it is released from has (npm run release:mac).
+# To publish this run's builds: npm run release:pc -- --run <run id>
+name: Desktop builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+          - platform: ubuntu-22.04
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Linux libraries
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - run: npm ci
+
+      # No tag or release given: the action only builds, then uploads the
+      # bundles as workflow artifacts.
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Source maps go to Sentry from the build (vite.config.ts), so crash reports show the code.
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          # Signs the update files (.sig) the app checks before installing an update.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # An official build: asks for a license, checks for updates, sends crash reports (src/platform/build.ts).
+          COPYSHOP_OFFICIAL: '1'
+        with:
+          uploadWorkflowArtifacts: true
+          # Update files, signed (a build from the source makes none).
+          args: --config src-tauri/tauri.release.conf.json
+
+      # The update signatures (.sig), which the action's own artifacts leave out:
+      # scripts/release.mjs pc puts them in latest.json.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: update-signatures-${{ matrix.platform }}
+          path: src-tauri/target/release/bundle/**/*.sig
+          if-no-files-found: error

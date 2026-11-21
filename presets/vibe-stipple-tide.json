@@ -1,0 +1,233 @@
+{
+  "schemaVersion": 5,
+  "name": "Stipple Tide",
+  "grainSource": {
+    "kind": "procedural",
+    "id": "procedural",
+    "name": "Generated grain",
+    "params": {
+      "size": 1024,
+      "grainSize": 0.3,
+      "contrast": 0.4,
+      "roughness": 0,
+      "hardness": 0,
+      "clumps": 0,
+      "unevenness": 0.15,
+      "chroma": 0.2,
+      "seed": 5
+    }
+  },
+  "blend": {
+    "blendMode": "linearLight",
+    "amount": 0.085,
+    "colorSpace": "srgb",
+    "tiling": "stochastic",
+    "grainScale": 1.5,
+    "grainRotation": 0,
+    "chroma": 1,
+    "softness": 0,
+    "plateNormalise": "centre",
+    "plateFlatten": 0,
+    "plateSampling": "crisp",
+    "response": [
+      {
+        "x": 0,
+        "y": 0.35
+      },
+      {
+        "x": 0.25,
+        "y": 0.85
+      },
+      {
+        "x": 0.6,
+        "y": 1
+      },
+      {
+        "x": 1,
+        "y": 0.9
+      }
+    ],
+    "responseMode": "luminance",
+    "layerSpread": 0.85,
+    "effects": {
+      "halation": 0.65,
+      "bloom": 0.05,
+      "rim": 0,
+      "rimRadius": 0.0025,
+      "crunch": 0,
+      "halo": 0.2,
+      "haloRadius": 0.03,
+      "solarize": 0,
+      "solarizeFrom": 0.72,
+      "stock": {
+        "id": "none",
+        "strength": 1,
+        "keepTone": 0
+      },
+      "grade": {
+        "vibrance": 0.2,
+        "warmth": 0,
+        "tint": 0,
+        "shadowTint": {
+          "source": "manual",
+          "colour": [
+            0.2,
+            0.3,
+            0.75
+          ]
+        },
+        "shadowAmount": 0,
+        "highlightTint": {
+          "source": "light",
+          "colour": [
+            1,
+            0.7,
+            0.4
+          ]
+        },
+        "highlightAmount": 0,
+        "mapAmount": 0.9,
+        "mapShadow": {
+          "source": "manual",
+          "colour": [
+            0.02,
+            0.05,
+            0.16
+          ]
+        },
+        "mapMid": {
+          "source": "manual",
+          "colour": [
+            0.08,
+            0.36,
+            0.48
+          ]
+        },
+        "mapHigh": {
+          "source": "manual",
+          "colour": [
+            1,
+            0.52,
+            0.18
+          ]
+        },
+        "isolateAmount": 0,
+        "isolateColour": {
+          "source": "accent",
+          "colour": [
+            1,
+            0.5,
+            0.2
+          ]
+        },
+        "isolateWidth": 0.35,
+        "mapHarmony": "complementary"
+      },
+      "glowColour": {
+        "source": "light",
+        "colour": [
+          1,
+          0.6,
+          0.3
+        ]
+      },
+      "leaks": {
+        "amount": 0,
+        "colour": {
+          "source": "manual",
+          "colour": [
+            1,
+            0.6,
+            0.3
+          ]
+        },
+        "spots": [
+          {
+            "x": 1.04,
+            "y": 0.42374388687312603,
+            "size": 0.46204157018801195,
+            "stretch": 1.9,
+            "angle": 90,
+            "strength": 1,
+            "kind": "light"
+          },
+          {
+            "x": 1.04,
+            "y": 0.2444167172536254,
+            "size": 0.3010267378296703,
+            "stretch": 1.9,
+            "angle": 90,
+            "strength": 1,
+            "kind": "light"
+          }
+        ],
+        "seed": 3,
+        "style": "corner",
+        "layoutSeed": 7
+      },
+      "glowThreshold": 0.28,
+      "glowRadius": 0.022,
+      "exposure": 0,
+      "shoulder": 0.5,
+      "fade": 0.04,
+      "vignette": 0.25,
+      "defects": {
+        "strength": 0,
+        "dust": 35,
+        "hairs": 0,
+        "scratches": 0,
+        "scanLines": 0,
+        "scanStreaks": 0,
+        "seed": 7
+      },
+      "surge": {
+        "strength": 0,
+        "count": 3,
+        "width": 0.06,
+        "angle": 90,
+        "seed": 1
+      },
+      "dither": {
+        "amount": 0.5,
+        "steps": 10,
+        "spread": 0.6
+      }
+    },
+    "border": {
+      "width": 0,
+      "bottomExtra": 0,
+      "colour": [
+        0.94,
+        0.925,
+        0.895
+      ],
+      "texture": 0.5,
+      "irregularity": 0.35,
+      "grain": 0.7,
+      "seed": 1
+    },
+    "keys": {
+      "look": 1,
+      "grain": 1,
+      "colour": 1,
+      "glow": 1,
+      "leaks": 1,
+      "wash": 1
+    },
+    "modules": {
+      "grain": true,
+      "colour": true,
+      "tone": true,
+      "light": true,
+      "leaks": false,
+      "border": true,
+      "defects": true,
+      "surge": true
+    },
+    "grainFollowsColour": 0.3
+  },
+  "output": {
+    "jpegQuality": 0.94,
+    "suffix": "_stipple-tide"
+  }
+}

@@ -1,0 +1,35 @@
+/*
+ * Lists of things placed on the photo, as ItemList draws them, where a
+ * module's list needs a little more than styles.css gives every list.
+ * styles.css loads after this file, so these rules are kept more specific.
+ */
+
+/*
+ * The name is read whole; the summary takes only the room left after it,
+ * shortened first. (Shrinking both by weight still cut "Painted 1" short in
+ * WebKit once a row had a pencil, ×, and a switch.)
+ */
+.masks-panel .item-list .item-summary, .collage .item-list .item-summary { flex: 1 1 0; text-align: right; }
+
+/* Masks: the kind's drawing before the name, lit on the open row, faded on one switched off. */
+.item-list .item.open .item-head .mask-glyph { color: var(--accent); }
+.item-list .item.off .item-head .mask-glyph { opacity: 0.5; }
+.item-list .item-summary .faint { color: var(--faint); }
+.masks-panel .item-list { margin-top: 0; }
+.masks-panel .item-list .item-body { gap: 10px; padding-top: 10px; }
+.masks-panel .item-list .item-body > .hint-line { margin: 0; }
+.masks-panel .item-body .field.valued select { grid-column: 2 / span 2; width: 100%; min-width: 0; }
+/* A new subject being selected sits right under the list, as one more row of it. */
+.masks-panel .item-list + .item-list { margin-top: 0; border-top: 0; }
+.masks-panel div.item-head { cursor: default; }
+
+/* Collage pieces: a small picture of the piece's image before its name. */
+.item-list .item-head .collage-piece-thumb {
+  width: 26px; height: 18px; object-fit: cover; border-radius: 2px; flex: none;
+  display: grid; place-items: center; background: #2b2e34; font-size: 11px; color: var(--muted);
+}
+.item-list .item.off .item-head .collage-piece-thumb { opacity: 0.5; }
+.collage .item-list .item-body .collage-piece-image { margin: 0; }
+.collage .item-list .item-name .collage-piece-gaps { font-weight: 400; color: var(--muted); }
+/* As the photo's sky: its heading and the button that sets it up stay on one line. */
+.collage .collage-sky .collage-sky-head { flex-wrap: nowrap; white-space: nowrap; }

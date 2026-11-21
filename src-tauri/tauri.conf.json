@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "copyshop",
+  "version": "1.2.1",
+  "identifier": "com.caelanredekopp.grainemulator",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5178",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "copyshop",
+        "width": 1480,
+        "height": 940,
+        "minWidth": 960,
+        "minHeight": 620,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app"
+    ],
+    "category": "Photography",
+    "copyright": "Caelan Redekopp",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUwQTVFREY4RTI1MzJBMDMKUldRREtsUGkrTzJsNEFQNXYzQm5sWEozWDh4cWdqaDlLQkxydXRxQVF1NENXNGEzY2FkUlNzWmYK",
+      "endpoints": [
+        "https://getcopyshop.com/downloads/latest.json?v={{current_version}}&t={{target}}&a={{arch}}"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

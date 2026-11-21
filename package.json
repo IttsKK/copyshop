@@ -1,0 +1,44 @@
+{
+  "name": "copyshop",
+  "private": true,
+  "version": "1.2.1",
+  "description": "A photo editor for the step after correction: streaks, grain, colour, glow, print and collage.",
+  "homepage": "https://getcopyshop.com",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "tauri": "tauri",
+    "app:native": "tauri dev",
+    "build:app": "tauri build",
+    "release:mac": "node scripts/release.mjs mac",
+    "release:pc": "node scripts/release.mjs pc",
+    "app:test": "node scripts/test-build.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.2",
+    "@jsquash/webp": "1.5.0",
+    "@sentry/react": "^11.12.0",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.1",
+    "mp4-muxer": "^5.2.2",
+    "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@sentry/vite-plugin": "^11.12.0",
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^2.1.8"
+  }
+}
