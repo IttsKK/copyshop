@@ -21,6 +21,28 @@ export const TILING_MIRROR = 1
 export const TILING_STOCHASTIC = 2
 
 export const FRAGMENT_SHADER = `#version 300 es
+// How many streak colour fixes and leak path samples the uniforms hold: set
+// smaller by the engine on a GPU with few uniforms (GrainEngine fitToGpu).
+#ifndef FIXES
+#define FIXES ${MAX_STREAK_FIXES}
+#endif
+#ifndef MASKS
+#define MASKS ${MAX_MASKS}
+#endif
+#ifndef LEAK_PATH_SAMPLES
+#define LEAK_PATH_SAMPLES ${PATH_SAMPLES}
+#endif
+// And how many light leaks, and samples along each trail's drawn end line.
+#ifndef LEAK_SPOTS
+#define LEAK_SPOTS ${MAX_LEAK_SPOTS}
+#endif
+#ifndef END_SAMPLES_N
+#define END_SAMPLES_N ${END_SAMPLES}
+#endif
+// And how many streaks (MAX_STREAKS; one on a GPU with few uniforms).
+#ifndef STREAKS
+#define STREAKS ${MAX_STREAKS}
+#endif
 precision highp float;
 
 in vec2 vUv;
@@ -140,19 +162,19 @@ uniform int uDitherOrdered;    // 1 = Bayer matrix instead of grain
 uniform float uPixelate;       // block size in print px, 1 = off
 uniform float uPixelKeep;      // Pixel art's Keep lines, 0..1: pixels unlike their block keep their own colour; negative, Dither's Keep detail: a block with detail in it keeps its pixels
 uniform highp sampler2DArray uStreakShapes;  // a layer per shape: r its inside, g that blurred by its feather
-uniform vec4 uStreakRect[${MAX_STREAKS}];      // the area each layer covers: min x, y, size x, y (short-side units)
+uniform vec4 uStreakRect[STREAKS];      // the area each layer covers: min x, y, size x, y (short-side units)
 uniform sampler2D uMatteBack;  // round the streaks' keyed masks: the photo where streaked, premultiplied by how surely (a), mipmapped
 uniform sampler2D uMatteFore;  // ...and where kept in front of them
 uniform int uMatteOn;          // 1 when those are drawn (a streak mask has Clean edges)
 uniform float uMatteLod;       // their finest level worth reading: about two photo pixels
 uniform highp sampler2D uStreakPaths;            // each path-following streak's path: per side, PATH_LEVELS rows of STREAK_PATH_SAMPLES, point and unit tangent (short-side units)
-uniform vec4 uStreakPathReach[${MAX_STREAKS * 2}];  // from how far off its path each version takes over, PATH_LEVELS of eight
-uniform vec4 uStreakInfo[${MAX_STREAKS}];      // skips masked colours, width either side of the path (0: none), direction x, y
-uniform vec4 uFixSpan[${MAX_STREAK_FIXES}];      // shape, across from, to (short-side units), mode (0 borrow, 1 colours, 2 keep)
-uniform vec4 uFixFrom[${MAX_STREAK_FIXES}];      // borrow: the spans beside it colours come from, before (from, to), after (from, to)
-uniform vec4 uFixInfo[${MAX_STREAK_FIXES}];      // seed (0..1), variation, colour count, masked (1) + carry (2: copy, 4: colour)
-uniform vec4 uFixTone[${MAX_STREAK_FIXES}];      // brightness (stops), contrast, opacity on its bars, feather (short-side units)
-uniform vec3 uFixColours[${MAX_STREAK_FIXES * MAX_FIX_COLOURS}];
+uniform vec4 uStreakPathReach[STREAKS * 2];  // from how far off its path each version takes over, PATH_LEVELS of eight
+uniform vec4 uStreakInfo[STREAKS];      // skips masked colours, width either side of the path (0: none), direction x, y
+uniform vec4 uFixSpan[FIXES];      // shape, across from, to (short-side units), mode (0 borrow, 1 colours, 2 keep)
+uniform vec4 uFixFrom[FIXES];      // borrow: the spans beside it colours come from, before (from, to), after (from, to)
+uniform vec4 uFixInfo[FIXES];      // seed (0..1), variation, colour count, masked (1) + carry (2: copy, 4: colour)
+uniform vec4 uFixTone[FIXES];      // brightness (stops), contrast, opacity on its bars, feather (short-side units)
+uniform vec3 uFixColours[FIXES * ${MAX_FIX_COLOURS}];
 uniform int uFixCount;
 uniform int uLinePass;                          // 1: draw the line table instead of the picture; 2: the photo as streaked, nothing after; 3, 4: the matte (see buildMatte); 5: the streak cache (see cacheStreaks)
 // 1: read the streaks from the cache (see GrainEngine.cacheStreaks) instead
@@ -163,45 +185,45 @@ uniform int uLinePass;                          // 1: draw the line table instea
 uniform int uStreakCacheOn;
 // Where the cache's first row is in the picture, when it is drawn in tiles (GrainEngine).
 uniform ivec2 uCacheOffset;
-uniform vec4 uCrossRange[${MAX_STREAKS}];
+uniform vec4 uCrossRange[STREAKS];
 uniform sampler2D uLineTable;                   // per shape (row), per line across it: where it takes its colour, and whether that is held back
-uniform vec4 uLineInfo[${MAX_STREAKS}];         // first line's across position, spacing, line count (0: no table), along range start
-uniform float uLineSpan[${MAX_STREAKS}];        // along range length (short-side units)
-uniform vec4 uStreakExtra[${MAX_STREAKS}];     // band, seed, reach (short-side units), mode (0 fill, 1 trail, 2 mask)
-uniform vec4 uStreakEnds[${MAX_STREAKS}];      // longest, shortest (shares of the full length), variation, grows from the colour edge
-uniform vec4 uStreakRepeat3[${MAX_STREAKS}];   // repeat, in perspective: how far the copies' own point is moved along the lines from the streak's (short-side units; 0 the same), and three unused
-uniform vec4 uStreakRepeat2[${MAX_STREAKS}];   // repeat: how much detail, (unused), the blur level detail is measured against, how far along a bar the copy holds
-uniform vec4 uStreakRepeat[${MAX_STREAKS}];
-uniform vec4 uStreakBend[${MAX_STREAKS}];     // the lens's bend (k), the photo's middle and half-diagonal (short-side units): see lensBend.ts
-uniform float uStreakRepeatMask[${MAX_STREAKS}]; // repeat only where this mask covers the bar's colour edge (its index; -1 everywhere)    // repeat: on, each copy's depth (short-side units), mirrored, each copy's size against the last
-uniform vec4 uStreakFlags[${MAX_STREAKS}];     // clipped to the shape, lengths measured across it, feather inside/centre/outside (0/1/2), grain edge
-uniform vec4 uStreakEdge[${MAX_STREAKS}];      // feather, pull, trail length (short-side units), tip angle (radians)
-uniform vec4 uStreakMirror[${MAX_STREAKS}];     // mirrored bars: the middle line (across the flow, t), how far each side goes its own way (0 the same, 1 its own), on
-uniform vec4 uStreakStripe[${MAX_STREAKS}];     // colour stripes: middle width (short-side units, 0: none), how far each edge moves (a share of it), how much of the edge's detail each keeps
-uniform float uStreakEndSoft[${MAX_STREAKS}];  // how far each bar's end fades out (short-side units)
-uniform vec4 uStreakToneStart[${MAX_STREAKS}]; // at a bar's start: brightness (stops), contrast, opacity; where the change begins (share of the bar)
-uniform vec4 uStreakToneEnd[${MAX_STREAKS}];   // at its end: brightness, contrast, opacity; how long the change takes (share of the bar)
-uniform vec4 uStreakPathInfo[${MAX_STREAKS}];  // swept (1) or offset, path samples (0: straight), spacing, tip angle range (radians)
-uniform vec4 uStreakSweep[${MAX_STREAKS}];     // a swept path's start-to-end direction (xy, unit); radial Around: outer radius (y, 0: none), circle radius (z), on (w)
-uniform vec4 uStreakEndS[${MAX_STREAKS * END_SAMPLES / 4}]; // a trail's end line: where each of its lines meets it, END_SAMPLES across, four to a vec4
-uniform vec4 uStreakEndInfo[${MAX_STREAKS}];  // its first line across (t), the step between, the shape's nearest along (s), 1 if drawn
-uniform vec4 uStreakVanish[${MAX_STREAKS}];    // in perspective: vanishing point, its distance from the middle, toward (-1) or away (1); w 0 parallel
+uniform vec4 uLineInfo[STREAKS];         // first line's across position, spacing, line count (0: no table), along range start
+uniform float uLineSpan[STREAKS];        // along range length (short-side units)
+uniform vec4 uStreakExtra[STREAKS];     // band, seed, reach (short-side units), mode (0 fill, 1 trail, 2 mask)
+uniform vec4 uStreakEnds[STREAKS];      // longest, shortest (shares of the full length), variation, grows from the colour edge
+uniform vec4 uStreakRepeat3[STREAKS];   // repeat, in perspective: how far the copies' own point is moved along the lines from the streak's (short-side units; 0 the same), and three unused
+uniform vec4 uStreakRepeat2[STREAKS];   // repeat: how much detail, (unused), the blur level detail is measured against, how far along a bar the copy holds
+uniform vec4 uStreakRepeat[STREAKS];
+uniform vec4 uStreakBend[STREAKS];     // the lens's bend (k), the photo's middle and half-diagonal (short-side units): see lensBend.ts
+uniform float uStreakRepeatMask[STREAKS]; // repeat only where this mask covers the bar's colour edge (its index; -1 everywhere)    // repeat: on, each copy's depth (short-side units), mirrored, each copy's size against the last
+uniform vec4 uStreakFlags[STREAKS];     // clipped to the shape, lengths measured across it, feather inside/centre/outside (0/1/2), grain edge
+uniform vec4 uStreakEdge[STREAKS];      // feather, pull, trail length (short-side units), tip angle (radians)
+uniform vec4 uStreakMirror[STREAKS];     // mirrored bars: the middle line (across the flow, t), how far each side goes its own way (0 the same, 1 its own), on
+uniform vec4 uStreakStripe[STREAKS];     // colour stripes: middle width (short-side units, 0: none), how far each edge moves (a share of it), how much of the edge's detail each keeps
+uniform float uStreakEndSoft[STREAKS];  // how far each bar's end fades out (short-side units)
+uniform vec4 uStreakToneStart[STREAKS]; // at a bar's start: brightness (stops), contrast, opacity; where the change begins (share of the bar)
+uniform vec4 uStreakToneEnd[STREAKS];   // at its end: brightness, contrast, opacity; how long the change takes (share of the bar)
+uniform vec4 uStreakPathInfo[STREAKS];  // swept (1) or offset, path samples (0: straight), spacing, tip angle range (radians)
+uniform vec4 uStreakSweep[STREAKS];     // a swept path's start-to-end direction (xy, unit); radial Around: outer radius (y, 0: none), circle radius (z), on (w)
+uniform vec4 uStreakEndS[STREAKS * END_SAMPLES_N / 4]; // a trail's end line: where each of its lines meets it, END_SAMPLES across, four to a vec4
+uniform vec4 uStreakEndInfo[STREAKS];  // its first line across (t), the step between, the shape's nearest along (s), 1 if drawn
+uniform vec4 uStreakVanish[STREAKS];    // in perspective: vanishing point, its distance from the middle, toward (-1) or away (1); w 0 parallel
 uniform int uStreakCount;
 uniform highp sampler2DArray uMaskShapes;      // a layer per mask: r its inside, g that blurred by its feather
-uniform vec4 uMaskRect[${MAX_MASKS}];           // the area each layer covers (short-side units)
-uniform float uMaskGrow[${MAX_MASKS}];          // how far each reaches past what it covers (short-side units)
-uniform vec4 uMaskFlags[${MAX_MASKS}];          // feather inside/centre/outside (0/1/2), key measures blue (1) or brightness, key off/darker/lighter (0/1/2), clean edges 0..1 (keyed only)
-uniform vec2 uMaskKey[${MAX_MASKS}];            // key level, softness (encoded brightness)
-uniform vec4 uMaskShape[${MAX_MASKS}];          // kind (0 drawn, 1 radial, 2 gradient); radial: centre, angle; gradient: start
-uniform vec4 uMaskShape2[${MAX_MASKS}];         // radial: radii, softness; gradient: end (shape units)
+uniform vec4 uMaskRect[MASKS];           // the area each layer covers (short-side units)
+uniform float uMaskGrow[MASKS];          // how far each reaches past what it covers (short-side units)
+uniform vec4 uMaskFlags[MASKS];          // feather inside/centre/outside (0/1/2), key measures blue (1) or brightness, key off/darker/lighter (0/1/2), clean edges 0..1 (keyed only)
+uniform vec2 uMaskKey[MASKS];            // key level, softness (encoded brightness)
+uniform vec4 uMaskShape[MASKS];          // kind (0 drawn, 1 radial, 2 gradient); radial: centre, angle; gradient: start
+uniform vec4 uMaskShape2[MASKS];         // radial: radii, softness; gradient: end (shape units)
 uniform int uMaskCount;                         // 0 when no section uses a mask
 uniform ivec2 uSectionMask[${MASK_SECTIONS.length}]; // each module's masks, in MASK_SECTIONS' order: mask bits; 0 none, 1 hold back inside, 2 only inside
 uniform float uStreakAmount;
 uniform sampler2D uCalm;       // the picture's brightness blurred a little (r) and more (g): their difference is how much the colour is changing
 uniform sampler2D uStreakGlow; // the streaked bars' own colour, blurred: light off them (see buildStreakGlow)
 uniform float uStreakGlowAmount;
-uniform ivec2 uStreakMask[${MAX_STREAKS}];     // per streak: its own masks (a bit each), and kept off them (1) or only on them (2); 0 none
-uniform vec4 uStreakKey[${MAX_STREAKS}];       // per streak: key off/darker/lighter (0/1/2), measures blue (1), level, softness
+uniform ivec2 uStreakMask[STREAKS];     // per streak: its own masks (a bit each), and kept off them (1) or only on them (2); 0 none
+uniform vec4 uStreakKey[STREAKS];       // per streak: key off/darker/lighter (0/1/2), measures blue (1), level, softness
 uniform int uStreakKeyed;                      // 1 when any streak has a key
 uniform float uPrism;                          // print px between a bar's red and its blue, 0 off
 uniform vec2 uPrismTurn;                       // cos, sin of the split's turn from across the bars
@@ -234,15 +256,15 @@ uniform float uStockKeepTone;
 uniform float uLeak;
 uniform int uLeakCount;
 uniform float uLeakSeed;
-uniform vec4 uLeakGeo[${MAX_LEAK_SPOTS}];   // centre (short-side units), size, stretch; a shape: depth, seed, breakup, soft edge
-uniform vec4 uLeakAxis[${MAX_LEAK_SPOTS}];  // cos, sin of the long axis, strength, kind (1 = burn)
-uniform vec3 uLeakTint[${MAX_LEAK_SPOTS}]; // per spot, linear, brightest channel 1
+uniform vec4 uLeakGeo[LEAK_SPOTS];   // centre (short-side units), size, stretch; a shape: depth, seed, breakup, soft edge
+uniform vec4 uLeakAxis[LEAK_SPOTS];  // cos, sin of the long axis, strength, kind (1 = burn)
+uniform vec3 uLeakTint[LEAK_SPOTS]; // per spot, linear, brightest channel 1
 uniform int uLightBehind;                       // 1: a light is held behind the streaks, so the search also finds how far past a bar's end it is moved (gLightShift)
-uniform vec4 uLeakHold[${MAX_LEAK_SPOTS}]; // a light's mask (its index, -1 none), behind the streaks (1), only inside the mask (1) rather than behind it
-uniform vec2 uLeakPath[${MAX_LEAK_SPOTS}];  // path spots: first sample, sample count (0 = ellipse); a light: its mask, -1
-uniform vec2 uLeakPoints[${PATH_SAMPLES}];  // every path's samples, short-side units
-uniform vec4 uLeakRect[${MAX_LEAK_SPOTS}];  // a drawn shape's layer in uMaskShapes: where it lies (shape units)
-uniform vec4 uLeakLight[${MAX_LEAK_SPOTS}]; // a drawn shape's lighting: falloff, from (radians), key (see GrainEngine), key softness
+uniform vec4 uLeakHold[LEAK_SPOTS]; // a light's mask (its index, -1 none), behind the streaks (1), only inside the mask (1) rather than behind it
+uniform vec2 uLeakPath[LEAK_SPOTS];  // path spots: first sample, sample count (0 = ellipse); a light: its mask, -1
+uniform vec2 uLeakPoints[LEAK_PATH_SAMPLES];  // every path's samples, short-side units
+uniform vec4 uLeakRect[LEAK_SPOTS];  // a drawn shape's layer in uMaskShapes: where it lies (shape units)
+uniform vec4 uLeakLight[LEAK_SPOTS]; // a drawn shape's lighting: falloff, from (radians), key (see GrainEngine), key softness
 uniform vec3 uGlowTint;       // linear, brightest channel 1
 uniform float uVibrance;
 uniform float uWarmth;
@@ -893,7 +915,7 @@ void leakAt(vec2 printPx, vec2 mqHere, vec3 photoHere, float streaked, vec2 ligh
       }
       int first = int(pathInfo.x);
       int count = pathInfo.y < -1.5 ? 0 : int(pathInfo.y);
-      for (int j = 0; j < min(count, ${PATH_SAMPLES}); j++) {
+      for (int j = 0; j < min(count, LEAK_PATH_SAMPLES); j++) {
         vec2 pa = uLeakPoints[first + j];
         vec2 pb = uLeakPoints[first + (j + 1 == count ? 0 : j + 1)];
         vec2 ab = pb - pa;
@@ -1914,7 +1936,7 @@ bool keyedLikeSubject(vec2 q) {
   if (use.y != 1 || uMaskCount == 0) return false;
   vec2 uv = clamp((fromShapeUnits(q) - uImageOffset) / uBaseSize, vec2(0.0), vec2(1.0));
   vec3 photo = textureLod(uBase, uv, 0.0).rgb;
-  for (int k = 0; k < ${MAX_MASKS}; k++) {
+  for (int k = 0; k < MASKS; k++) {
     if (k >= uMaskCount) break;
     if (((use.x >> k) & 1) == 0) continue;
     vec4 f = uMaskFlags[k];
@@ -2127,7 +2149,7 @@ vec2 skipRemap(int i, float bandIdx, float w, float off, float band, vec2 own) {
 vec2 fixedSource(int i, vec2 st, vec2 own, float near, float off, float reach, bool trail, float bandIdx, float band,
                  inout vec2 tone, inout vec4 paint) {
   float w = st.y - bandIdx * band;
-  for (int f = 0; f < ${MAX_STREAK_FIXES}; f++) {
+  for (int f = 0; f < FIXES; f++) {
     if (f >= uFixCount) break;
     vec4 span = uFixSpan[f];
     if (int(span.x) != i) continue;
@@ -2262,10 +2284,10 @@ vec2 fixedSource(int i, vec2 st, vec2 own, float near, float off, float reach, b
 /** Where line t of shape i meets its drawn end line, along it (s). */
 float endLineAt(int i, float t) {
   vec4 info = uStreakEndInfo[i];
-  float x = clamp((t - info.x) / info.y, 0.0, ${END_SAMPLES - 1}.0);
+  float x = clamp((t - info.x) / info.y, 0.0, float(END_SAMPLES_N - 1));
   int k = int(floor(x));
-  int k1 = min(k + 1, ${END_SAMPLES - 1});
-  int base = i * ${END_SAMPLES};
+  int k1 = min(k + 1, END_SAMPLES_N - 1);
+  int base = i * END_SAMPLES_N;
   float a = uStreakEndS[(base + k) / 4][(base + k) % 4];
   float b = uStreakEndS[(base + k1) / 4][(base + k1) % 4];
   return mix(a, b, x - float(k));
@@ -2428,7 +2450,11 @@ vec3 repeatRead(int i, float e, float s) {
   return vec3(wa > 1e-6 ? g * (1.0 / wa - shift) : e, wb > 1e-6 ? g * (1.0 / wb - shift) : e, dd.z);
 }
 
-float gStreakKeep[${MAX_STREAKS}] = float[${MAX_STREAKS}](${Array(MAX_STREAKS).fill('1.0').join(', ')});
+#if STREAKS == 1
+float gStreakKeep[STREAKS] = float[STREAKS](1.0);
+#else
+float gStreakKeep[STREAKS] = float[STREAKS](${Array(MAX_STREAKS).fill('1.0').join(', ')});
+#endif
 vec2 gFlow = vec2(1.0, 0.0);
 /** Two values in one float of the streak cache: each 12 bits, -2048..2047 over scale. */
 float pack12(vec2 v, float scale) {
@@ -2458,7 +2484,7 @@ StreakHit streakAt(vec2 printPx, float keep) {
   bool lightAsk = uLightBehind == 1 && (uLinePass == 0 || uLinePass == 5);
   // keep: how much of the streaks the masks let through here (see main).
   if (keep <= 0.0) return none;
-  for (int i = 0; i < ${MAX_STREAKS}; i++) {
+  for (int i = 0; i < STREAKS; i++) {
     if (i >= uStreakCount) break;
     vec4 extra = uStreakExtra[i];
     if (extra.w > 1.5) continue;
@@ -2770,7 +2796,7 @@ StreakHit streakAt(vec2 printPx, float keep) {
     // Each fix's own tone, on its bars, easing in over its feather; and what
     // its bars carry, if it says: the subject copied, or the streak's colour.
     float carryCopy = uStreakRepeatMask[i] < -1.5 ? 0.0 : 1.0;
-    for (int f = 0; f < ${MAX_STREAK_FIXES}; f++) {
+    for (int f = 0; f < FIXES; f++) {
       if (f >= uFixCount) break;
       if (int(uFixSpan[f].x) != i) continue;
       vec4 ft = uFixTone[f];
@@ -3255,8 +3281,8 @@ void main() {
   float shownCover = 0.0;
   float clearSection[${MASK_SECTIONS.length}];
   for (int k = 0; k < ${MASK_SECTIONS.length}; k++) clearSection[k] = 1.0;
-  float clearStreak[${MAX_STREAKS}];
-  for (int s = 0; s < ${MAX_STREAKS}; s++) clearStreak[s] = 1.0;
+  float clearStreak[STREAKS];
+  for (int s = 0; s < STREAKS; s++) clearStreak[s] = 1.0;
   ivec2 su = uSectionMask[5];
   for (int phase = 0; phase < 3 + min(uMaskCount, 0); phase++) {
     // 0: Pixel art's blocks; 1: the glass; 2: every other module.
@@ -3296,7 +3322,7 @@ void main() {
       if (i == int(uShowMask.x + 0.5)) shownCover = c;
       for (int k = 0; k < ${MASK_SECTIONS.length}; k++)
         if (k != 6 && ((uSectionMask[k].x >> i) & 1) == 1) clearSection[k] *= 1.0 - c;
-      for (int s = 0; s < ${MAX_STREAKS}; s++)
+      for (int s = 0; s < STREAKS; s++)
         if (((uStreakMask[s].x >> i) & 1) == 1) clearStreak[s] *= 1.0 - c;
       if (uMatteOn == 1 && su.y != 0 && ((su.x >> i) & 1) == 1 && (su.y == 2 || own > 1e-3)) cleanHere = max(cleanHere, uMaskFlags[i].w);
     }
@@ -3349,7 +3375,7 @@ void main() {
       ivec2 use = uSectionMask[k];
       if (k != 6 && use.y != 0) keepSection[k] = use.y == 2 ? 1.0 - clearSection[k] : clearSection[k];
     }
-    for (int s = 0; s < ${MAX_STREAKS}; s++) {
+    for (int s = 0; s < STREAKS; s++) {
       ivec2 sm = uStreakMask[s];
       if (sm.y != 0) gStreakKeep[s] = sm.y == 2 ? 1.0 - clearStreak[s] : clearStreak[s];
     }
@@ -3380,7 +3406,7 @@ void main() {
   // here, by brightness or blue, as a mask's key is.
   if (uStreakKeyed == 1) {
     vec3 under = textureLod(uBase, clamp(basePx / uBaseSize, vec2(0.0), vec2(1.0)), baseLod).rgb;
-    for (int s = 0; s < ${MAX_STREAKS}; s++) {
+    for (int s = 0; s < STREAKS; s++) {
       vec4 k = uStreakKey[s];
       if (k.x < 0.5) continue;
       float v = k.y > 0.5 ? under.b : dot(under, vec3(0.2126, 0.7152, 0.0722));

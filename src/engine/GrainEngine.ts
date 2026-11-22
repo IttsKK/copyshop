@@ -445,6 +445,16 @@ const CROSS_LINES = 2048
 const CROSS_TEXELS = 4
 const CROSS_ROW = MAX_STREAKS * 2 * PATH_LEVELS
 
+/**
+ * The look's shader on a GPU with few uniforms (GrainEngine.fitToGpu): how
+ * many masks, light leaks, leak path samples and samples along a trail's end
+ * line it holds. Each array of these is a row (or rows) of the 256 such GPUs have.
+ * Counted as a strict driver counts (every value its own row, as ANGLE on an
+ * Adreno 650 did, Nov 22): this is 243 rows for the look; 4 leaks and 16 path
+ * samples were 276, and failed there. The streak programs are 8–72 rows.
+ */
+const FEW = { masks: 2, leaks: 1, leakPath: 4, endSamples: 4, streaks: 1 }
+
 /** A shader build this slow is reported. */
 const SLOW_COMPILE_MS = 1500
 /**
@@ -727,6 +737,45 @@ export class GrainEngine {
    */
   private parallel: { COMPLETION_STATUS_KHR: number } | null = null
 
+  /**
+   * The look's shaders for this GPU. Many phone GPUs (Adreno's report 256)
+   * hold fewer uniforms than the look's shader declares (about 260 rows,
+   * against 1024 on a computer), and a shader over the limit fails to build,
+   * so nothing draws. On one with fewer than 400, the arrays only the
+   * desktop's streak colour fixes and drawn lights' paths use are made small
+   * (shaders.ts FIXES, LEAK_PATH_SAMPLES): one fix and half the path samples.
+   */
+  private fitToGpu(source: string): string {
+    if (!this.hasFewUniforms()) return source
+    // Still over 256 rows on an Adreno 650 (Android, Nov 21): one streak (the web playground has one),
+    // two masks (its subject is one), and fewer leaks and samples along a trail's end line.
+    return source.replace(
+      '#version 300 es\n',
+      `#version 300 es\n#define FIXES 1\n#define LEAK_PATH_SAMPLES ${FEW.leakPath}\n#define MASKS ${FEW.masks}\n#define LEAK_SPOTS ${FEW.leaks}\n#define END_SAMPLES_N ${FEW.endSamples}\n#define STREAKS ${FEW.streaks}\n`,
+    )
+  }
+  /** Whether this GPU gets the small look shader (fitToGpu), worked out once. */
+  private hasFewUniforms(): boolean {
+    if (this.fewUniforms === null) {
+      const gl = this.gl
+      const limit = gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) as number
+      this.fewUniforms = limit < 400 || (globalThis as { __copyshopFewUniforms?: boolean }).__copyshopFewUniforms === true
+      if (this.fewUniforms) engineReport?.('warning', 'Few shader uniforms: building the small look shader', { limit, gpu: this.gpuName() })
+    }
+    return this.fewUniforms
+  }
+  /** How many masks the look's shader holds on this GPU. */
+  private maskLimit(): number {
+    return this.hasFewUniforms() ? FEW.masks : MAX_MASKS
+  }
+  private fewUniforms: boolean | null = null
+  /** On a GPU with few uniforms, the streaks its shader holds (FEW.streaks), the first ones. */
+  private fitStreaks(p: BlendParams): BlendParams {
+    const shapes = p.effects.streaks.shapes
+    if (shapes.length <= FEW.streaks || !this.hasFewUniforms()) return p
+    return { ...p, effects: { ...p.effects, streaks: { ...p.effects.streaks, shapes: shapes.slice(0, FEW.streaks) } } }
+  }
+
   /** Starts building the look's shader, with streaks (full) or without (light), unless it is built or building. */
   private startMain(key: MainKey): void {
     if (this.mains[key] || this.building[key] || this.mainFailed[key]) return
@@ -739,7 +788,7 @@ export class GrainEngine {
     }
     const started = performance.now()
     const vs = make(gl.VERTEX_SHADER, VERTEX_SHADER)
-    const fs = make(gl.FRAGMENT_SHADER, key === 'full' ? FRAGMENT_SHADER : FRAGMENT_SHADER_LIGHT)
+    const fs = make(gl.FRAGMENT_SHADER, this.fitToGpu(key === 'full' ? FRAGMENT_SHADER : FRAGMENT_SHADER_LIGHT))
     const program = gl.createProgram()!
     gl.attachShader(program, vs)
     gl.attachShader(program, fs)
@@ -1091,7 +1140,7 @@ export class GrainEngine {
       return shader
     }
     const vs = make(gl.VERTEX_SHADER, VERTEX_SHADER)
-    const fs = make(gl.FRAGMENT_SHADER, leanStreakShader(FRAGMENT_SHADER, kind, v))
+    const fs = make(gl.FRAGMENT_SHADER, this.fitToGpu(leanStreakShader(FRAGMENT_SHADER, kind, v)))
     const program = gl.createProgram()!
     gl.attachShader(program, vs)
     gl.attachShader(program, fs)
@@ -2425,7 +2474,7 @@ export class GrainEngine {
     // of the photo the edit was made on, and that photo's seed.
     const input: RenderRequest = {
       ...given,
-      params: inReferencePixels(withoutOffStreaks(withLighting(given.params))),
+      params: this.fitStreaks(inReferencePixels(withoutOffStreaks(withLighting(given.params)))),
       imageSeed: given.params.photoSeed ?? given.imageSeed,
     }
     // Worked out before anything is set up for this pass: it renders too.
@@ -2760,9 +2809,18 @@ export class GrainEngine {
         const t0 = Math.min(...own.map((c) => c.t))
         const t1 = Math.max(...own.map((c) => c.t))
         const line = shape.ends.map((p) => streakCoords(toS(p), flowDir, followed, vanish))
-        sEndS.set(endTable(line, t0, t1), i * END_SAMPLES)
+        // On a GPU with few uniforms, fewer samples across, read from the full table (fitToGpu).
+        const n = this.hasFewUniforms() ? FEW.endSamples : END_SAMPLES
+        const table = endTable(line, t0, t1)
+        const samples = n === END_SAMPLES ? table : Array.from({ length: n }, (_, k) => {
+          const x = (k * (END_SAMPLES - 1)) / (n - 1)
+          const a = Math.floor(x)
+          const b = Math.min(a + 1, END_SAMPLES - 1)
+          return table[a] + (table[b] - table[a]) * (x - a)
+        })
+        sEndS.set(samples, i * n)
         // Across from t0 in steps; the shape's nearest along, for the search back to it.
-        sEndInfo.set([t0, Math.max((t1 - t0) / (END_SAMPLES - 1), 1e-6), Math.min(...own.map((c) => c.s)), 1], i * 4)
+        sEndInfo.set([t0, Math.max((t1 - t0) / (n - 1), 1e-6), Math.min(...own.map((c) => c.s)), 1], i * 4)
       }
       // The line table's extent: the shape's lines across (t) and along (s),
       // from its outline, which holds the extremes of both — but for the
@@ -2890,7 +2948,7 @@ export class GrainEngine {
     // section which masks it uses (a bit per mask) and how.
     // A mask switched off is kept but used by nothing: a section or streak
     // that only used it goes back to the whole photo.
-    const masks = (fx.masks ?? []).slice(0, MAX_MASKS).map((m) => withOutline(m, frame))
+    const masks = (fx.masks ?? []).slice(0, this.maskLimit()).map((m) => withOutline(m, frame))
     const live = (id: string) => masks.some((m) => m.id === id && maskOn(m))
     const sectionUse = MASK_SECTIONS.map((section) => fx.maskUse?.[section])
     const streakUse = streaks.map((sh) =>
@@ -3070,7 +3128,7 @@ export class GrainEngine {
     gl.uniform1f(u.uStockContrast, stock.contrast)
     gl.uniform1f(u.uStockKeepTone, fx.stock.keepTone)
     const leaks = fx.leaks
-    const spots = leaks.spots.slice(0, MAX_LEAK_SPOTS)
+    const spots = leaks.spots.slice(0, this.hasFewUniforms() ? FEW.leaks : MAX_LEAK_SPOTS)
     const shortSide = Math.min(print.width, print.height)
     const geo = new Float32Array(MAX_LEAK_SPOTS * 4)
     const axis = new Float32Array(MAX_LEAK_SPOTS * 4)
@@ -3084,7 +3142,7 @@ export class GrainEngine {
     const pathPoints = new Float32Array(PATH_SAMPLES * 2)
     const outlineCount = spots.filter((s) => !s.mask && s.outline && s.outline.length >= MIN_OUTLINE_POINTS).length
     let used = 0
-    const maskList = (fx.masks ?? []).slice(0, MAX_MASKS)
+    const maskList = (fx.masks ?? []).slice(0, this.maskLimit())
     spots.forEach((spot, i) => {
       tints.set(tintOf((spot.colour ?? leaks.colour).colour), i * 3)
       const a = (spot.angle * Math.PI) / 180
@@ -3125,7 +3183,7 @@ export class GrainEngine {
         }))
         const samples = sampleOutline(control, samplesPerSpan(control.length, outlineCount)).slice(
           0,
-          PATH_SAMPLES - used,
+          (this.hasFewUniforms() ? FEW.leakPath : PATH_SAMPLES) - used,
         )
         samples.forEach((p, k) => pathPoints.set([p.x, p.y], (used + k) * 2))
         pathInfo.set([used, samples.length], i * 2)
@@ -3148,7 +3206,7 @@ export class GrainEngine {
     // A light's mask and whether it is behind the streaks (LeakSpot.hold).
     const lightHolds = new Float32Array(MAX_LEAK_SPOTS * 4)
     spots.forEach((spot, i) => {
-      const mi = spot.hold?.mask ? (fx.masks ?? []).slice(0, MAX_MASKS).findIndex((m) => m.id === spot.hold!.mask && maskOn(m)) : -1
+      const mi = spot.hold?.mask ? (fx.masks ?? []).slice(0, this.maskLimit()).findIndex((m) => m.id === spot.hold!.mask && maskOn(m)) : -1
       lightHolds.set([mi, spot.hold?.behindStreaks ? 1 : 0, spot.hold?.inside ? 1 : 0, 0], i * 4)
     })
     gl.uniform4fv(u.uLeakHold, lightHolds)

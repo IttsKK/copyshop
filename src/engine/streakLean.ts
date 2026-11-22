@@ -1,4 +1,4 @@
-import { MAX_FIX_COLOURS, MAX_STREAK_FIXES } from './types'
+import { MAX_FIX_COLOURS } from './types'
 
 /**
  * Streaks rebuilt small, for GPUs whose shader compiler cannot take the
@@ -432,7 +432,7 @@ int leanStretch(int i, float t, out float t2, out float t3, out float w3) {
   t3 = t;
   w3 = 0.0;
   int found = -1;
-  for (int k = 0; k < ${MAX_STREAK_FIXES}; k++) {
+  for (int k = 0; k < FIXES; k++) {
     if (k >= uFixCount) break;
     int f = uFixCount - 1 - k;
     if (int(uFixSpan[f].x) == i && fixCover(f, t, 0.0) > 0.0) {
@@ -443,7 +443,7 @@ int leanStretch(int i, float t, out float t2, out float t3, out float w3) {
   if (found < 0 || uFixSpan[found].w > 0.5) return found;
   leanStretchOf(found, t, t2, t3, w3);
   // Through the earlier fixes the copied lines fall in, each taken as that fix has it.
-  for (int k = 0; k < ${MAX_STREAK_FIXES}; k++) {
+  for (int k = 0; k < FIXES; k++) {
     int g = found - 1 - k;
     if (g < 0) break;
     if (int(uFixSpan[g].x) != i || uFixSpan[g].w > 0.5) continue;
@@ -1015,7 +1015,7 @@ void main() {
   // A fix covers bars by this pixel's own line, not the one its colour is
   // read from (another, where the fix borrows).
   float ownT = uFixCount > 0 ? LEAN_COORDS(i, toShapeUnits(printPx)).y : 0.0;
-  for (int f = 0; f < ${MAX_STREAK_FIXES}; f++) {
+  for (int f = 0; f < FIXES; f++) {
     if (f >= uFixCount) break;
     if (int(uFixSpan[f].x) != i) continue;
     vec4 ft = uFixTone[f];

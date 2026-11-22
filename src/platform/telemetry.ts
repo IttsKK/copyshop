@@ -56,12 +56,14 @@ function scrubUrl(url: string): string {
 
 let started = false
 
-export function startTelemetry(): void {
+/** `tunnel`: a path on this site that passes reports on to Sentry (the web editor's, so blockers of sentry.io don't drop them). */
+export function startTelemetry(opts: { tunnel?: string } = {}): void {
   // A build from the source sends nothing (platform/build.ts).
   if (started || !telemetryOn() || (import.meta.env.PROD && !OFFICIAL)) return
   started = true
   Sentry.init({
     dsn: DSN,
+    ...(opts.tunnel ? { tunnel: opts.tunnel } : {}),
     release: `copyshop@${__APP_VERSION__}`,
     // Test builds (npm run app:test, 1.2.0+test.<sha>) apart from what people run, so their issues don't read as real ones.
     environment: !import.meta.env.PROD ? 'development' : __APP_VERSION__.includes('+test') ? 'test' : 'production',
@@ -114,8 +116,19 @@ let issuesSent = 0
  * crashed or stopped answering, a GPU reset, a fallback taken. Grouped by
  * fingerprint when the message carries numbers or names.
  */
+/** Something else to tell about each issue (the web editor's own reports, src/web/report.ts). */
+let issueHook: ((message: string, level: Sentry.SeverityLevel, extra?: Record<string, unknown>) => void) | null = null
+export function setIssueHook(hook: typeof issueHook): void {
+  issueHook = hook
+}
+
 export function reportIssue(message: string, level: Sentry.SeverityLevel = 'error', extra?: Record<string, unknown>, fingerprint?: string[]): void {
   Sentry.addBreadcrumb({ category: 'issue', level, message: scrub(message) })
+  try {
+    issueHook?.(message, level, extra)
+  } catch {
+    /* a report must never break what reported it */
+  }
   if (!telemetryOn()) return
   // The same thing at most once a minute, and a few dozen a visit: a repeat says nothing new.
   const key = (fingerprint ?? [message]).join('|')

@@ -106,6 +106,26 @@ export const APP_LINK = 'copyshop://open'
 export function appLinkFor(pairing: { id: string; key: string }): string {
   return `${APP_LINK}#${pairing.id}.${pairing.key}`
 }
+/**
+ * Moving the playground from an app's own browser (Instagram's, say, where
+ * saving a photo often does nothing) to the phone's browser: its project file,
+ * sealed with a key made here, put under a pairing id, and taken by the
+ * playground the link opens (?take=id.key). Gone once taken.
+ */
+export async function putPairBytes(pairing: { id: string; key: string }, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
+  if (bytes.length > MAX_BUNDLE_BYTES) throw new Error('This photo is too big to move across.')
+  const { sealed } = await seal(bytes, pairing.key)
+  const res = await fetch(`${SERVER}/v1/pairs/${pairing.id}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: sealed })
+  if (!res.ok) throw await failure(res, 'Your photo could not be sent across.')
+}
+export async function takePairBytes(pairing: { id: string; key: string }): Promise<Uint8Array<ArrayBuffer> | null> {
+  const res = await fetch(`${SERVER}/v1/pairs/${pairing.id}`, { cache: 'no-store' })
+  if (!res.ok) return null
+  const bytes = await unseal(new Uint8Array(await res.arrayBuffer()), pairing.key)
+  await fetch(`${SERVER}/v1/pairs/${pairing.id}`, { method: 'DELETE' }).catch(() => undefined)
+  return bytes
+}
+
 /** The pairing a copyshop:// link names, if it names one. */
 export function pairingFromAppLink(url: string): { id: string; key: string } | null {
   if (!url.startsWith('copyshop:')) return null
