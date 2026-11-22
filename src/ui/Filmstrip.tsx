@@ -62,39 +62,18 @@ export function Filmstrip({ library, onLibrary, onAddFolder, openPath, openSha, 
   return (
     <section className={`filmstrip${closing ? ' closing' : ''}`} aria-label="Filmstrip">
       <div className="filmstrip-head">
-        {library.folders.length > 0 ? (
-          <select value={folder ?? ''} title={folder === RECENT ? 'The photos you opened last' : (folder ?? undefined)} onChange={(e) => choose(e.target.value)}>
-            <option value={RECENT}>Recent</option>
-            {library.folders.map((f) => (
-              <option key={f.path} value={f.path}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <b title={folder ?? undefined}>{name}</b>
-        )}
-        {folder && (
-          <select
-            className="filmstrip-sort"
-            value={sort}
-            aria-label="Order"
-            title={folder === RECENT ? 'The order of the photos here' : 'The order of the photos here, in the Library too. Drag a photo to put them in your own order.'}
-            onChange={(e) => setSort(e.target.value as SetSort)}
-          >
-            {sortsFor(folder).map((s) => (
-              <option key={s} value={s}>
-                {SORT_LABEL[s]}
-              </option>
-            ))}
-          </select>
-        )}
-        <div className="filmstrip-actions">
-          <small>{missing ? 'Folder not found' : photos ? `${list.length} photo${list.length === 1 ? '' : 's'}` : 'Reading…'}</small>
-          <button className="link" title="Add a folder of photos to the library" onClick={onAddFolder}>
-            Add folder
-          </button>
-        </div>
+        <SetMenu
+          library={library}
+          folder={folder}
+          name={name}
+          sort={sort}
+          onChoose={choose}
+          onSort={setSort}
+          onAddFolder={onAddFolder}
+        />
+        <small className="filmstrip-count" title={folder ? `${SORT_LABEL[sort]}. Drag a photo to put them in your own order.` : undefined}>
+          {missing ? 'Folder not found' : photos ? `${list.length} photo${list.length === 1 ? '' : 's'} · ${SORT_LABEL[sort].replace(/^By /, '').replace(/^\w/, (c) => c.toUpperCase())}` : 'Reading…'}
+        </small>
       </div>
       <div className={`filmstrip-list${dragging ? ' reordering' : ''}`} ref={strip}>
         {list.map((f, i) => {
@@ -117,6 +96,84 @@ export function Filmstrip({ library, onLibrary, onAddFolder, openPath, openSha, 
         {photos && !list.length && <p className="hint-line">{missing ? `${name} is not where it was.` : 'No JPEG, PNG or RAW photos in this folder.'}</p>}
       </div>
     </section>
+  )
+}
+
+/**
+ * The strip's one control: which set it shows (Recent or a folder) and in
+ * what order, and adding a folder, in a single menu that opens upward.
+ */
+function SetMenu({
+  library,
+  folder,
+  name,
+  sort,
+  onChoose,
+  onSort,
+  onAddFolder,
+}: {
+  library: Library
+  folder: string | null
+  name: string
+  sort: SetSort
+  onChoose: (path: string) => void
+  onSort: (s: SetSort) => void
+  onAddFolder: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', away)
+    document.addEventListener('keydown', esc, true)
+    return () => {
+      document.removeEventListener('mousedown', away)
+      document.removeEventListener('keydown', esc, true)
+    }
+  }, [open])
+  const pick = (fn: () => void) => () => {
+    setOpen(false)
+    fn()
+  }
+  return (
+    <div className="menu-anchor filmstrip-set" ref={ref}>
+      <button className={`filmstrip-set-button${open ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={open} title={folder ?? undefined} onClick={() => setOpen(!open)}>
+        <span>{name || 'Photos'}</span>
+        <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden>
+          <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className="menu preset-menu filmstrip-menu" role="menu">
+          <div className="menu-label">Show</div>
+          {[{ path: RECENT, name: 'Recent' }, ...library.folders].map((f) => (
+            <button key={f.path} role="menuitemradio" aria-checked={folder === f.path} className={`menu-item${folder === f.path ? ' current' : ''}`} title={f.path === RECENT ? 'The photos you opened last' : f.path} onClick={pick(() => onChoose(f.path))}>
+              {f.name}
+            </button>
+          ))}
+          <button role="menuitem" className="menu-item" onClick={pick(onAddFolder)}>
+            Add folder…
+          </button>
+          {folder && (
+            <>
+              <div className="menu-rule" />
+              <div className="menu-label">Order</div>
+              {sortsFor(folder).map((o) => (
+                <button key={o} role="menuitemradio" aria-checked={sort === o} className={`menu-item${sort === o ? ' current' : ''}`} onClick={pick(() => onSort(o))}>
+                  {SORT_LABEL[o]}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 

@@ -1,5 +1,6 @@
 import { OFFICIAL } from '../platform/build'
 import { keyWords, showInFilesLabel } from '../platform/os'
+import { plainGpuError } from '../engine/gpuMessage'
 import { moduleSummary, needsSetup } from './moduleSummary'
 import { CollageFillWindow, regionOf } from './CollageArrange'
 import { decodeRaster, rasterToPoints } from '../engine/maskRaster'
@@ -7312,7 +7313,7 @@ export function App() {
             role="status"
           >
             {error ? (
-              <span className="err">{error}</span>
+              <span className="err">{plainGpuError(error) ?? error}</span>
             ) : status ? (
               <span>{status}</span>
             ) : pendingRecipe ? (

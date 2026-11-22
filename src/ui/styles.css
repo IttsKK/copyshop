@@ -2215,13 +2215,8 @@ button.link.danger { color: #e07b6f; }
 
 /* The filmstrip under the photo (Filmstrip.tsx): a folder's photos, the open one ringed. */
 .filmstrip { display: flex; height: 92px; flex: none; border-top: 1px solid var(--line); background: var(--panel); }
-.filmstrip-head { flex: none; width: 132px; display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-right: 1px solid var(--edge); min-width: 0; }
-.filmstrip-head b { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.filmstrip-head select { width: 100%; min-height: 22px; padding: 2px 20px 2px 6px; font-size: 12px; background-position: calc(100% - 11px) 9px, calc(100% - 7px) 9px; }
+.filmstrip-head { flex: none; width: 132px; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 6px; border-right: 1px solid var(--edge); min-width: 0; }
 .filmstrip-head small { color: var(--muted); font-size: 11px; }
-.filmstrip-actions { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: auto; min-width: 0; }
-.filmstrip-actions button.link { padding: 0; min-height: 0; font-size: 11px; color: var(--muted); }
-.filmstrip-actions button.link:hover:not(:disabled) { color: var(--text); }
 .filmstrip-list { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 0 10px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .filmstrip-list > .hint-line { margin: 0; }
 .filmstrip-item { position: relative; flex: none; height: 70px; padding: 0; min-height: 0; border: none; border-radius: 3px; background: none; box-shadow: none; outline: 2px solid transparent; outline-offset: 2px; }
@@ -2231,8 +2226,13 @@ button.link.danger { color: #e07b6f; }
 .filmstrip-thumb img { display: block; height: 70px; width: auto; max-width: 124px; object-fit: contain; border-radius: 2px; }
 .filmstrip-blank { display: grid; place-items: center; width: 52px; height: 70px; border-radius: 2px; background: var(--well); color: var(--faint); font-size: 12px; }
 .filmstrip-dot { position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.6); }
-.filmstrip-head select.filmstrip-sort { min-height: 20px; height: 20px; font-size: 11px; color: var(--muted); background-position: calc(100% - 11px) 8px, calc(100% - 7px) 8px; }
-.filmstrip-head select.filmstrip-sort:hover { color: var(--text); }
+/* The strip's one control (SetMenu): the set's name as a button, its menu opening upward. Under it, how many and in what order. */
+.filmstrip-set-button { width: 100%; min-height: 24px; display: flex; align-items: center; gap: 6px; padding: 2px 6px; border: none; border-radius: 4px; background: none; box-shadow: none; font-size: 12px; font-weight: 600; text-align: left; }
+.filmstrip-set-button span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filmstrip-set-button svg { flex: none; color: var(--muted); }
+.filmstrip-set-button:hover:not(:disabled), .filmstrip-set-button.on { background: rgba(255, 255, 255, 0.07); }
+.filmstrip-count { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu.filmstrip-menu { top: auto; bottom: calc(100% + 4px); right: auto; left: 0; }
 /* A set's order (storage/setOrder.ts): a photo dragged to another place, the line where it will go. */
 .filmstrip-item.drag-from, .library-item.drag-from { opacity: 0.35; }
 .filmstrip-item.drop-before::before, .filmstrip-item.drop-after::before,
