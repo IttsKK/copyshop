@@ -6,11 +6,13 @@
 </p>
 
 <p align="center">
-  <a href="https://getcopyshop.com"><img src="https://img.shields.io/badge/website-getcopyshop.com-e3b469" alt="Website"></a>
-  <a href="https://github.com/IttsKK/copyshop/blob/main/package.json"><img src="https://img.shields.io/github/package-json/v/IttsKK/copyshop?label=version&color=555" alt="Version"></a>
-  <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-555" alt="macOS, Windows and Linux">
-  <a href="https://tauri.app"><img src="https://img.shields.io/badge/built%20with-Tauri-24C8DB?logo=tauri&logoColor=white" alt="Built with Tauri"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-source--available-4b6bfb" alt="License: source-available"></a>
+  <a href="https://getcopyshop.com"><img src="https://img.shields.io/website?url=https%3A%2F%2Fgetcopyshop.com&style=for-the-badge&labelColor=111111&color=333333&label=getcopyshop.com" alt="getcopyshop.com"></a>
+  <a href="https://github.com/IttsKK/copyshop/blob/main/package.json"><img src="https://img.shields.io/github/package-json/v/IttsKK/copyshop?style=for-the-badge&labelColor=111111&color=333333&label=version" alt="Version"></a>
+  <a href="https://github.com/IttsKK/copyshop/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/IttsKK/copyshop/ci.yml?branch=main&style=for-the-badge&labelColor=111111&label=ci&logo=github" alt="CI"></a>
+  <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-333333?style=for-the-badge&labelColor=111111" alt="macOS, Windows and Linux">
+  <a href="https://tauri.app"><img src="https://img.shields.io/badge/built%20with-tauri-333333?style=for-the-badge&labelColor=111111&logo=tauri" alt="Tauri"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-source--available-333333?style=for-the-badge&labelColor=111111" alt="License: source-available"></a>
+  <a href="https://github.com/IttsKK/copyshop/commits/main"><img src="https://img.shields.io/github/last-commit/IttsKK/copyshop?style=for-the-badge&labelColor=111111&color=333333" alt="Last commit"></a>
 </p>
 
 A photo editor for the step after colour correction. Streak a subject, lay a
