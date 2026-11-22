@@ -8,6 +8,7 @@
 <p align="center">
   <a href="https://getcopyshop.com/download"><img src="https://img.shields.io/badge/download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-e3b469?style=for-the-badge&labelColor=111111" alt="Download for macOS, Windows and Linux"></a>
   <a href="https://getcopyshop.com/app/"><img src="https://img.shields.io/badge/try%20it-free%20in%20your%20browser-e3b469?style=for-the-badge&labelColor=111111" alt="Try it free in your browser"></a>
+  <br>
   <a href="https://github.com/IttsKK/copyshop/releases/latest"><img src="https://img.shields.io/github/v/release/IttsKK/copyshop?style=for-the-badge&labelColor=111111&color=e3b469&label=release" alt="Latest release"></a>
   <a href="https://github.com/IttsKK/copyshop/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/IttsKK/copyshop/ci.yml?branch=main&style=for-the-badge&labelColor=111111&label=ci" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-source--available-e3b469?style=for-the-badge&labelColor=111111" alt="License: source-available"></a>
