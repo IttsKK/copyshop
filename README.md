@@ -15,10 +15,10 @@
   <a href="https://github.com/IttsKK/copyshop/commits/main"><img src="https://img.shields.io/github/last-commit/IttsKK/copyshop?style=for-the-badge&labelColor=111111&color=333333" alt="Last commit"></a>
 </p>
 
-A photo editor for the step after colour correction. Streak a subject, lay a
-sky into the gaps between wires, repeat a building, and finish the photo with
-film grain, dither, glow and a paper border. Each effect is a module you switch
-on, adjust, and keep to part of the photo with a mask.
+A creative workshop for your photos. Streak a subject, lay a new sky into the
+gaps between wires, repeat a building across the frame, and finish it with film
+grain, dither, glow and a paper border. Each effect is a module you switch on,
+adjust, and keep to part of the photo with a mask.
 
 ![copyshop with the Tide recipe on a street photo](.github/screenshot.jpg)
 
