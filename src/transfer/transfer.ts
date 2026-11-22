@@ -1,5 +1,6 @@
-import { MAX_BUNDLE_BYTES, collect, hasContent, pack, restore, unpack } from './bundle'
+import { MAX_BUNDLE_BYTES, collect, hasContent, pack, restore, unpack, type BundleContents } from './bundle'
 import { newKey, seal, unseal } from './seal'
+import { SESSION_STORE } from '../storage/db'
 
 /** The transfer server (server/ in this repo). Set VITE_COPYSHOP_SERVER for a local one. */
 export const SERVER: string = import.meta.env.VITE_COPYSHOP_SERVER ?? 'https://api.getcopyshop.com'
@@ -28,8 +29,8 @@ async function failure(res: Response, fallback: string): Promise<Error> {
  * it, and returns the checkout link that names it, so the desktop app bought there
  * opens with it. Without anything to carry, the plain link.
  */
-export async function checkoutWithEdit(checkout = DESKTOP_CHECKOUT): Promise<string> {
-  const contents = await collect()
+export async function checkoutWithEdit(checkout = DESKTOP_CHECKOUT, given?: BundleContents): Promise<string> {
+  const contents = given ?? (await collect())
   if (!hasContent(contents)) return checkout
   const bytes = await pack(contents)
   if (bytes.length > MAX_BUNDLE_BYTES) throw new Error('Your photos and plates are too big to send across together.')
@@ -100,15 +101,27 @@ export function newPairing(): Pairing {
   return { id, key, url: `${WEB_APP}#send=${id}.${key}` }
 }
 
+/** The desktop app's own link (copyshop://open#id.key): the playground's Desktop app button opens it, and sends its photo to that pairing. */
+export const APP_LINK = 'copyshop://open'
+export function appLinkFor(pairing: { id: string; key: string }): string {
+  return `${APP_LINK}#${pairing.id}.${pairing.key}`
+}
+/** The pairing a copyshop:// link names, if it names one. */
+export function pairingFromAppLink(url: string): { id: string; key: string } | null {
+  if (!url.startsWith('copyshop:')) return null
+  const at = url.indexOf('#')
+  return at < 0 ? null : pairingFromHash(`#send=${url.slice(at + 1)}`)
+}
+
 /** The pairing a link asks this browser to send to, if it's one. */
 export function pairingFromHash(hash: string): { id: string; key: string } | null {
   const m = /^#send=([0-9a-f-]{36})\.([A-Za-z0-9_-]{43})$/.exec(hash)
   return m ? { id: m[1], key: m[2] } : null
 }
 
-/** The browser side: false when there's nothing here to send. */
-export async function sendToApp(pairing: { id: string; key: string }): Promise<boolean> {
-  const contents = await collect()
+/** The browser side: false when there's nothing here to send. `given`: what to send instead of this browser's saved editor (the playground's photo and edit). */
+export async function sendToApp(pairing: { id: string; key: string }, given?: BundleContents): Promise<boolean> {
+  const contents = given ?? (await collect())
   if (!hasContent(contents)) return false
   const bytes = await pack(contents)
   if (bytes.length > MAX_BUNDLE_BYTES) throw new Error('Your photos and plates are too big to send together.')
@@ -122,8 +135,26 @@ export async function sendToApp(pairing: { id: string; key: string }): Promise<b
   return true
 }
 
-/** The app side: polls until the browser has sent, then brings it in. Rejects with an AbortError when stopped. */
-export async function receivePairing(pairing: Pairing, signal: AbortSignal): Promise<void> {
+/**
+ * Only the open photo and its edit from a bundle: what a copyshop:// link may
+ * bring in. Anyone can make such a link, so it never adds recipes, plates or
+ * collage images.
+ */
+export function photoOnly(contents: BundleContents): BundleContents {
+  const session = contents.local['grainemulator.session']
+  return { local: session === undefined ? {} : { 'grainemulator.session': session }, stores: { [SESSION_STORE]: (contents.stores[SESSION_STORE] ?? []).filter((r) => r.id === 'photo') } }
+}
+
+/**
+ * The app side: polls until the browser has sent, then brings it in. Rejects
+ * with an AbortError when stopped. `only`: what of it to keep; `before`: runs
+ * once it has arrived, before it's written (the open photo's edit saved first).
+ */
+export async function receivePairing(
+  pairing: { id: string; key: string },
+  signal: AbortSignal,
+  { only = (c: BundleContents) => c, before }: { only?: (c: BundleContents) => BundleContents; before?: () => Promise<void> } = {},
+): Promise<void> {
   for (;;) {
     signal.throwIfAborted()
     const res = await fetch(`${SERVER}/v1/pairs/${pairing.id}`, { cache: 'no-store', signal }).catch((e) => {
@@ -131,7 +162,8 @@ export async function receivePairing(pairing: Pairing, signal: AbortSignal): Pro
       return null // offline for a moment: keep waiting
     })
     if (res?.ok) {
-      const contents = unpack(await unseal(new Uint8Array(await res.arrayBuffer()), pairing.key))
+      const contents = only(unpack(await unseal(new Uint8Array(await res.arrayBuffer()), pairing.key)))
+      await before?.()
       await restore(contents)
       await fetch(`${SERVER}/v1/pairs/${pairing.id}`, { method: 'DELETE' }).catch(() => undefined)
       return

@@ -9,7 +9,8 @@ import { graphicsState } from '../engine/renderClient'
 import { GrainEngine } from '../engine/GrainEngine'
 import { CommandPalette } from './CommandPalette'
 import { onMenuAction, setMenuEnabled, type MenuAction } from '../platform/menu'
-import { keepUntilWritten, onBeforeQuit, startQuitHandling } from '../platform/quit'
+import { keepUntilWritten, onBeforeQuit, settleWrites, startQuitHandling } from '../platform/quit'
+import { startDeepLinks } from '../platform/deepLink'
 import {
   MAX_LEAK_SPOTS,
   type BorderParams,
@@ -156,7 +157,7 @@ import { FeedbackDialog } from './FeedbackDialog'
 import { ActivateDialog } from './ActivateDialog'
 import { SendToAppDialog } from './SendToAppDialog'
 import { checkLicense, onLicense, type LicenseState } from '../transfer/license'
-import { pairingFromHash } from '../transfer/transfer'
+import { pairingFromAppLink, pairingFromHash, photoOnly, receivePairing } from '../transfer/transfer'
 import { TimelapsePanel } from './TimelapsePanel'
 import { buildTimeline, makeTimelapseVideo, useTimelapseRecorder, type TimelapseFocus, type TimelapseFrame } from './timelapse'
 import { SettingsDialog } from './SettingsDialog'
@@ -1247,6 +1248,32 @@ export function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blend, source, activeLook, activePresetId, image, replaying])
+  // copyshop://open#… from the playground's Desktop app button: the photo and
+  // edit it is sending, waited for, then opened (the open photo's edit saved first).
+  useEffect(() => {
+    const seen = new Set<string>()
+    startDeepLinks((url) => {
+      const pair = pairingFromAppLink(url)
+      if (!pair || seen.has(pair.id)) return
+      seen.add(pair.id)
+      setStatus('Getting the photo from the playground…')
+      const before = async () => {
+        flushEdit()
+        await settleWrites(1500)
+        // A session save waiting on its moment goes before the playground's is written.
+        await new Promise((r) => setTimeout(r, 300))
+      }
+      receivePairing(pair, AbortSignal.timeout(180_000), { only: photoOnly, before })
+        .then(() => {
+          setStatus('Opening the photo from the playground.')
+          setTimeout(() => location.reload(), 300)
+        })
+        .catch((e: Error) =>
+          setError(e.name === 'TimeoutError' ? "The photo from the playground didn't arrive. Press Desktop app there again." : `The photo from the playground didn't come across: ${e.message}`),
+        )
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => {
     const leave = () => flushEdit()
     window.addEventListener('pagehide', leave)

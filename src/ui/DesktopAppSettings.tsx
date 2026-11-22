@@ -93,10 +93,10 @@ function LicenseSection({ onStatus }: Props) {
     await openUrl(p.url)
     try {
       await receivePairing(p, ctrl.signal)
-      onStatus('Opening your edits from the browser.')
+      onStatus('Opening the photo from the playground.')
       setTimeout(() => location.reload(), 600)
     } catch (e) {
-      if (!ctrl.signal.aborted) onStatus(`Your edits from the browser didn't come across: ${(e as Error).message}`)
+      if (!ctrl.signal.aborted) onStatus(`The photo from the playground didn't come across: ${(e as Error).message}`)
     } finally {
       if (waiting.current === ctrl) {
         waiting.current = null
@@ -144,24 +144,24 @@ function LicenseSection({ onStatus }: Props) {
         </div>
       )}
       <div className="settings-row">
-        <span>Edits from the browser version</span>
+        <span>Photo from the browser playground</span>
         {pairing ? (
           <button onClick={() => waiting.current?.abort()}>Stop waiting</button>
         ) : (
-          <button title="Open the browser version, which sends its photo, edits, recipes and plates here" onClick={() => void bringIn()}>
+          <button title="Open the browser playground, which sends its photo and edit here" onClick={() => void bringIn()}>
             Bring in…
           </button>
         )}
       </div>
       {pairing ? (
         <p className="settings-note">
-          Waiting for the browser. Press Send there. If your edits are in a different browser, open this link in it:{' '}
+          Waiting for the browser. Press Send there. If your photo is in a different browser, open this link in it:{' '}
           <button className="link inline-link" onClick={() => void navigator.clipboard.writeText(pairing.url).then(() => onStatus('Link copied.'))}>
             Copy link
           </button>
         </p>
       ) : (
-        <p className="settings-note">Brings in the photo open in the browser version, every photo's edit, and your recipes, plates and collage photos.</p>
+        <p className="settings-note">Brings in the photo open in the playground, with its edit.</p>
       )}
     </section>
   )

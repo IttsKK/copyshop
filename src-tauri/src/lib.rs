@@ -841,11 +841,28 @@ fn set_menu_enabled(items: tauri::State<'_, MenuItems>, id: String, enabled: boo
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // One copy at a time: opening copyshop again, or a copyshop:// link on
+        // Windows and Linux (which starts the app again), goes to the open one.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
+        // copyshop://open#… from the playground's Desktop app button (the page picks it up: platform/deepLink.ts).
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         // Updates: getcopyshop.com/downloads/latest.json, signed with the key in tauri.conf.json.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            // The installers register copyshop:// on Windows and in the .deb; an AppImage, or a
+            // build run from here, registers it when it starts.
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
             let (menu, items) = build_menu(app.handle())?;
             app.set_menu(menu)?;
             app.manage(MenuItems(items));

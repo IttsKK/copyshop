@@ -1,6 +1,6 @@
 [package]
 name = "grain-emulator"
-version = "1.2.3"
+version = "1.2.4"
 description = "copyshop"
 edition = "2021"
 
@@ -30,6 +30,9 @@ tauri-plugin-process = "2"
 # Photos replaced by a better copy go to the Trash, from where they can be put back.
 trash = "5"
 tauri-plugin-updater = "2"
+# copyshop:// links (the playground's Desktop app button), and handing one to the copy already open.
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
 # The thumbnail test runs on a Mac too.
 [dev-dependencies]
