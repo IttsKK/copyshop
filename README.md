@@ -56,8 +56,7 @@ npm run build:app      # build it into src-tauri/target/release/bundle
 `npm run dev` runs the editor in a browser instead, at http://localhost:5178.
 
 A build from this source asks for no license key. It never checks for updates
-and sends no crash reports or usage data. Settings says it was built from
-source, with a link to buy copyshop if it's useful to you.
+and sends no crash reports or usage data.
 
 ## Tests
 
