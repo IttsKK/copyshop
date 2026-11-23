@@ -153,7 +153,7 @@ export function RecolourModule({ blend, items, open, onOpen, image, palette, onS
                   min={0}
                   max={1}
                   step={0.01}
-                  format={(v) => (v <= 0.005 ? 'Recoloured' : `${Math.round(v * 100)}% kept`)}
+                  format={(v) => (v <= 0.005 ? 'Off' : `${Math.round(v * 100)}%`)}
                   onChange={(highlights) => setItem(openOne, { highlights })}
                 />
                 <Slider

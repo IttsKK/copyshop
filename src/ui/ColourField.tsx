@@ -108,28 +108,36 @@ export function ColourField({
     <div className="field colour-field">
       <span title={title ?? label}>{label}</span>
       <div className="colour-options">
-        {(photoSources ? SOURCES : []).map((s) => (
-          <button
-            key={s.id}
-            className={value.source === s.id ? 'swatch-btn on' : 'swatch-btn'}
-            title={`${s.label} — ${s.hint}`}
-            onClick={() => onChange({ ...value, source: s.id })}
-          >
-            <i style={{ background: toCss(palette[s.id]) }} />
-            {s.label}
-          </button>
-        ))}
-        {swatches.map((s) => (
-          <button
-            key={s.label}
-            className={manual && same(s.colour, value.colour) ? 'swatch-btn on' : 'swatch-btn'}
-            title={s.label}
-            onClick={() => onChange({ source: 'manual', colour: s.colour })}
-          >
-            <i style={{ background: toCss(s.colour) }} />
-            {s.label}
-          </button>
-        ))}
+        {photoSources && (
+          <div className="colour-sources">
+            {SOURCES.map((s) => (
+              <button
+                key={s.id}
+                className={value.source === s.id ? 'swatch-btn on' : 'swatch-btn'}
+                title={`${s.label} — ${s.hint}`}
+                onClick={() => onChange({ ...value, source: s.id })}
+              >
+                <i style={{ background: toCss(palette[s.id]) }} />
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {swatches.length > 0 && (
+          <div className="colour-swatches">
+            {swatches.map((s) => (
+              <button
+                key={s.label}
+                className={manual && same(s.colour, value.colour) ? 'swatch-btn on' : 'swatch-btn'}
+                title={s.label}
+                onClick={() => onChange({ source: 'manual', colour: s.colour })}
+              >
+                <i style={{ background: toCss(s.colour) }} />
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
         <span className="colour-tools">
           <button
             className={customActive || open || sampling ? 'tool-btn on' : 'tool-btn'}

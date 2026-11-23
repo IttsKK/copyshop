@@ -710,7 +710,17 @@ button.link:hover:not(:disabled) { background: none; text-decoration: underline;
 .spot-list { display: flex; flex-wrap: wrap; gap: 4px; }
 .spot-list button { font-size: 11px; min-height: 22px; padding: 2px 8px; }
 .hint-line { font-size: 11px; color: var(--muted); }
-.colour-field .colour-options .swatch-btn { width: auto; grid-column: auto; flex: 0 0 auto; }
+/* The colour choices in even columns that fill the row: no last one left hanging on a line of its own (CONTRIBUTING, Interface). */
+.colour-field .colour-options { display: flex; flex-direction: column; gap: 4px; container-type: inline-size; }
+/* Two by two, or four across where the panel has room for their whole names. */
+.colour-sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+@container (min-width: 290px) { .colour-sources { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.colour-swatches { display: flex; flex-wrap: wrap; gap: 4px; }
+.colour-field .colour-options .swatch-btn { width: auto; min-width: 0; grid-column: auto; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.colour-sources .swatch-btn { width: 100%; }
+.colour-swatches .swatch-btn { flex: 1 1 auto; }
+.colour-field .colour-options .swatch-btn i { flex: none; }
+.colour-field .colour-options .colour-tools > button { flex: 1 1 0; }
 /* A switch beside its label drops under it when its options no longer fit
    on the line (a narrow panel), instead of cutting off their names. Flex
    rather than the grid: wrapping is decided by the options' full width, and
