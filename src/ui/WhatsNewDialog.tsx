@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react'
 import { ModuleGlyph } from './ModuleGlyph'
 import { PreciseDownloadButton } from './PreciseSettings'
 import { CATEGORY_BY_ID, MODULE_BY_ID } from './moduleCatalog'
-import { RELEASES, type Release, useIsNew, whereIs } from './whatsNew'
+import { KIND_ORDER, RELEASES, type ChangeKind, type NewThing, type Release, useIsNew, whereIs } from './whatsNew'
 import type { StackModuleId } from './moduleCatalog'
+import { CloseIcon, FixedIcon, ImprovedIcon, NewIcon } from './icons'
 
 interface Props {
   /** The releases to show (since the version updated from); missing, every release. */
@@ -13,12 +14,24 @@ interface Props {
   onShowModule: (id: string) => void
 }
 
+/** Each kind's mark and its name on the tag. */
+const KINDS: Record<ChangeKind, { label: string; Icon: () => React.JSX.Element }> = {
+  new: { label: 'New', Icon: NewIcon },
+  improved: { label: 'Improved', Icon: ImprovedIcon },
+  fixed: { label: 'Fixed', Icon: FixedIcon },
+}
+
+/** A release's things in the order they're listed: new (modules first), then improved, then fixed. */
+const inOrder = (things: NewThing[]) =>
+  KIND_ORDER.flatMap((k) => things.filter((t) => t.kind === k).sort((a, b) => Number(!!b.module) - Number(!!a.module)))
+
 const when = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
 
 /**
- * What's new: each release's new modules (named and pictured as the panel
- * has them, where they are, and Show me) and its other changes (where they
- * are found), newest first.
+ * What's new: each release's things, newest release first, each marked as
+ * new, improved or fixed (whatsNew.ts). A module is named and pictured as the
+ * panel has it, with where it is and Show me; anything else, with where it
+ * is found.
  */
 export function WhatsNewDialog({ releases = RELEASES, onClose, onShowModule }: Props) {
   const card = useRef<HTMLDivElement>(null)
@@ -28,8 +41,8 @@ export function WhatsNewDialog({ releases = RELEASES, onClose, onShowModule }: P
       <div className="overlay-card settings-card whats-new" role="dialog" aria-label="What's new" tabIndex={-1} ref={card} onClick={(e) => e.stopPropagation()}>
         <header>
           <h2>What’s new</h2>
-          <button className="icon" title="Close (Esc)" onClick={onClose}>
-            ×
+          <button className="icon" title="Close (Esc)" aria-label="Close" onClick={onClose}>
+            <CloseIcon />
           </button>
         </header>
         <div className="settings-body">
@@ -39,15 +52,16 @@ export function WhatsNewDialog({ releases = RELEASES, onClose, onShowModule }: P
                 copyshop {r.version} <small>{when(r.date)}</small>
               </h3>
               <ul>
-                {r.things.map((t, i) => {
+                {inOrder(r.things).map((t, i) => {
                   const def = t.module ? MODULE_BY_ID[t.module] : undefined
+                  const kind = KINDS[t.kind]
                   return (
-                    <li key={i} className="whats-new-thing">
-                      <span className="whats-new-mark">{def ? <ModuleGlyph id={def.id} tint={CATEGORY_BY_ID[def.category].tint} size={16} /> : <i className="whats-new-dot" />}</span>
+                    <li key={i} className={`whats-new-thing kind-${t.kind}`}>
+                      <span className="whats-new-mark">{def ? <ModuleGlyph id={def.id} tint={CATEGORY_BY_ID[def.category].tint} size={16} /> : <kind.Icon />}</span>
                       <div>
                         <b>
                           {def ? def.title : t.title}
-                          {def && <span className="new-tag">New</span>}
+                          <span className="whats-new-kind">{def && t.kind === 'new' ? 'New module' : kind.label}</span>
                         </b>
                         <p>{t.line}</p>
                         {(def || t.where) && (

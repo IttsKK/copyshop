@@ -75,3 +75,42 @@ export function RestoreIcon() {
     </svg>
   )
 }
+
+/** A window's close button: drawn, so it sits in the middle of its round button (the × character sat low). */
+export function CloseIcon() {
+  return (
+    <svg {...base} width={12} height={12} strokeWidth={1.5}>
+      <path d="M3.5 3.5l8 8M11.5 3.5l-8 8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/** What's new: something new. */
+export function NewIcon() {
+  return (
+    <svg {...base}>
+      <path d="M7.5 1.8l1.25 4.45 4.45 1.25-4.45 1.25L7.5 13.2l-1.25-4.45L1.8 7.5l4.45-1.25z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+/** What's new: something that works better. */
+export function ImprovedIcon() {
+  return (
+    <svg {...base}>
+      <path d="M8.6 1.6L3.4 8.4h3.8l-.9 5 5.3-6.9H7.8z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+/** What's new: something put right. */
+export function FixedIcon() {
+  return (
+    <svg {...base}>
+      <path
+        d="M9.2 2.3a3.2 3.2 0 0 1 3.9 0L10.9 4.5l.1 1.4 1.4.1 2.2-2.2a3.2 3.2 0 0 1-4 4L5 13.4a1.4 1.4 0 0 1-2-2l5.6-5.6a3.2 3.2 0 0 1 .6-3.5z"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}

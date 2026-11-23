@@ -3,6 +3,7 @@ import appIcon from './assets/app-icon.png'
 import { openUrl } from '../platform/native'
 import { activate } from '../transfer/license'
 import { DESKTOP_CHECKOUT, WEB_APP, emailLostKey, receiveTransfers } from '../transfer/transfer'
+import { CloseIcon } from './icons'
 
 interface Props {
   /** 'start': first launch; 'invalid': the license stopped working. Nothing else until a key is in. 'change': from Settings, and can be closed. */
@@ -150,7 +151,7 @@ export function ActivateDialog({ mode, onDone, onClose }: Props) {
       <div className="intro-card activate-card" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
         {closable && (
           <button className="intro-close" title="Close (Esc)" aria-label="Close" disabled={!!busy} onClick={onClose}>
-            ×
+            <CloseIcon />
           </button>
         )}
         <img className="intro-icon" src={appIcon} alt="" width={64} height={64} draggable={false} />

@@ -3,6 +3,7 @@ import { openUrl } from '../platform/native'
 import { sendReport, telemetryOn } from '../platform/telemetry'
 import { CONTACT, FEEDBACK_MAIL } from '../transfer/transfer'
 import { track } from '../platform/usage'
+import { CloseIcon } from './icons'
 
 interface Props {
   onClose: () => void
@@ -55,8 +56,8 @@ export function FeedbackDialog({ onClose, edit, lead, crash }: Props) {
       >
         <header>
           <h2>Report a problem</h2>
-          <button className="icon" title="Close (Esc)" onClick={onClose}>
-            ×
+          <button className="icon" title="Close (Esc)" aria-label="Close" onClick={onClose}>
+            <CloseIcon />
           </button>
         </header>
         {state === 'sent' ? (
