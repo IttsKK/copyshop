@@ -6,9 +6,10 @@
 //! some of its outputs here under a name (a photo's image embeddings, 16 MB)
 //! for later runs to take as inputs, so they never cross back and forth.
 //!
-//! ONNX Runtime's prebuilt libraries are there for Apple silicon, Windows and
-//! Linux on x86_64; an Intel Mac has none, and runs precise selection's first
-//! model in the page (WebGPU) and goes without the second. On a Mac the
+//! ONNX Runtime's prebuilt libraries are linked in for Apple silicon and
+//! Windows. An Intel Mac has none, and Linux's needs a newer glibc than the
+//! Linux build is made for: there precise selection's first model runs in the
+//! page (WebGPU on an Intel Mac, the CPU on Linux) and the second is not used. On a Mac the
 //! runtime would add Core ML on its own: it is kept to the CPU, as Core ML
 //! aborted the process on one of these models and hung on another (Nov 23).
 
@@ -122,11 +123,7 @@ fn split_body(body: &[u8]) -> Result<(RunHeader, &[u8]), String> {
     Ok((header, &body[4 + len..]))
 }
 
-#[cfg(any(
-    all(target_os = "macos", target_arch = "aarch64"),
-    all(target_os = "windows", target_arch = "x86_64"),
-    all(target_os = "linux", target_arch = "x86_64")
-))]
+#[cfg(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "windows", target_arch = "x86_64")))]
 mod imp {
     use super::*;
     use ort::session::builder::{AutoDevicePolicy, GraphOptimizationLevel};
@@ -261,12 +258,8 @@ mod imp {
     }
 }
 
-/// No native runtime in this build (an Intel Mac): precise selection runs what it can in the page.
-#[cfg(not(any(
-    all(target_os = "macos", target_arch = "aarch64"),
-    all(target_os = "windows", target_arch = "x86_64"),
-    all(target_os = "linux", target_arch = "x86_64")
-)))]
+/// No native runtime in this build (an Intel Mac, Linux): precise selection runs what it can in the page.
+#[cfg(not(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "windows", target_arch = "x86_64"))))]
 mod imp {
     use super::*;
     pub const NATIVE: bool = false;

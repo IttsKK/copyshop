@@ -35,7 +35,7 @@ export function PreciseSettings({ onStatus }: { onStatus: (message: string) => v
         <span
           title={
             'Selects buildings, people and cars with a cleaner edge: Segment Anything 2.1 finds what you click, then looks again closer' +
-            (edgeHere ? ', and BiRefNet traces its edge.' : '. (Tracing the edge needs a Mac with Apple silicon.)') +
+            (edgeHere ? ', and BiRefNet traces its edge.' : '. (Tracing its edge as well needs a Mac with Apple silicon, or Windows.)') +
             ' The first answer shows at once; the sharper one a few seconds later. Runs on this computer; nothing is sent anywhere.'
           }
         >

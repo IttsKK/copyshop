@@ -20,9 +20,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Windows: the installer, installed, so the check runs the app as people get it (DirectML.dll beside it).
           - platform: windows-latest
-            exe: src-tauri/target/release/grain-emulator.exe
+            build: --bundles nsis
           - platform: ubuntu-22.04
+            build: --no-bundle
             exe: src-tauri/target/release/grain-emulator
     runs-on: ${{ matrix.platform }}
     steps:
@@ -47,14 +49,26 @@ jobs:
 
       - run: npm ci
 
-      - name: Build the app (no installer)
-        run: npx tauri build --no-bundle
+      - name: Build the app
+        run: npx tauri build ${{ matrix.build }}
         env:
           SENTRY_UPLOAD: '0'
 
-      - name: What the build put beside the app
+      - name: Install it (Windows)
+        if: runner.os == 'Windows'
         shell: bash
-        run: ls -la src-tauri/target/release | grep -v -E '\.d$|\.pdb$' | head -40
+        run: |
+          installer=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -1)
+          "$installer" //S //D="$(cygpath -w "$RUNNER_TEMP/inst")"
+          for i in $(seq 1 60); do ls "$RUNNER_TEMP/inst"/*.exe >/dev/null 2>&1 && break; sleep 2; done
+          ls -la "$RUNNER_TEMP/inst"
+          test -f "$RUNNER_TEMP/inst/DirectML.dll" || { echo "DirectML.dll is not beside the installed app"; exit 1; }
+          exe=$(ls "$RUNNER_TEMP/inst"/*.exe | grep -v -i uninstall | head -1)
+          echo "APP=$exe" >> "$GITHUB_ENV"
+
+      - name: The app (Linux)
+        if: runner.os == 'Linux'
+        run: echo "APP=${{ matrix.exe }}" >> "$GITHUB_ENV"
 
       - name: The models
         shell: bash
@@ -68,7 +82,7 @@ jobs:
           cp public/samples/sample-street.jpg "$SMOKE/photo.jpg"
           echo '{"only":true,"box":{"x0":0.30,"y0":0.80,"x1":0.47,"y1":0.97}}' > "$SMOKE/precise.json"
           export GRAIN_EMULATOR_DATA="$RUNNER_TEMP/data" GRAIN_EMULATOR_SMOKE="$SMOKE"
-          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a "${{ matrix.exe }}" & else "${{ matrix.exe }}" & fi
+          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a "$APP" & else "$APP" & fi
           for i in $(seq 1 180); do [ -f "$SMOKE/report.json" ] && break; sleep 5; done
           sleep 2
           cat "$SMOKE/report.json" || { echo "No report after 15 minutes"; exit 1; }

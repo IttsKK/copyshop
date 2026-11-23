@@ -14,10 +14,11 @@ import { PRECISE_SIDE } from './side'
  * BiRefNet along that. The first answer comes back at once; the sharper one
  * follows (onBetter) when it is ready, seconds later.
  *
- * Where the models run: on Windows, natively on the GPU (DirectML); on a Mac,
- * Segment Anything on the GPU in the page (WebGPU, ~0.3 s) and BiRefNet
- * natively on the CPU (~12 s); on Linux natively on the CPU. An Intel Mac has
- * no native runtime: Segment Anything only, in the page.
+ * Where the models run: on Windows, natively on the GPU (DirectML, the CPU if
+ * it can't); on a Mac with Apple silicon, Segment Anything on the GPU in the
+ * page (WebGPU, ~0.3 s) and BiRefNet natively on the CPU (~15 s). An Intel Mac
+ * and Linux have no native runtime: Segment Anything only, in the page (on
+ * WebGPU on the Mac, the CPU on Linux).
  */
 
 /* ---------------------------------------------------------------- worker */
@@ -140,6 +141,8 @@ interface Ready {
   devices: string
 }
 let ready: Promise<Ready> | null = null
+/** Where the models ran, for reports and the self-check: "find webgpu/webgpu, cpu; edge cpu". */
+export let preciseDevices = ''
 
 function reset() {
   ready = null
@@ -151,7 +154,7 @@ function reset() {
 function load(parts: PrecisePart[]): Promise<Ready> {
   ready ??= (async () => {
     const info = await mlInfo()
-    // Segment Anything: natively when that has the GPU (Windows) or there is no WebGPU in the page (Linux); else in the page.
+    // Segment Anything: natively when that has the GPU (Windows) or the page has no WebGPU; else in the page.
     const findHere = info.native && (info.gpu !== null || !('gpu' in navigator)) ? native : web
     const enc = await precisePath('sam', 'vision_encoder_fp16.onnx')
     const dec = await precisePath('sam', 'prompt_encoder_mask_decoder_fp16.onnx')
@@ -163,6 +166,7 @@ function load(parts: PrecisePart[]): Promise<Ready> {
             .then((path) => native.load('biref', path))
             .then((d3) => {
               Sentry.setTag('precise.edge', d3)
+              preciseDevices += `; edge ${d3}`
               return native
             })
             .catch((err) => {
@@ -172,6 +176,7 @@ function load(parts: PrecisePart[]): Promise<Ready> {
         : Promise.resolve(null)
     const devices = `find ${d1}/${d2}, ${info.gpu ?? 'cpu'}`
     Sentry.setTag('precise.devices', devices)
+    preciseDevices = devices
     return { find: findHere, edge, devices }
   })().catch((err) => {
     ready = null

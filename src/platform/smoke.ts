@@ -311,7 +311,8 @@ async function preciseCheck(dir: string): Promise<string | boolean> {
   const { checkPrecise } = await import('../ml/precise/models')
   const state = await checkPrecise()
   if (state.kind !== 'installed') return 'not downloaded (skipped)'
-  const { preciseSegment } = await import('../ml/precise/precise')
+  const precise = await import('../ml/precise/precise')
+  const { preciseSegment } = precise
   const file = await nativeFolder(dir).file('photo.jpg')
   if (!file) return false
   const bitmap = await createImageBitmap(file)
@@ -346,7 +347,7 @@ async function preciseCheck(dir: string): Promise<string | boolean> {
   const better = await sharp
   const total = Math.round(performance.now() - t0)
   await drawSelection(bitmap, better, joinPath(dir, 'precise-sharp.png'))
-  return `${stages.join(', ')}, sharp ${total} ms, ${better.width}x${better.height}`
+  return `${stages.join(', ')}, sharp ${total} ms, ${better.width}x${better.height} (${precise.preciseDevices})`
 }
 
 async function runPreciseOnly(dir: string): Promise<void> {

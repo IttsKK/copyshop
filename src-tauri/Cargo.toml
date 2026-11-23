@@ -36,10 +36,12 @@ tauri-plugin-updater = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
-# Precise selection (src/ml.rs): ONNX Runtime's own prebuilt library, linked in. It is
-# there for Apple silicon, and Windows and Linux on x86_64; not for Intel Macs, which
-# go without. On Windows it runs on the GPU through DirectML.
-[target.'cfg(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "windows", target_arch = "x86_64"), all(target_os = "linux", target_arch = "x86_64")))'.dependencies]
+# Precise selection (src/ml.rs): ONNX Runtime's own prebuilt library, linked in, for
+# Apple silicon and Windows on x86_64; on Windows it runs on the GPU through DirectML.
+# Not on Intel Macs (no prebuilt library) or Linux (its library needs glibc 2.38, and
+# the Linux build is made on Ubuntu 22.04 to run on older systems too): there precise
+# selection runs what it can in the page.
+[target.'cfg(any(all(target_os = "macos", target_arch = "aarch64"), all(target_os = "windows", target_arch = "x86_64")))'.dependencies]
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "tls-native", "copy-dylibs", "api-24"] }
 [target.'cfg(all(target_os = "windows", target_arch = "x86_64"))'.dependencies]
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "tls-native", "copy-dylibs", "api-24", "directml"] }

@@ -55,7 +55,7 @@ let infoPromise: Promise<MlInfo> | null = null
 export const mlInfo = (): Promise<MlInfo> =>
   (infoPromise ??= isNative() ? invoke<MlInfo>('ml_info').catch(() => ({ native: false, gpu: null })) : Promise.resolve({ native: false, gpu: null }))
 
-/** The parts worth having here: the edge model needs the native runtime (an Intel Mac has none). */
+/** The parts worth having here: the edge model needs the native runtime (an Intel Mac and Linux have none). */
 export async function partsHere(): Promise<PrecisePart[]> {
   return (await mlInfo()).native ? ['find', 'edge'] : ['find']
 }
