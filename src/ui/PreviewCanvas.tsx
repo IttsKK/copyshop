@@ -27,6 +27,8 @@ import { capturePointer } from './pointer'
 import { encodeWebp } from '../pipeline/webp'
 import { PickOverlay, pickNear, type Picker } from './PickOverlay'
 import { centredPan, clampPan, type Pan } from './viewClamp'
+import { trackpadScrollStore } from './state/settings'
+import { inTextField } from './shortcuts'
 
 /**
  * How far in the view is: 'fit' shows the whole print, a number is device
@@ -666,6 +668,15 @@ export function PreviewCanvas({
     if (!base) return
     e.preventDefault()
     if (small) return
+    // A pinch (WebKit's own gesture, below) is under way: its wheel echo is not a second zoom.
+    if (pinch.current && e.ctrlKey) return
+    // A trackpad's two-finger swipe moves the view, any way, whatever tool is
+    // out (Settings: Two-finger scroll); a pinch (ctrl+wheel in Chromium) and a
+    // mouse wheel zoom.
+    if (!e.ctrlKey && trackpadScrollStore.get() === 'move' && fromTrackpad(e)) {
+      setPan((p) => within({ x: within(p, scale).x + (e.deltaX * dpr) / scale, y: within(p, scale).y + (e.deltaY * dpr) / scale }, scale))
+      return
+    }
     // Over the selected collage piece, the wheel sizes its image instead.
     const onPiece = collagePieceAt(e.clientX, e.clientY)
     if (onPiece && collageEditor) {
@@ -683,8 +694,39 @@ export function PreviewCanvas({
     if (!host) return
     const onWheel = (e: WheelEvent) => wheelRef.current(e)
     host.addEventListener('wheel', onWheel, { passive: false })
-    return () => host.removeEventListener('wheel', onWheel)
+    // A pinch on a Mac's trackpad: WebKit tells it as a gesture with a scale
+    // (not as a ctrl+wheel, as Chromium does), and would zoom the page itself.
+    type Gesture = Event & { scale: number; clientX: number; clientY: number }
+    const start = (e: Event) => {
+      e.preventDefault()
+      pinch.current = { scale: scaleNow.current }
+    }
+    const change = (e: Event) => {
+      e.preventDefault()
+      const g = e as Gesture
+      if (pinch.current && typeof g.scale === 'number') pinchRef.current(pinch.current.scale * g.scale, g.clientX, g.clientY)
+    }
+    const end = (e: Event) => {
+      e.preventDefault()
+      pinch.current = null
+    }
+    host.addEventListener('gesturestart', start)
+    host.addEventListener('gesturechange', change)
+    host.addEventListener('gestureend', end)
+    return () => {
+      host.removeEventListener('wheel', onWheel)
+      host.removeEventListener('gesturestart', start)
+      host.removeEventListener('gesturechange', change)
+      host.removeEventListener('gestureend', end)
+    }
   }, [])
+  const pinch = useRef<{ scale: number } | null>(null)
+  const pinchRef = useRef((_to: number, _x: number, _y: number) => {})
+  pinchRef.current = (to, x, y) => {
+    if (!base || small) return
+    const next = clamp(to, fitScale * MIN_ZOOM_OF_FIT, MAX_ZOOM)
+    zoomAt(Math.abs(next - fitScale) < fitScale * 0.01 ? 'fit' : next, x, y, true)
+  }
 
   /**
    * One layer rendered for a view, from the kept render when the layer, the
@@ -1551,23 +1593,78 @@ export function PreviewCanvas({
   // The middle button always moves the view, over anything on the photo (an
   // editor's points, a mask being painted), like a hand tool held ready: it
   // is caught before anything under it sees it.
-  const middle = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null)
+  const middle = useRef<{ x: number; y: number; panX: number; panY: number; button: number } | null>(null)
+  /**
+   * Space held over the photo: the hand, as Photoshop's. A drag moves the
+   * view, as the middle button's does, whatever tool is out; let go of Space
+   * and the tool carries on where it was. Not while typing in a field.
+   */
+  const [hand, setHand] = useState(false)
+  const handNow = useRef(false)
+  handNow.current = hand
+  const [handDragging, setHandDragging] = useState(false)
+  const pointerOver = useRef(false)
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || e.metaKey || e.ctrlKey || e.altKey || inTextField(e.target)) return
+      if (!pointerOver.current && !handNow.current) return
+      // Kept from the page, a focused button and every other key handler.
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.repeat) return
+      // At once, not at the next render: a click straight after is the hand's.
+      handNow.current = true
+      setHand(true)
+    }
+    const up = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || !handNow.current) return
+      e.preventDefault()
+      e.stopPropagation()
+      handNow.current = false
+      setHand(false)
+    }
+    const away = () => {
+      handNow.current = false
+      setHand(false)
+    }
+    window.addEventListener('keydown', down, true)
+    window.addEventListener('keyup', up, true)
+    window.addEventListener('blur', away)
+    return () => {
+      window.removeEventListener('keydown', down, true)
+      window.removeEventListener('keyup', up, true)
+      window.removeEventListener('blur', away)
+    }
+  }, [])
   const panBy = useRef((_d: { x: number; y: number; panX: number; panY: number }, _e: PointerEvent) => {})
   panBy.current = (d, ev) => setPan(within({ x: d.panX - ((ev.clientX - d.x) * dpr) / scale, y: d.panY - ((ev.clientY - d.y) * dpr) / scale }, scale))
   const onMiddleDown = (e: React.PointerEvent) => {
-    if (e.button !== 1) return
+    // The middle button, or any click with Space held (the hand).
+    if (e.button !== 1 && !(e.button === 0 && handNow.current)) return
     e.preventDefault()
     e.stopPropagation()
     if (!base || small || middle.current) return
-    middle.current = { x: e.clientX, y: e.clientY, panX: view.x, panY: view.y }
+    middle.current = { x: e.clientX, y: e.clientY, panX: view.x, panY: view.y, button: e.button }
+    setHandDragging(e.button === 0)
     const move = (ev: PointerEvent) => {
       if (!middle.current) return
       ev.stopPropagation()
       panBy.current(middle.current, ev)
     }
     const up = (ev: PointerEvent) => {
-      if (ev.type === 'pointerup' && ev.button !== 1) return
+      if (ev.type === 'pointerup' && ev.button !== middle.current?.button) return
+      // The click that ends a hand drag is the hand's, not the tool's under it (a point added there, say).
+      if (ev.button === 0) {
+        ev.stopPropagation()
+        const eat = (c: MouseEvent) => {
+          c.stopPropagation()
+          c.preventDefault()
+        }
+        window.addEventListener('click', eat, { capture: true, once: true })
+        setTimeout(() => window.removeEventListener('click', eat, true), 0)
+      }
       middle.current = null
+      setHandDragging(false)
       window.removeEventListener('pointermove', move, true)
       window.removeEventListener('pointerup', up, true)
       window.removeEventListener('pointercancel', up, true)
@@ -1696,8 +1793,10 @@ export function PreviewCanvas({
 
   return (
     <div
-      className="preview"
+      className={`preview${hand ? ' hand' : ''}${handDragging ? ' hand-dragging' : ''}`}
       ref={hostRef}
+      onPointerEnter={() => (pointerOver.current = true)}
+      onPointerLeave={() => (pointerOver.current = false)}
       // Stops the browser's middle-button autoscroll from starting.
       onMouseDown={(e) => e.button === 1 && e.preventDefault()}
       onPointerDownCapture={onMiddleDown}
@@ -1989,4 +2088,26 @@ export function PreviewCanvas({
       )}
     </div>
   )
+}
+
+/**
+ * Whether a wheel event is a trackpad's two-finger swipe rather than a mouse
+ * wheel's notch. Nothing says so outright: a sideways part says trackpad; in
+ * WebKit and Chromium a trackpad's legacy wheelDelta is three times its
+ * delta, a wheel's whole notches of 120; and the events of one swipe (its
+ * glide after the fingers lift too) keep the answer of its first.
+ */
+let lastTrackpad = 0
+function fromTrackpad(e: WheelEvent): boolean {
+  const now = e.timeStamp || Date.now()
+  let pad = false
+  if (e.deltaMode === 0) {
+    const legacy = (e as WheelEvent & { wheelDeltaY?: number }).wheelDeltaY
+    if (e.deltaX !== 0) pad = true
+    else if (typeof legacy === 'number' && legacy !== 0) pad = legacy === -3 * e.deltaY && legacy % 120 !== 0
+    else pad = !Number.isInteger(e.deltaY) || Math.abs(e.deltaY) < 40
+  }
+  if (!pad && now - lastTrackpad < 250 && e.deltaMode === 0) pad = true
+  if (pad) lastTrackpad = now
+  return pad
 }

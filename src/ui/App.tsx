@@ -3025,7 +3025,7 @@ export function App() {
             { key: PANEL_KEYS.strip, group: 'View', label: 'Filmstrip', onDown: act('toggle-filmstrip') },
             { key: 'g', group: 'View', label: 'Library', onDown: () => setLibraryShown(true) },
             { key: 'd', group: 'View', label: 'Editor (in the Library: edit the photo picked or shown large)', onDown: () => setLibraryShown(false) },
-            { key: ' ', display: 'Space', group: 'View', label: 'In the Library: the photo large (or double-click it), and back', displayOnly: true },
+            { key: ' ', display: 'Space', group: 'View', label: 'Hold and drag to move the photo, whatever tool is out (as the middle button does); in the Library, the photo large and back', displayOnly: true },
             { key: 'f', group: 'View', label: 'In the Library: the photo filling the screen, and back', displayOnly: true },
             { key: 'arrowright', display: '← →', group: 'View', label: 'In the Library: previous and next photo', displayOnly: true },
             { key: 'cmd+]', display: keyLabel('cmd+]'), group: 'View', label: 'Next photo', onDown: () => stepStrip(1) },

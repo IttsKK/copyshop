@@ -38,3 +38,11 @@ export const useSingleModule = () => useStore(singleModuleStore)
 /** Animations kept to a minimum, whatever the system says. (The system's Reduce motion is always followed.) */
 export const reduceMotionStore = persistedStore<boolean>('settings.reduceMotion', false)
 export const useReduceMotion = () => useStore(reduceMotionStore)
+
+/**
+ * A two-finger swipe on a trackpad over the photo: moves it (as in Figma,
+ * Lightroom and Apple's apps; a pinch zooms), or zooms as a mouse wheel
+ * does. A mouse wheel always zooms.
+ */
+export const trackpadScrollStore = persistedStore<'move' | 'zoom'>('settings.trackpadScroll', 'move')
+export const useTrackpadScroll = () => useStore(trackpadScrollStore)

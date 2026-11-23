@@ -3251,3 +3251,7 @@ input[type="range"].tinted::-moz-range-progress { background: transparent; }
 .whats-new-thing p { margin: 3px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
 .whats-new-where { display: flex; align-items: center; gap: 10px; color: var(--text) !important; font-size: 11.5px !important; }
 .whats-new-button { border-color: var(--accent); }
+
+/* Space held over the photo: the hand, over every tool's own cursor (PreviewCanvas). */
+.preview.hand, .preview.hand * { cursor: grab !important; }
+.preview.hand-dragging, .preview.hand-dragging * { cursor: grabbing !important; }

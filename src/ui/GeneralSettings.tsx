@@ -10,7 +10,7 @@ import { diskFolder } from '../storage/disk'
 import { libraryAvailable, loadRecent, onRecent, removeRecent } from '../storage/library'
 import { LISTED_LOOKS, NONE_LOOK } from './looks'
 import { DesktopAppSettings } from './DesktopAppSettings'
-import { launchStore, reduceMotionStore, singleModuleStore, startLookStore, useLaunch, useReduceMotion, useSingleModule, useStartLook } from './state/settings'
+import { launchStore, reduceMotionStore, singleModuleStore, startLookStore, trackpadScrollStore, useLaunch, useReduceMotion, useSingleModule, useStartLook, useTrackpadScroll } from './state/settings'
 import { OFFICIAL } from '../platform/build'
 
 interface Props {
@@ -37,6 +37,7 @@ export function GeneralSettings({ onIntro, onReport, onTour, onStatus, onWhatsNe
   const startLook = useStartLook()
   const singleModule = useSingleModule()
   const reduceMotion = useReduceMotion()
+  const trackpadScroll = useTrackpadScroll()
   const [recent, setRecent] = useState(0)
   useEffect(() => {
     if (!app) return
@@ -81,6 +82,17 @@ export function GeneralSettings({ onIntro, onReport, onTour, onStatus, onWhatsNe
           <input type="checkbox" checked={reduceMotion} onChange={(e) => reduceMotionStore.set(e.target.checked)} />
           Reduce motion
         </label>
+        <div className="settings-row" title="Over the photo. A pinch always zooms and a mouse wheel zooms; Space and drag, or the middle button, always moves the photo, whatever tool is out.">
+          <span>Two-finger swipe on a trackpad</span>
+          <div className="segmented">
+            <button className={trackpadScroll === 'move' ? 'on' : ''} onClick={() => trackpadScrollStore.set('move')}>
+              Moves the photo
+            </button>
+            <button className={trackpadScroll === 'zoom' ? 'on' : ''} onClick={() => trackpadScrollStore.set('zoom')}>
+              Zooms
+            </button>
+          </div>
+        </div>
       </section>
       {app && (
         <section className="settings-section">
