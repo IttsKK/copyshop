@@ -917,9 +917,13 @@ export interface MaskShape {
   /**
    * What the key measures: brightness, or how blue a pixel is (its blue,
    * 0..1 encoded) — which tells foliage and land from sky when they are as
-   * bright as each other: hazy blue sky and sunlit needles can be.
+   * bright as each other: hazy blue sky and sunlit needles can be — or how
+   * like `keyColour` it is (keyValue.ts), 0..1: a green tree, a red car.
+   * With a colour, lighter keeps what is like it, darker what is not.
    */
-  keyOn: 'brightness' | 'blue'
+  keyOn: 'brightness' | 'blue' | 'colour'
+  /** The colour a key on colour compares with (encoded 0..1). */
+  keyColour?: Rgb
   /** Where the key cuts, 0..1 (encoded), in what it measures. */
   keyLevel: number
   /** How gradually it cuts, 0..0.5. */

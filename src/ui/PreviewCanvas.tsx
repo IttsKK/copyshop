@@ -1800,14 +1800,21 @@ export function PreviewCanvas({
       // Stops the browser's middle-button autoscroll from starting.
       onMouseDown={(e) => e.button === 1 && e.preventDefault()}
       onPointerDownCapture={onMiddleDown}
-      // The background round the photo pans too.
+      // The background round the photo pans too; but while selecting a
+      // subject, brushing or picking a colour, a press there is the tool's (a
+      // box begun just past the photo's edge is a box, held to the edge, not
+      // a drag that moves the photo away).
       onPointerDown={(e) => {
-        if (e.target !== hostRef.current || !base || small) return
-        if (e.button === 0) startPan(e)
+        if (e.target !== hostRef.current || !base || small || e.button !== 0) return
+        if (picker || maskBrush || sampling) onPointerDown(e)
+        else startPan(e)
       }}
       onPointerMove={(e) => e.target === hostRef.current && onPointerMove(e)}
       onPointerUp={(e) => {
-        if (e.target === hostRef.current && dragRef.current?.mode === 'pan') dragRef.current = null
+        if (e.target !== hostRef.current) return
+        const mode = dragRef.current?.mode
+        if (mode === 'pan') dragRef.current = null
+        else if (mode === 'box' || mode === 'brush' || mode === 'sample') onPointerUp(e)
       }}
     >
       {small && base && (

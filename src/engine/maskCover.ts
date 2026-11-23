@@ -1,3 +1,4 @@
+import { keyValue } from './keyValue'
 import type { MaskShape } from './types'
 import { distanceTo } from '../ml/trace'
 
@@ -72,7 +73,6 @@ export function maskCoverage(
     fg = maps.fg
     bg = maps.bg
   }
-  const blue = m.keyOn === 'blue'
   const lighterKept = m.key === 'lighter'
   const lo = m.keyLevel - soft
   const span = 2 * soft
@@ -82,7 +82,7 @@ export function maskCoverage(
     let keyed = 1
     if (fg && bg && ramps) keyed = colourKey(px[i * 4] / 255, px[i * 4 + 1] / 255, px[i * 4 + 2] / 255, fg, bg, i, ramps[i])
     else if (matched) {
-      const v = blue ? px[i * 4 + 2] / 255 : (0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2]) / 255
+      const v = keyValue(px[i * 4] / 255, px[i * 4 + 1] / 255, px[i * 4 + 2] / 255, m.keyOn, m.keyColour)
       let t = (v - lo) / span
       t = t < 0 ? 0 : t > 1 ? 1 : t
       const lighter = t * t * (3 - 2 * t)

@@ -913,7 +913,7 @@ section.module-off > :not(.section-head):not(.module-actions),
 .drop-from button.on { background: #33363c; color: var(--text); }
 
 .colour-group { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; display: grid; gap: 4px; }
-.colour-group h3 { margin: 0; font-size: 11px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; cursor: help; }
+.colour-group h3 { margin: 0; font-size: 11px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
 
 /* Section masks: a small button in each maskable section's header. */
 .section-mask-button { font-size: 10px; min-height: 18px; padding: 1px 7px; margin-left: auto; margin-right: 6px; color: var(--muted); }

@@ -1,10 +1,13 @@
+import { keyValue } from '../engine/keyValue'
+import type { Rgb } from '../engine/types'
 import type { Point } from '../engine/leaks'
 import type { Size } from '../engine/types'
 
 /** What a tone key picks: pixels darker (or lighter) than a level, in brightness or in blue. */
 export interface TraceKey {
   key: 'darker' | 'lighter'
-  keyOn: 'brightness' | 'blue'
+  keyOn: 'brightness' | 'blue' | 'colour'
+  keyColour?: Rgb
   /** 0..1, encoded, as the shader's key reads it. */
   keyLevel: number
 }
@@ -76,7 +79,7 @@ export function traceKeyOutline(photo: CanvasImageSource, size: Size, outline: P
     const r = rgb[i * 4] / 255
     const g = rgb[i * 4 + 1] / 255
     const b = rgb[i * 4 + 2] / 255
-    raw[i] = k.keyOn === 'blue' ? b : 0.2126 * r + 0.7152 * g + 0.0722 * b
+    raw[i] = keyValue(r, g, b, k.keyOn, k.keyColour)
   }
   const d = new Float32Array(n)
   for (let y = 0; y < gh; y++)

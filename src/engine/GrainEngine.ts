@@ -3,6 +3,7 @@ import { decodeRaster, rasterKey } from './maskRaster'
 import type { EffectParams, LeakSpot, MaskRaster, MaskShape } from './types'
 import { composeRepeat } from './repeat'
 import { composeKaleido } from './kaleido'
+import { keyValue, packKeyColour } from './keyValue'
 import { composeRecolour, withAsShot } from './recolour'
 import { withLighting } from './lighting'
 import { unbend } from './lensBend'
@@ -191,7 +192,9 @@ interface LayerShape {
    * blue. A sky laid in is not what the key was set against: read from the
    * collaged photo, a darker new sky passed for the subject.
    */
-  keyOn?: 'brightness' | 'blue'
+  keyOn?: 'brightness' | 'blue' | 'colour'
+  /** With keyOn 'colour': the colour it is like. */
+  keyColour?: Rgb
   /**
    * A leak shape: drawn as a signed distance field instead (r high, g low
    * byte; -SDF_RANGE..SDF_RANGE), its outline in fractions of `frame` (the
@@ -3045,7 +3048,7 @@ export class GrainEngine {
               // Keyed at the edge: the ramp spans the band the key works in.
               feather: edgeKeyed(m) ? m.keyBand ?? KEY_BAND : m.feather,
               ...(m.raster && maskKind(m) === 'subject' ? { raster: m.raster } : {}),
-              ...(underCollage && m.key && m.key !== 'off' ? { keyOn: m.keyOn ?? 'brightness' } : {}),
+              ...(underCollage && m.key && m.key !== 'off' ? { keyOn: m.keyOn ?? 'brightness', ...(m.keyOn === 'colour' ? { keyColour: m.keyColour } : {}) } : {}),
               ...(edgeKeyed(m) && !underCollage ? { colourKey: true } : {}),
             }))
           : []),
@@ -3062,7 +3065,7 @@ export class GrainEngine {
       { image: req.base, size: req.baseSize, frame: photoFrame(req.baseSize, req.params.border) },
     )
     const mFlags = new Float32Array(MAX_MASKS * 4)
-    const mKey = new Float32Array(MAX_MASKS * 2)
+    const mKey = new Float32Array(MAX_MASKS * 4)
     const mGrow = new Float32Array(MAX_MASKS)
     const mShape = new Float32Array(MAX_MASKS * 4)
     const mShape2 = new Float32Array(MAX_MASKS * 4)
@@ -3071,13 +3074,13 @@ export class GrainEngine {
       mFlags.set(
         [
           m.featherAt === 'outside' ? 2 : m.featherAt === 'centre' ? 1 : 0,
-          m.keyOn === 'blue' ? 1 : 0,
+          m.keyOn === 'blue' ? 1 : m.keyOn === 'colour' ? 2 : 0,
           m.key === 'darker' ? 1 : m.key === 'lighter' ? 2 : 0,
           m.key === 'off' ? 0 : (m.cleanEdges ?? 1),
         ],
         i * 4,
       )
-      mKey.set([m.keyLevel, Math.max(m.keySoftness, 0.002)], i * 2)
+      mKey.set([m.keyLevel, Math.max(m.keySoftness, 0.002), packKeyColour(m.keyOn === 'colour' ? m.keyColour : undefined), 0], i * 4)
       // A radial or gradient mask, in shape units, worked out exactly (maskCover).
       const kind = maskKind(m)
       // y: keyed at the edge; z: a selection, with painting in its layer's red;
@@ -3109,7 +3112,7 @@ export class GrainEngine {
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.maskLayers.texture)
     gl.uniform4fv(u.uMaskRect, mLayers.rects.subarray(0, MAX_MASKS * 4))
     gl.uniform4fv(u.uMaskFlags, mFlags)
-    gl.uniform2fv(u.uMaskKey, mKey)
+    gl.uniform4fv(u.uMaskKey, mKey)
     gl.uniform1fv(u.uMaskGrow, mGrow)
     gl.uniform4fv(u.uMaskShape, mShape)
     gl.uniform4fv(u.uMaskShape2, mShape2)
@@ -4086,9 +4089,8 @@ export class GrainEngine {
         const src = pc.getImageData(0, 0, size, size).data
         const layer = ctx.getImageData(0, 0, size, size)
         const out = layer.data
-        const blue = shape.keyOn === 'blue'
         for (let q = 0; q < out.length; q += 4)
-          out[q + 2] = blue ? src[q + 2] : Math.round(0.2126 * src[q] + 0.7152 * src[q + 1] + 0.0722 * src[q + 2])
+          out[q + 2] = Math.round(keyValue(src[q] / 255, src[q + 1] / 255, src[q + 2] / 255, shape.keyOn, shape.keyColour) * 255)
         ctx.putImageData(layer, 0, 0)
       }
       gl.activeTexture(gl.TEXTURE0 + store.unit)

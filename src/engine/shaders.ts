@@ -212,8 +212,8 @@ uniform int uStreakCount;
 uniform highp sampler2DArray uMaskShapes;      // a layer per mask: r its inside, g that blurred by its feather
 uniform vec4 uMaskRect[MASKS];           // the area each layer covers (short-side units)
 uniform float uMaskGrow[MASKS];          // how far each reaches past what it covers (short-side units)
-uniform vec4 uMaskFlags[MASKS];          // feather inside/centre/outside (0/1/2), key measures blue (1) or brightness, key off/darker/lighter (0/1/2), clean edges 0..1 (keyed only)
-uniform vec2 uMaskKey[MASKS];            // key level, softness (encoded brightness)
+uniform vec4 uMaskFlags[MASKS];          // feather inside/centre/outside (0/1/2), key measures brightness (0), blue (1) or likeness to a colour (2), key off/darker/lighter (0/1/2), clean edges 0..1 (keyed only)
+uniform vec4 uMaskKey[MASKS];            // key level, softness, the key's colour packed (r·65536 + g·256 + b, 0..255 each), unused (a vec2 array takes as many rows)
 uniform vec4 uMaskShape[MASKS];          // kind (0 drawn, 1 radial, 2 gradient); radial: centre, angle; gradient: start
 uniform vec4 uMaskShape2[MASKS];         // radial: radii, softness; gradient: end (shape units)
 uniform int uMaskCount;                         // 0 when no section uses a mask
@@ -1186,12 +1186,29 @@ float fixCover(int f, float t, float band) {
  * — in brightness, or in its blue
  * — so the mask takes the subject's own edge and the outline can be loose.
  */
-/** How far the photo here passes mask i's tone key: darker (or lighter) than its level, in brightness or blue. */
+/**
+ * What a mask's key measures in a colour (encoded): its brightness, its
+ * blue, or how like the key's own colour it is, 0..1 (maskKey.ts keyValue:
+ * the same sum), its hue and strength of colour counting more than how
+ * light it is, so a tree in sun and in shade are both like its green.
+ */
+float keyValue(float on, vec4 k, vec3 c) {
+  if (on < 0.5) return dot(c, vec3(0.2126, 0.7152, 0.0722));
+  if (on < 1.5) return c.b;
+  float p = k.z;
+  vec3 kc = vec3(floor(p / 65536.0), floor(mod(p, 65536.0) / 256.0), mod(p, 256.0)) / 255.0;
+  vec3 w = vec3(0.299, 0.587, 0.114);
+  float y = dot(c, w);
+  float yk = dot(kc, w);
+  vec3 d = vec3((y - yk) * 0.35, (c.b - y - kc.b + yk) * 0.564, (c.r - y - kc.r + yk) * 0.713);
+  return clamp(1.0 - length(d) * 2.5, 0.0, 1.0);
+}
+
+/** How far the photo here passes mask i's key: darker (or lighter) than its level, in brightness or blue, or (lighter) more like its colour. */
 float maskKeyed(int i, vec2 uv, vec3 photo) {
   vec4 f = uMaskFlags[i];
-  vec2 k = uMaskKey[i];
-  // Measured as brightness, or as how blue the photo is here.
-  float v = f.y > 0.5 ? photo.b : dot(photo, vec3(0.2126, 0.7152, 0.0722));
+  vec4 k = uMaskKey[i];
+  float v = keyValue(f.y, k, photo);
   // Under a collage: where the photo here is not what it was (a sky laid
   // in), the key reads it as it was, kept in the layer's blue.
   if (uCollageOwn == 1) {
@@ -1941,8 +1958,8 @@ bool keyedLikeSubject(vec2 q) {
     if (((use.x >> k) & 1) == 0) continue;
     vec4 f = uMaskFlags[k];
     if (f.z < 0.5) continue;
-    vec2 key = uMaskKey[k];
-    float v = f.y > 0.5 ? photo.b : dot(photo, vec3(0.2126, 0.7152, 0.0722));
+    vec4 key = uMaskKey[k];
+    float v = keyValue(f.y, key, photo);
     float lighter = smoothstep(key.x - key.y, key.x + key.y, v);
     if ((f.z > 1.5 ? lighter : 1.0 - lighter) > 0.5) return true;
   }

@@ -5885,7 +5885,8 @@ export function App() {
           rounded: false,
           texture: 0,
           edge: Math.max(0.002, m.feather * 0.5),
-          ...(m.key !== 'off' ? { key: m.key, keyOn: m.keyOn, keyLevel: m.keyLevel, keySoftness: m.keySoftness } : {}),
+          // (A light keyed on a colour can't be one: leak shapes key on brightness or blue only.)
+          ...(m.key !== 'off' && m.keyOn !== 'colour' ? { key: m.key, keyOn: m.keyOn, keyLevel: m.keyLevel, keySoftness: m.keySoftness } : {}),
         },
       ]
     })

@@ -290,7 +290,10 @@ function parseMask(raw: unknown, fallbackId: string, fallbackName: string): Mask
     feather: num(m.feather, d.feather, 0, 0.5),
     featherAt: FEATHER_AT.includes(m.featherAt as never) ? (m.featherAt as MaskShape['featherAt']) : d.featherAt,
     key: MASK_KEYS.includes(m.key as never) ? (m.key as MaskShape['key']) : d.key,
-    keyOn: m.keyOn === 'blue' ? 'blue' : 'brightness',
+    keyOn: m.keyOn === 'blue' ? 'blue' : m.keyOn === 'colour' ? 'colour' : 'brightness',
+    ...(Array.isArray(m.keyColour) && m.keyColour.length === 3 && m.keyColour.every((v) => typeof v === 'number' && Number.isFinite(v))
+      ? { keyColour: (m.keyColour as number[]).map((v) => Math.min(1, Math.max(0, v))) as Rgb }
+      : {}),
     keyLevel: num(m.keyLevel, d.keyLevel, 0, 1),
     keySoftness: num(m.keySoftness, d.keySoftness, 0, 0.5),
     cleanEdges: num(m.cleanEdges, d.cleanEdges, 0, 1),

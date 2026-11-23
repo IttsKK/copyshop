@@ -2,6 +2,10 @@ import { setBrushRange, useBrushRange } from './maskBrush'
 import './lists.css'
 import { EditBox } from './EditBox'
 import { KEY_BAND } from '../engine/maskCover'
+import { ColourField } from './ColourField'
+import { originalOf } from '../engine/original'
+import { NEUTRAL_PALETTE } from '../engine/palette'
+import { DEFAULT_KEY_COLOUR } from '../engine/keyValue'
 import { MAX_MASKS, MASK_SECTIONS, type EffectParams, type MaskOwner, type MaskSection, type MaskShape, type SectionMask } from '../engine/types'
 import { useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ADD_KINDS, MaskGlyph, MaskOverlayContext, PickPanel, type AddKind, type NewMaskTarget, type PickingState } from './maskKinds'
@@ -288,9 +292,9 @@ export function MaskSettings({ mask: m, index: i, hasImage, picking, brushing, o
                         {mode === 'all' && (
                           <>
                             <div className="field valued">
-                              <span title="What is compared: how bright each pixel is, or how blue">Compare</span>
+                              <span title="What is compared: how bright each pixel is, how blue, or how like a colour">Compare</span>
                               <div className="segmented">
-                                <button className={m.keyOn !== 'blue' ? 'on' : ''} title="How bright each pixel is: a dark subject against a light sky" onClick={() => onChange(i, { keyOn: 'brightness' }, `mask${i}:keyOn`)}>
+                                <button className={m.keyOn === 'brightness' || !m.keyOn ? 'on' : ''} title="How bright each pixel is: a dark subject against a light sky" onClick={() => onChange(i, { keyOn: 'brightness' }, `mask${i}:keyOn`)}>
                                   Brightness
                                 </button>
                                 <button
@@ -300,41 +304,87 @@ export function MaskSettings({ mask: m, index: i, hasImage, picking, brushing, o
                                 >
                                   Blue
                                 </button>
+                                <button
+                                  className={m.keyOn === 'colour' ? 'on' : ''}
+                                  title="How like a colour each pixel is: a green tree, a red car, a teal sign. Pick the colour, or take it from the photo"
+                                  onClick={() =>
+                                    m.keyOn !== 'colour' &&
+                                    onChange(i, { keyOn: 'colour', keyColour: m.keyColour ?? DEFAULT_KEY_COLOUR, key: 'lighter', keyLevel: 0.82, keySoftness: Math.min(Math.max(m.keySoftness, 0.04), 0.08) }, `mask${i}:keyOn`)
+                                  }
+                                >
+                                  Colour
+                                </button>
                               </div>
                             </div>
+                            {m.keyOn === 'colour' && (
+                              <ColourField
+                                label="Colour"
+                                title="The colour the mask keeps (or leaves out): pick it, or take it from the photo"
+                                value={{ source: 'manual', colour: m.keyColour ?? DEFAULT_KEY_COLOUR }}
+                                palette={NEUTRAL_PALETTE}
+                                photoSources={false}
+                                // The key reads the photo as it was taken: so does the dropper.
+                                sampleWithout={originalOf}
+                                onChange={(c) => onChange(i, { keyColour: c.source === 'manual' ? c.colour : NEUTRAL_PALETTE[c.source] }, `mask${i}:keyColour`)}
+                              />
+                            )}
                             <div className="field valued">
                               <span title="Which side of the level the mask keeps">Keep</span>
                               <div className="segmented">
-                                {(['darker', 'lighter'] as const).map((key) => (
+                                {(['lighter', 'darker'] as const).map((key) => (
                                   <button key={key} className={m.key === key ? 'on' : ''} onClick={() => onChange(i, { key }, `mask${i}:key`)}>
-                                    {m.keyOn === 'blue' ? (key === 'darker' ? 'Less blue' : 'More blue') : key === 'darker' ? 'Darker' : 'Lighter'}
+                                    {m.keyOn === 'colour'
+                                      ? key === 'lighter'
+                                        ? 'Like it'
+                                        : 'Not like it'
+                                      : m.keyOn === 'blue'
+                                        ? key === 'darker'
+                                          ? 'Less blue'
+                                          : 'More blue'
+                                        : key === 'darker'
+                                          ? 'Darker'
+                                          : 'Lighter'}
                                   </button>
                                 ))}
                               </div>
                             </div>
-                            <ToneGauge range={range(m.keyLevel, m.keySoftness)} />
+                            {m.keyOn === 'colour' ? (
+                              <Slider
+                                label="Range"
+                                title="How different a colour can be and still count as like it: more takes in its lighter, darker and nearby shades"
+                                value={1 - m.keyLevel}
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                onChange={(range) => onChange(i, { keyLevel: 1 - range }, `mask${i}:keyLevel`)}
+                              />
+                            ) : (
+                              <>
+                                <ToneGauge range={range(m.keyLevel, m.keySoftness)} />
+                                <Slider
+                                  track={toneTrack(0, 1, space)}
+                                  label="Level"
+                                  title="Where the photo is cut between kept and not"
+                                  value={m.keyLevel}
+                                  min={0}
+                                  max={1}
+                                  step={0.01}
+                                  onChange={(keyLevel) => onChange(i, { keyLevel }, `mask${i}:keyLevel`)}
+                                  touches={(level) => ({ ...range(level, m.keySoftness), space })}
+                                />
+                              </>
+                            )}
                             <Slider
-                              track={toneTrack(0, 1, space)}
-                              label="Level"
-                              title="Where the photo is cut between kept and not"
-                              value={m.keyLevel}
-                              min={0}
-                              max={1}
-                              step={0.01}
-                              onChange={(keyLevel) => onChange(i, { keyLevel }, `mask${i}:keyLevel`)}
-                              touches={(level) => ({ ...range(level, m.keySoftness), space })}
-                            />
-                            <Slider
-                              label="Softness"
+                              label="Fade"
                               title="How gradually it cuts between kept and not"
                               value={m.keySoftness}
                               min={0}
                               max={0.3}
                               step={0.005}
                               onChange={(keySoftness) => onChange(i, { keySoftness }, `mask${i}:keySoftness`)}
-                              touches={(soft) => ({ ...range(m.keyLevel, soft), space })}
+                              {...(m.keyOn === 'colour' ? {} : { touches: (soft: number) => ({ ...range(m.keyLevel, soft), space }) })}
                             />
-                            {shaped && (
+                            {shaped && m.keyOn !== 'colour' && (
                               <button disabled={!hasImage} title="Read the photo along the mask's edge again and set these to fit it" onClick={() => onMatch(i, 'again')}>
                                 Set from the photo
                               </button>
@@ -342,7 +392,7 @@ export function MaskSettings({ mask: m, index: i, hasImage, picking, brushing, o
                             {kind === 'outline' && mode === 'all' && (
                               <TraceToKey
                                 outline={m.outline}
-                                keyed={{ key: m.key as 'darker' | 'lighter', keyOn: m.keyOn ?? 'brightness', keyLevel: m.keyLevel }}
+                                keyed={{ key: m.key as 'darker' | 'lighter', keyOn: m.keyOn ?? 'brightness', keyColour: m.keyColour, keyLevel: m.keyLevel }}
                                 trace={trace}
                                 onTrace={(outline) => onChange(i, { outline, key: 'off' }, `mask${i}:trace`)}
                               />
