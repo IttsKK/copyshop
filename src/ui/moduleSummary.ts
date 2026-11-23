@@ -116,6 +116,13 @@ export function moduleSummary(id: StackModuleId, b: BlendParams): string {
       const where = r.layout === 'grid' ? 'on a grid' : r.layout === 'path' ? 'along a path' : 'placed'
       return `${n} ${n === 1 ? 'copy' : 'copies'} ${where}`
     }
+    case 'recolour': {
+      const items = (e.recolour?.items ?? []).filter((it) => it.enabled && e.masks.some((m) => m.id === it.source))
+      if (!items.length) return 'Nothing recoloured yet'
+      const kept = items.filter((it) => it.mode === 'asShot').length
+      const changed = items.length - kept
+      return join([changed > 0 && `${changed} ${changed === 1 ? 'part' : 'parts'} recoloured`, kept > 0 && `${kept} kept as shot`])
+    }
     case 'kaleido': {
       const k = e.kaleido
       if (!k) return ''

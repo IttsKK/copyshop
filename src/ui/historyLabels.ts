@@ -123,6 +123,7 @@ const EFFECT_KEYS: Record<string, StackModuleId> = {
   crop: 'crop',
   repeat: 'repeat',
   kaleido: 'kaleido',
+  recolour: 'recolour',
   lighting: 'lighting',
 }
 
@@ -408,6 +409,9 @@ const MASK_FIELDS: Record<string, string> = {
   runs: 'painted',
 }
 
+/** A Recolour part's settings, as its panel names them. */
+const PART_FIELDS: Record<string, string> = { mode: 'colour, hue only or as shot', colour: 'new colour', strength: 'strength', keep: 'kept out of Colour and B&W', source: 'part' }
+
 /** A streak's tone key fields, as its Mask tab names them. */
 const STREAK_KEY_FIELDS: Record<string, string> = {
   key: 'tone key',
@@ -463,7 +467,7 @@ function itemTitle(a: unknown, b: unknown, noun: string, i: number): string {
   const moves = keys.map((k) => motion(k, a[k], b[k]))
   if (moves.length > 0 && moves.every((m) => m !== null)) return `${name} ${new Set(moves).size === 1 ? moves[0] : 'reshaped'}`
   // One setting, or several that read as one (both ends of where a streak's tone changes).
-  const own = noun === 'Mask' ? MASK_FIELDS : noun === 'Streak' ? STREAK_KEY_FIELDS : noun === 'Piece' ? PIECE_FIELDS : {}
+  const own = noun === 'Mask' ? MASK_FIELDS : noun === 'Streak' ? STREAK_KEY_FIELDS : noun === 'Piece' ? PIECE_FIELDS : noun === 'Part' ? PART_FIELDS : {}
   const named = [...new Set(keys.map((k) => own[k] ?? ITEM_FIELDS[k] ?? humanize(k)))]
   return named.length ? `${name}: ${listWords(named)}` : `${name} changed`
 }
@@ -502,7 +506,8 @@ function moduleChange(mod: StackModuleId, cs: Change[]): string {
     if (settings.length === 1) {
       const k = settings[0]
       if (SWITCHES.has(k)) return `${title} ${onOff(c.b[k])}`
-      if (LISTS[k]) return listTitle(c.a[k], c.b[k], LISTS[k])
+      // Recolour's list is `items` too: its things are parts, not repeats.
+      if (LISTS[k]) return listTitle(c.a[k], c.b[k], mod === 'recolour' && k === 'items' ? 'Part' : LISTS[k])
       return fieldTitle(mod, k)
     }
     // Several things in it: name them, unless one is a list of placed things.

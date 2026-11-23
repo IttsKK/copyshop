@@ -28,7 +28,7 @@ export type ClipPart = StackModuleId | 'masks'
  * and part, its lights, its masks,
  * pieces and a second photo laid in): offered, but not chosen unless asked for.
  */
-export const PLACED: readonly ClipPart[] = ['crop', 'streaks', 'repeat', 'kaleido', 'lighting', 'collage', 'double', 'masks']
+export const PLACED: readonly ClipPart[] = ['crop', 'streaks', 'repeat', 'kaleido', 'recolour', 'lighting', 'collage', 'double', 'masks']
 
 /** The base photo's modules share one set of settings: each one's own. */
 export const BASE_SETTINGS: Partial<Record<StackModuleId, (keyof BaseParams)[]>> = {
@@ -66,7 +66,7 @@ export function pasteClip(clip: EditClip, into: { blend: BlendParams; grainSourc
   if (look.length && look.every((p) => clip.parts.includes(p)))
     for (const m of MODULES) if (!PLACED.includes(m.id) && !look.includes(m.id) && inUse(m.id, blend)) blend = stopModule(m.id, blend)
   // A module's own masks (a streak's subject, a repeat's piece), swapped for the copied photo's.
-  const owned = (owner: 'streak' | 'repeat' | 'kaleido') => fx({ masks: [...blend.effects.masks.filter((m) => m.owner !== owner), ...structuredClone(from.effects.masks.filter((m) => m.owner === owner))] })
+  const owned = (owner: 'streak' | 'repeat' | 'kaleido' | 'recolour') => fx({ masks: [...blend.effects.masks.filter((m) => m.owner !== owner), ...structuredClone(from.effects.masks.filter((m) => m.owner === owner))] })
   for (const p of clip.parts) {
     const base = p !== 'masks' ? BASE_SETTINGS[p] : undefined
     const kind = p !== 'masks' ? presetKind(p) : null
@@ -79,6 +79,9 @@ export function pasteClip(clip: EditClip, into: { blend: BlendParams; grainSourc
     } else if (p === 'repeat') {
       fx({ repeat: structuredClone(from.effects.repeat) })
       owned('repeat')
+    } else if (p === 'recolour') {
+      fx({ recolour: structuredClone(from.effects.recolour) })
+      owned('recolour')
     } else if (p === 'kaleido') {
       fx({ kaleido: structuredClone(from.effects.kaleido) })
       owned('kaleido')

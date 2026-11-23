@@ -1,6 +1,7 @@
 import { DEFAULT_LIGHTING } from '../engine/lighting'
 import { DEFAULT_REPEAT, DEFAULT_REPEAT_MODULE } from '../engine/repeatParams'
 import { DEFAULT_KALEIDO } from '../engine/kaleido'
+import { DEFAULT_RECOLOUR } from '../engine/recolour'
 import { baseActive } from '../engine/base'
 import { doubleOn, lensOn, prismOn } from '../engine/extras'
 import { DEFAULT_BLEND_PARAMS, DEFAULT_GLASS, glassOn, type BlendParams } from '../engine/types'
@@ -39,7 +40,7 @@ export const CATEGORIES: Category[] = [
   // photos arrive already edited and never need it.
   { id: 'base', label: 'Base photo', tint: '#9fb3c8', hint: "Corrections for a photo that hasn't been edited elsewhere, like a camera JPEG or RAW file", brief: "Exposure, white balance, curve", short: 'Base' },
   { id: 'camera', label: 'Camera', tint: '#a9c27a', hint: "Framing and lens effects, a second exposure, and a date stamp", brief: "Crop, lens, double exposure, date stamp", short: 'Camera' },
-  { id: 'colour', label: 'Colour & tone', tint: '#e48aa6', hint: "Tone and colour grading", brief: "Tone, colour grading", short: 'Colour' },
+  { id: 'colour', label: 'Colour & tone', tint: '#e48aa6', hint: "Tone and colour grading, and parts in a new colour", brief: "Recolour, colour grading, tone", short: 'Colour' },
   { id: 'light', label: 'Glow', tint: '#f2a65e', hint: "Glow, edge light, solarizing, lights placed on the photo, light leaks and burns", brief: "Glow, edges, solarize, lighting, leaks", short: 'Glow' },
   { id: 'texture', label: 'Film & texture', tint: '#d6c6a2', hint: "Black and white, grain, dither and pixel art", brief: "B&W, grain, dither, pixel art", short: 'Film' },
   { id: 'shapes', label: 'Effects', tint: '#7fcdc4', hint: "Effects made on the photo from your selections: streaks, glass, collage, repeat and kaleidoscope", brief: "Streaks, glass, collage, repeat, kaleidoscope", short: 'Effects' },
@@ -53,6 +54,7 @@ export type StackModuleId =
   | 'crop'
   | 'repeat'
   | 'kaleido'
+  | 'recolour'
   | 'lighting'
   | 'lens'
   | 'prism'
@@ -96,6 +98,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'prism', title: 'Prism', category: 'camera', blurb: 'Splits the colours apart: red and blue, or a rainbow', keywords: 'prism rgb split chromatic aberration rainbow dispersion fringe glitch colour shift spectrum refraction crystal' },
   { id: 'double', title: 'Double exposure', category: 'camera', blurb: 'Blends a second photo over this one', keywords: 'multiple exposure overlay blend second photo screen ghost' },
   { id: 'stamp', title: 'Date stamp', category: 'camera', blurb: 'A date printed in the corner, like a point-and-shoot camera', keywords: 'date time lcd orange disposable point and shoot text' },
+  { id: 'recolour', title: 'Recolour', category: 'colour', blurb: 'Parts of the photo in a new colour, or kept as shot', keywords: 'recolour recolor colour color change replace hue paint tint object building car sky keep original as shot selective colour' },
   { id: 'colour', title: 'Colour', category: 'colour', blurb: 'Colour grading with palettes from the photo or set by hand', keywords: 'grade palette recipe tint warmth vibrance film stock pop' },
   { id: 'tone', title: 'Tone', category: 'colour', blurb: 'Film exposure, fade, soft highlights, vignette and clarity', keywords: 'push overexpose fade matte vignette structure clarity film' },
   { id: 'light', title: 'Glow', category: 'light', blurb: 'Halation and bloom around highlights', keywords: 'halation bloom glow light flare haze soft blur' },
@@ -186,6 +189,9 @@ function clearModule(id: StackModuleId, b: BlendParams): BlendParams {
     case 'repeat':
       // What each copies stays: its piece is made, not a setting.
       return fx({ repeat: { enabled: !!e.repeat?.enabled, items: (e.repeat?.items ?? []).map((r) => ({ ...DEFAULT_REPEAT, id: r.id, enabled: r.enabled, source: r.source })) } })
+    case 'recolour':
+      // Its parts stay (they are made, not settings): each back to its colour at full strength.
+      return fx({ recolour: { enabled: !!e.recolour?.enabled, items: (e.recolour?.items ?? []).map((it) => ({ ...it, mode: 'colour' as const, strength: 1 })) } })
     case 'kaleido':
       // Its piece stays: it is made, not a setting. The point goes back to the middle.
       return fx({ kaleido: { ...DEFAULT_KALEIDO, enabled: !!e.kaleido?.enabled, source: e.kaleido?.source ?? null } })
@@ -276,6 +282,9 @@ export function inUse(id: StackModuleId, b: BlendParams): boolean {
       return !!e.repeat?.enabled
     case 'kaleido':
       return !!e.kaleido?.enabled
+    case 'recolour':
+      // On as soon as it is switched on: its parts are made in the module.
+      return !!e.recolour?.enabled
     case 'lighting':
       return !!e.lighting?.enabled
     case 'border':
@@ -372,6 +381,8 @@ export function startModule(id: StackModuleId, b: BlendParams): BlendParams {
       return fx({ collage: { ...e.collage, enabled: true } })
     case 'repeat':
       return fx({ repeat: { ...(e.repeat ?? DEFAULT_REPEAT_MODULE), enabled: true } })
+    case 'recolour':
+      return fx({ recolour: { ...(e.recolour ?? DEFAULT_RECOLOUR), enabled: true } })
     case 'kaleido':
       // Straight away: a slice from the middle, copied round it.
       return fx({ kaleido: { ...(e.kaleido ?? DEFAULT_KALEIDO), enabled: true } })
@@ -419,6 +430,8 @@ export function switchOn(id: StackModuleId, b: BlendParams): BlendParams {
       return fx({ repeat: { ...(e.repeat ?? DEFAULT_REPEAT_MODULE), enabled: true } })
     case 'kaleido':
       return fx({ kaleido: { ...(e.kaleido ?? DEFAULT_KALEIDO), enabled: true } })
+    case 'recolour':
+      return fx({ recolour: { ...(e.recolour ?? DEFAULT_RECOLOUR), enabled: true } })
     case 'lighting':
       return fx({ lighting: { ...(e.lighting ?? DEFAULT_LIGHTING), enabled: true } })
     case 'pixel':
@@ -488,6 +501,8 @@ export function stopModule(id: StackModuleId, b: BlendParams): BlendParams {
       return fx({ repeat: { ...(e.repeat ?? DEFAULT_REPEAT_MODULE), enabled: false } })
     case 'kaleido':
       return fx({ kaleido: { ...(e.kaleido ?? DEFAULT_KALEIDO), enabled: false } })
+    case 'recolour':
+      return fx({ recolour: { ...(e.recolour ?? DEFAULT_RECOLOUR), enabled: false } })
     case 'lighting':
       return fx({ lighting: { ...(e.lighting ?? DEFAULT_LIGHTING), enabled: false } })
   }

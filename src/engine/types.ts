@@ -1,6 +1,7 @@
 import { DEFAULT_CROP, type CropParams } from './crop'
 import { DEFAULT_REPEAT_MODULE, type RepeatModule } from './repeatParams'
 import type { KaleidoParams } from './kaleido'
+import type { RecolourModule } from './recolour'
 import type { LightingParams } from './lighting'
 import type { ColourBlob } from './blobs'
 import type { Harmony } from './harmony'
@@ -948,14 +949,14 @@ export interface MaskShape {
   grow?: number
   /**
    * What this mask belongs to, when it is something's own (Repeat's piece,
-   * a streak's subject, Kaleidoscope's piece): made, changed and removed there, and left out of
+   * a streak's subject, Kaleidoscope's piece, a part Recolour colours): made, changed and removed there, and left out of
    * the Masks list and every module's mask menus.
    */
   owner?: MaskOwner
 }
 
 /** The modules that own masks of their own (MaskShape.owner). */
-export type MaskOwner = 'repeat' | 'streak' | 'kaleido'
+export type MaskOwner = 'repeat' | 'streak' | 'kaleido' | 'recolour'
 
 export const MAX_MASKS = 8
 
@@ -1526,6 +1527,8 @@ export interface EffectParams {
   repeat?: RepeatModule
   /** The photo, or a piece of it, copied round a point (engine/kaleido.ts). Missing in older edits: off. */
   kaleido?: KaleidoParams
+  /** Parts of the photo in a new colour, or kept as shot (engine/recolour.ts). Missing in older edits: off. */
+  recolour?: RecolourModule
   /** Lights drawn on the photo (engine/lighting.ts). Missing: none. */
   lighting?: LightingParams
 }

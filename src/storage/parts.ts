@@ -203,13 +203,13 @@ export async function deletePart(id: string): Promise<void> {
  * so a look is saved without them unless asked, applying a look keeps the
  * photo's own, and snapshots can leave them as they are now.
  */
-export function placedOf(b: BlendParams): Pick<BlendParams['effects'], 'streaks' | 'masks' | 'maskUse' | 'collage' | 'shapeSpace' | 'shapeUnits' | 'base' | 'double' | 'crop' | 'repeat' | 'kaleido' | 'lighting' | 'glass'> {
+export function placedOf(b: BlendParams): Pick<BlendParams['effects'], 'streaks' | 'masks' | 'maskUse' | 'collage' | 'shapeSpace' | 'shapeUnits' | 'base' | 'double' | 'crop' | 'repeat' | 'kaleido' | 'recolour' | 'lighting' | 'glass'> {
   const e = b.effects
   // The base photo's corrections, a second exposure, the crop, Repeat
   // (copies of a piece of this photo), the Kaleidoscope (its centre and part), the lighting placed round its streaks
   // and masks, and glass (usually drawn over part of it) are this photo's
   // too: a recipe never changes them.
-  return { streaks: e.streaks, masks: e.masks, maskUse: e.maskUse, collage: e.collage, shapeSpace: e.shapeSpace, shapeUnits: e.shapeUnits, base: e.base, double: e.double, crop: e.crop, repeat: e.repeat, kaleido: e.kaleido, lighting: e.lighting, glass: e.glass }
+  return { streaks: e.streaks, masks: e.masks, maskUse: e.maskUse, collage: e.collage, shapeSpace: e.shapeSpace, shapeUnits: e.shapeUnits, base: e.base, double: e.double, crop: e.crop, repeat: e.repeat, kaleido: e.kaleido, recolour: e.recolour, lighting: e.lighting, glass: e.glass }
 }
 
 /** `into` with `from`'s placed things. The date the stamp prints is the photo's, so it stays too. */

@@ -181,6 +181,14 @@ const GLYPHS: Record<string, (c: string) => ReactNode> = {
       <rect x="8.5" y="1.5" width="5.5" height="5.5" rx="1.2" fill={c} opacity="0.35" />
     </>
   ),
+  // Three shapes, each its own colour strength: parts given colours of their own.
+  recolour: (c) => (
+    <>
+      <rect x="1.5" y="6" width="4" height="8.5" rx="1" fill={c} opacity="0.45" />
+      <rect x="6" y="2" width="4" height="12.5" rx="1" fill={c} />
+      <rect x="10.5" y="8" width="4" height="6.5" rx="1" fill={c} opacity="0.7" />
+    </>
+  ),
   // Six wedges round a point, every other one stronger, as a kaleidoscope's mirrors show a slice.
   kaleido: (c) => (
     <>

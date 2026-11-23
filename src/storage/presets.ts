@@ -69,6 +69,7 @@ import { PRESET_STORE, getAll, newId, put, remove, type PresetRecord } from './d
 import { CROP_ASPECTS, type CropAspect } from '../engine/crop'
 import { DEFAULT_REPEAT, MAX_REPEATS, type RepeatModule, type RepeatParams } from '../engine/repeatParams'
 import { DEFAULT_KALEIDO, KALEIDO_COPIES, KALEIDO_RINGS, type KaleidoParams } from '../engine/kaleido'
+import { MAX_RECOLOURS, RECOLOUR_STARTS, type RecolourItem, type RecolourModule } from '../engine/recolour'
 import { DEFAULT_LIGHT, MAX_LIGHTS } from '../engine/lighting'
 import type { ExportFormat, ExportSizing } from '../pipeline/exportSize'
 
@@ -296,7 +297,7 @@ function parseMask(raw: unknown, fallbackId: string, fallbackName: string): Mask
     ...(m.keyWas === 'darker' || m.keyWas === 'lighter' ? { keyWas: m.keyWas } : {}),
     ...(m.keyAt === 'edge' ? { keyAt: 'edge' as const, keyBand: m.keyBand === OLD_KEY_BAND ? KEY_BAND : num(m.keyBand, KEY_BAND, 0.002, 0.2) } : {}),
     grow: num(m.grow, 0, 0, 0.5),
-    ...(m.owner === 'repeat' || m.owner === 'streak' || m.owner === 'kaleido' ? { owner: m.owner } : {}),
+    ...(m.owner === 'repeat' || m.owner === 'streak' || m.owner === 'kaleido' || m.owner === 'recolour' ? { owner: m.owner } : {}),
     ...(() => {
       const r = (m.raster ?? null) as Record<string, unknown> | null
       if (!r || typeof r.runs !== 'string' || !r.runs) return {}
@@ -477,6 +478,7 @@ export function ownMasks(fx: EffectParams): EffectParams {
   })
   fx.repeat?.items.forEach((r) => use(r.source, 'piece'))
   use(fx.kaleido?.source ?? null, 'kaleido')
+  fx.recolour?.items.forEach((it) => use(it.source, 'recolour'))
   for (const [section, m] of Object.entries(fx.maskUse ?? {})) m?.ids.forEach((id) => use(id, `section:${section}`))
   ;(fx.lighting?.lights ?? []).forEach((l) => {
     use(l.mask ?? null, 'light')
@@ -491,7 +493,7 @@ export function ownMasks(fx: EffectParams): EffectParams {
     if (m.owner) return m
     const by = [...(uses.get(m.id) ?? [])]
     if (by.length !== 1) return m
-    const owner = by[0].startsWith('subject:') ? ('streak' as const) : by[0] === 'piece' ? ('repeat' as const) : by[0] === 'kaleido' ? ('kaleido' as const) : null
+    const owner = by[0].startsWith('subject:') ? ('streak' as const) : by[0] === 'piece' ? ('repeat' as const) : by[0] === 'kaleido' ? ('kaleido' as const) : by[0] === 'recolour' ? ('recolour' as const) : null
     if (!owner) return m
     changed = true
     return { ...m, owner }
@@ -860,7 +862,33 @@ function parseEffectsAsSaved(value: unknown): EffectParams {
     })(),
     repeat: parseRepeatModule(e.repeat),
     ...(e.kaleido ? { kaleido: parseKaleido(e.kaleido) } : {}),
+    ...(e.recolour ? { recolour: parseRecolour(e.recolour) } : {}),
   }
+}
+
+/** Recolour's parts, each with its own mask, colour and strength. */
+export function parseRecolour(value: unknown): RecolourModule {
+  const r = (value ?? {}) as Record<string, unknown>
+  const items = (Array.isArray(r.items) ? r.items : []).slice(0, MAX_RECOLOURS).map((v, i): RecolourItem => {
+    const it = (v ?? {}) as Record<string, unknown>
+    const c = (it.colour ?? {}) as Record<string, unknown>
+    const rgb = Array.isArray(c.colour) && c.colour.length === 3 && c.colour.every((x) => typeof x === 'number' && Number.isFinite(x)) ? (c.colour.map((x) => Math.min(1, Math.max(0, x as number))) as Rgb) : RECOLOUR_STARTS[i % RECOLOUR_STARTS.length]
+    const sources = ['manual', 'light', 'shadow', 'accent', 'vivid']
+    return {
+      id: typeof it.id === 'string' && it.id ? it.id.slice(0, 60) : `recolour-${i + 1}`,
+      enabled: it.enabled !== false,
+      source: typeof it.source === 'string' && it.source ? it.source : null,
+      mode: it.mode === 'hue' || it.mode === 'asShot' ? it.mode : 'colour',
+      colour: {
+        source: sources.includes(c.source as string) ? (c.source as ColourChoice['source']) : 'manual',
+        colour: rgb,
+        ...(typeof c.saturation === 'number' && Number.isFinite(c.saturation) ? { saturation: num(c.saturation, 1, 0, 1.5) } : {}),
+      },
+      strength: num(it.strength, 1, 0, 1),
+      ...(it.keep === true ? { keep: true } : {}),
+    }
+  })
+  return { enabled: r.enabled === true, items }
 }
 
 /** Kaleidoscope's settings, each kept within what its controls reach. */

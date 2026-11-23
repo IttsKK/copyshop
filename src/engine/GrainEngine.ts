@@ -3,6 +3,7 @@ import { decodeRaster, rasterKey } from './maskRaster'
 import type { EffectParams, LeakSpot, MaskRaster, MaskShape } from './types'
 import { composeRepeat } from './repeat'
 import { composeKaleido } from './kaleido'
+import { composeRecolour, withAsShot } from './recolour'
 import { withLighting } from './lighting'
 import { unbend } from './lensBend'
 import { leanName, leanStreakShader, type LeanKind, type LeanVariant } from './streakLean'
@@ -102,6 +103,7 @@ function usesPalette(p: BlendParams): boolean {
     g.restColour,
   ]
   for (const spot of fx.leaks.spots) if (spot.colour) colours.push(spot.colour)
+  if (fx.recolour?.enabled) for (const it of fx.recolour.items) colours.push(it.colour)
   return colours.some((c) => c.source !== 'manual')
 }
 
@@ -2493,6 +2495,27 @@ export class GrainEngine {
   }
   private kaleidoCache: { base: RenderRequest['base']; key: string; canvas: OffscreenCanvas } | null = null
 
+  /**
+   * The photo with Recolour's parts in their new colours (engine/recolour.ts),
+   * first of all; made again only when the photo, the parts or their colours
+   * change; null when it changes no colours.
+   */
+  private recolourBase(base: RenderRequest['base'], size: Size, params: BlendParams): RenderRequest['base'] | null {
+    const fx = params.effects
+    if (!fx.recolour?.enabled) return null
+    const print = printSize(size, params.border)
+    const photoAt = photoFrame(size, params.border)
+    const maskFrame = fx.shapeSpace === 'print' ? { x: 0, y: 0, ...print } : photoAt
+    const used = fx.masks.filter((m) => fx.recolour!.items.some((it) => it.source === m.id))
+    const key = JSON.stringify([size, fx.recolour, used, maskFrame, photoAt])
+    const kept = this.recolourCache
+    if (kept && kept.base === base && kept.key === key) return kept.canvas
+    const canvas = composeRecolour(base, size, fx, maskFrame, photoAt)
+    this.recolourCache = canvas ? { base, key, canvas } : null
+    return canvas
+  }
+  private recolourCache: { base: RenderRequest['base']; key: string; canvas: OffscreenCanvas } | null = null
+
   render(given: RenderRequest): AnyCanvas {
     if (this.disposed) throw new Error('GrainEngine has been disposed.')
     // Lighting's lights are drawn as leaks are (engine/lighting.ts). A
@@ -2528,9 +2551,10 @@ export class GrainEngine {
     this.streaksLeftOut = wantStreaks && !withStreaks && !this.leanOn
     const req: RenderRequest = {
       ...input,
-      // Repeat's copies go into the photo itself, before everything else; then the Kaleidoscope's.
+      // Recolour's colours go into the photo itself, before everything else; then Repeat's copies; then the Kaleidoscope's.
       base: (() => {
-        const repeated = this.repeatedBase(input.base, input.baseSize, resolved) ?? input.base
+        const recoloured = this.recolourBase(input.base, input.baseSize, resolved) ?? input.base
+        const repeated = this.repeatedBase(recoloured, input.baseSize, resolved) ?? recoloured
         return this.kaleidoBase(repeated, input.baseSize, resolved) ?? repeated
       })(),
       params: resolved,
@@ -2979,7 +3003,8 @@ export class GrainEngine {
     // that only used it goes back to the whole photo.
     const masks = (fx.masks ?? []).slice(0, this.maskLimit()).map((m) => withOutline(m, frame))
     const live = (id: string) => masks.some((m) => m.id === id && maskOn(m))
-    const sectionUse = MASK_SECTIONS.map((section) => fx.maskUse?.[section])
+    // Recolour's parts kept as shot are kept out of Colour and Black & white too (withAsShot).
+    const sectionUse = MASK_SECTIONS.map((section) => withAsShot(section, fx.maskUse?.[section], fx))
     const streakUse = streaks.map((sh) =>
       sh.maskMode && sh.maskMode !== 'off' ? masks.reduce((bits, m, i) => ((sh.maskIds ?? []).includes(m.id) && maskOn(m) ? bits | (1 << i) : bits), 0) : 0,
     )

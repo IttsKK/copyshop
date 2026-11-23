@@ -70,6 +70,11 @@ export const MODULE_HELP: Record<StackModuleId, string[]> = {
     'Copies a piece of the photo: on a grid out from it, along a path you draw, or wherever you click.',
     'Make the piece here: select a subject, draw round it, or paint it. The copies go in before every other effect, so colour and grain treat them like the rest of the picture.',
   ],
+  recolour: [
+    'Gives parts of the photo a new colour. Select a part (click it, or drag a box round it) or draw round it: it takes a colour at once, and each new part the next one.',
+    'Colour keeps the part’s own light and shade, so a grey building turned red is still lit as it was. Hue only turns the hue and keeps how much colour it has. As shot keeps the part as it was taken: Colour and Black & white leave it. Keep it out of Colour and B&W does the same for a new colour: a red building in a black and white photo.',
+    'The new colours go in before the look, so its grade and grain go over them too. While you select or draw a part, Recolour is hidden so you see the photo itself.',
+  ],
   kaleido: [
     'Copies the photo round a point. Slice takes a wedge of the photo from the point and copies it all the way round; Select or Draw copies just that part round it, over the photo.',
     'Mirror flips every other copy, so they meet edge to edge. Rings put it inside itself again, smaller and turned, toward the point.',

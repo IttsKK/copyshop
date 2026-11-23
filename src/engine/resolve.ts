@@ -122,6 +122,18 @@ export function resolveParams(params: BlendParams, palette: Palette): BlendParam
         colour: pick(fx.leaks.colour),
         spots: fx.leaks.spots.map((spot) => (spot.colour ? { ...spot, colour: pick(spot.colour) } : spot)),
       },
+      // Recolour's colours are the photo's own scene, not the look's tint: the Colour key leaves them.
+      ...(fx.recolour
+        ? {
+            recolour: {
+              ...fx.recolour,
+              items: fx.recolour.items.map((it) => ({
+                ...it,
+                colour: { source: 'manual' as const, colour: muted(it.colour.source === 'manual' ? it.colour.colour : palette[it.colour.source], it.colour.saturation ?? 1) },
+              })),
+            },
+          }
+        : {}),
     },
   }
 }

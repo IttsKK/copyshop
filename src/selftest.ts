@@ -4361,6 +4361,7 @@ async function runModuleAloneTests() {
     if (m.id === 'collage') continue // its pieces come from the image library, which this page cannot store into
     if (m.id === 'crop') continue // taken before the engine: see the crop and export tests
     if (m.id === 'repeat') continue // needs a mask to copy: see runShapeMaskTests
+    if (m.id === 'recolour') continue // needs a part selected or drawn to colour
     if (m.id === 'lighting') continue // needs a light drawn: see the lighting test
     const on = placed(m.id, startModule(m.id, blank))
     const shown = render(on)
