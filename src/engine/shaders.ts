@@ -191,7 +191,7 @@ uniform vec4 uLineInfo[STREAKS];         // first line's across position, spacin
 uniform float uLineSpan[STREAKS];        // along range length (short-side units)
 uniform vec4 uStreakExtra[STREAKS];     // band, seed, reach (short-side units), mode (0 fill, 1 trail, 2 mask)
 uniform vec4 uStreakEnds[STREAKS];      // longest, shortest (shares of the full length), variation, grows from the colour edge
-uniform vec4 uStreakRepeat3[STREAKS];   // repeat, in perspective: how far the copies' own point is moved along the lines from the streak's (short-side units; 0 the same), and three unused
+uniform vec4 uStreakRepeat3[STREAKS];   // repeat, in perspective: how far the copies' own point is moved along the lines from the streak's (short-side units; 0 the same); a colour line (1: its line table says where each line reads, see colourLine.ts); two unused
 uniform vec4 uStreakRepeat2[STREAKS];   // repeat: how much detail, (unused), the blur level detail is measured against, how far along a bar the copy holds
 uniform vec4 uStreakRepeat[STREAKS];
 uniform vec4 uStreakBend[STREAKS];     // the lens's bend (k), the photo's middle and half-diagonal (short-side units): see lensBend.ts
@@ -2053,6 +2053,18 @@ vec4 tableLine(int i, int k) {
   return vec4(info.w + f * uLineSpan[i], c.b, c.a < 0.75 ? 1.0 : 0.0, 1.0);
 }
 
+/**
+ * A colour line (StreakShape.colourLine): where line t of shape i reads its
+ * colour, along it (s), if the streak has one and the line meets it; else
+ * -1e9. Its line table holds it (colourLine.ts).
+ */
+float colourLineS(int i, float t) {
+  if (uStreakRepeat3[i].y < 0.5) return -1e9;
+  vec4 info = uLineInfo[i];
+  vec4 l = tableLine(i, int(floor((t - info.x) / info.y)));
+  return l.w > 0.5 ? l.x : -1e9;
+}
+
 /** A slice of a bar's width from a bar at start: this line's place in it, stretched and maybe flipped. */
 float barSlice(float start, float w, float band, float h) {
   float stretch = mix(0.65, 1.45, fract(h * 13.7));
@@ -2666,6 +2678,8 @@ StreakHit streakAt(vec2 printPx, float keep) {
       // reads from deeper inside it. In stripes, where the line it reads
       // from leaves the shape.
       src = streakPos(i, vec2(st.x - leaves - 0.002 - pull, sy));
+      float lineAt = colourLineS(i, sy);
+      if (lineAt > -1e8) src = streakPos(i, vec2(lineAt, sy));
       if (uStreakRepeat[i].x > 0.5) {
         vec3 rr = repeatRead(i, st.x - leaves - 0.002, st.x);
         echoSrc = streakPos(i, vec2(rr.x - pull, sy));
@@ -2800,6 +2814,8 @@ StreakHit streakAt(vec2 printPx, float keep) {
         echoAmt = 1.0;
       }
       src = streakPos(i, vec2(readAt + depth - enters, sy));
+      float lineAt = colourLineS(i, sy);
+      if (lineAt > -1e8) src = streakPos(i, vec2(lineAt, sy));
       src = fixedSource(i, st, src, st.x - depth, readAt - (st.x - depth), reach, false, bandIdx, band, nudge, paint);
     }
     // The tone along the bar: the start's brightness, contrast and opacity

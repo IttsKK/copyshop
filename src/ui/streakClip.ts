@@ -19,6 +19,7 @@ const PLACE: readonly (keyof StreakShape)[] = [
   'radialRadius',
   'radialReach',
   'ends',
+  'colourLine',
   'mirrorAt',
   'subject',
   'maskIds',

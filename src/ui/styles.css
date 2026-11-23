@@ -2738,7 +2738,7 @@ html.reduce-motion .recipe-opened { animation: none; }
 .statusbar { z-index: 45; }
 
 /* A setting waiting on another (Slider idle): there, greyed, not in the way. */
-.field.is-idle { opacity: 0.38; }
+.field.is-idle, .check-row.is-idle { opacity: 0.38; }
 .field.is-idle > * { pointer-events: none; }
 .zoom-readout { min-width: 38px; text-align: center; }
 
@@ -3258,3 +3258,12 @@ input[type="range"].tinted::-moz-range-progress { background: transparent; }
 /* Space held over the photo: the hand, over every tool's own cursor (PreviewCanvas). */
 .preview.hand, .preview.hand * { cursor: grab !important; }
 .preview.hand-dragging, .preview.hand-dragging * { cursor: grabbing !important; }
+
+/* A mask's settings opened from its Edit in Where it applies (a streak's own masks). */
+.mask-applies-body { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px 22px; padding-left: 10px; border-left: 1px solid var(--line); }
+/* A streak masked: the module header's lit mask mark, on its row. */
+.streak-mask-mark { margin: 0 2px 0 0; padding: 1px 4px; }
+
+/* A streak's colour line (ColourLineOverlay): where its bars read their colours. */
+.colour-line { fill: none; stroke: #ffd27a; stroke-width: 2; pointer-events: none; filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.8)); }
+.colour-line-point circle { stroke: #ffd27a; }

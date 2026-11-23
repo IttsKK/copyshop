@@ -19,6 +19,7 @@ import { ShapeMaskOverlay, type ShapeMaskEditor } from './ShapeMaskOverlay'
 import { CropOverlay, type CropEditor } from './CropOverlay'
 import { RepeatOverlay, type RepeatEditor } from './RepeatOverlay'
 import { KaleidoOverlay, type KaleidoEditor } from './KaleidoOverlay'
+import { ColourLineOverlay, type ColourLineEditor } from './ColourLineOverlay'
 import { LightOverlay, type LightEditor } from './LightOverlay'
 import { StreakGuideOverlay, type StreakGuideEditor } from './StreakGuideOverlay'
 import { RasterTint } from './RasterTint'
@@ -160,6 +161,7 @@ interface Props {
   /** Repeat's path or placed copies, set on the photo. */
   repeatEditor?: RepeatEditor | null
   kaleidoEditor?: KaleidoEditor | null
+  colourLineEditor?: ColourLineEditor | null
   /** A streak's guides, laid along the photo's lines. */
   streakGuideEditor?: StreakGuideEditor | null
   /** Lighting's lights, drawn and edited on the photo. */
@@ -273,6 +275,7 @@ export function PreviewCanvas({
   cropEditor = null,
   repeatEditor = null,
   kaleidoEditor = null,
+  colourLineEditor = null,
   streakGuideEditor = null,
   lightEditor = null,
   maskBrush = null,
@@ -1976,6 +1979,9 @@ export function PreviewCanvas({
             region={geo.region}
             css={{ width: geo.out.width / dpr, height: geo.out.height / dpr }}
           />
+        )}
+        {colourLineEditor && geo && base && baseSize && layer && (
+          <ColourLineOverlay editor={colourLineEditor} frame={shapeFrame(baseSize, layer.params)} region={geo.region} css={{ width: geo.out.width / dpr, height: geo.out.height / dpr }} />
         )}
         {kaleidoEditor && geo && base && baseSize && layer && (
           <KaleidoOverlay

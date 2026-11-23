@@ -1,16 +1,16 @@
 import { useState, type ReactNode } from 'react'
-import { EditBox } from './EditBox'
 import { StreakBarsPicture } from './SettingPictures'
 import { AngleDial } from './AngleDial'
 import { TraceToKey, type TraceOutline } from './TraceToKey'
 import { STREAK_DEFAULTS, type MaskShape, type StreakShape } from '../engine/types'
-import { Slider, ToneGauge, toneTrack } from './controls'
+import { MaskUse, Slider, ToneGauge, toneTrack } from './controls'
+import { EditBox } from './EditBox'
+import { hasColourLine } from '../engine/colourLine'
 import { StreakFixes, type FixEditing } from './StreakFixes'
 import { ToneAlong } from './ToneAlong'
 import { EXTEND_STYLE, FINISHES, STREAK_STYLES, finishOf, finishPatch, stylePatch, styleOf } from './streakStyles'
-import { ADD_KINDS, MaskGlyph, PickPanel, type AddKind } from './maskKinds'
+import type { AddKind } from './maskKinds'
 import type { MaskPick } from './controls'
-import { ItemList } from './ItemList'
 import type { StreakTool } from './StreakOverlay'
 import { repeatLayers } from './streakClip'
 import { STREAK_KINDS, kindOf, kindPatch, startingCurve, type StreakKind } from './streakKinds'
@@ -97,6 +97,8 @@ interface Props {
   }
   /** Its own masks (not its subject), in its Mask tab. */
   own?: StreakOwnMasks
+  /** Its colour line (StreakShape.colourLine) being edited on the photo, and editing it (made where it reads now, if it has none). */
+  colourLine?: { editing: boolean; onEdit: () => void }
 }
 
 /** Making a mask of a streak's own, from its Mask tab. */
@@ -109,6 +111,10 @@ export interface StreakNewMask {
   onNew: (kind: AddKind, mode: 'only' | 'exclude') => void
   /** A subject being selected for this streak: what it found, and keeping it. */
   pick?: MaskPick | null
+  /** A mask from the Masks list opened there (its Edit). */
+  onOpenMask?: (id: string) => void
+  /** Show this mask on the photo while its row is pointed at (null: none). */
+  onPeek?: (id: string | null) => void
 }
 
 const signed = (digits: number, unit = '') => (v: number) =>
@@ -119,7 +125,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`
 const softFormat = (v: number) => (v > 0 ? `${(v * 100).toFixed(1)}%` : 'Hard')
 
 /** One streak's settings, a tab at a time (see StreakTab). */
-export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolBox, sessionTool, onAdjust, onChange, tab, onTab, drawingPath, onDrawPath, drawingEnds, onDrawEnds, masks, newMask, fixes, trace, guiding, onGuides, onMirrorMiddle, onMatchLines, onFitRepeat, onExtend, subject, own }: Props) {
+export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolBox, sessionTool, onAdjust, onChange, tab, onTab, drawingPath, onDrawPath, drawingEnds, onDrawEnds, masks, newMask, fixes, trace, guiding, onGuides, onMirrorMiddle, onMatchLines, onFitRepeat, onExtend, subject, own, colourLine }: Props) {
   const clipped = shape.mode === 'fill' && shape.clip
   const softOutline = shape.mode === 'mask' || clipped
   // A tone that changes along the bar is two sets of values; most streaks
@@ -809,7 +815,32 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
                 onChange={subject.onInset}
               />
           )}
+          <div className="field valued">
+            <span title="Where along each line its colour is read">Colours from</span>
+            <div className="segmented">
+              <button className={!hasColourLine(shape.colourLine) ? 'on' : ''} title="Where each line meets the shape's edge (moved by Pull from)" onClick={() => onChange({ colourLine: null })}>
+                Edge
+              </button>
+              <button
+                className={hasColourLine(shape.colourLine) ? 'on' : ''}
+                title="A line across the streak that sets where colours are read: each bar takes its colour where it crosses the line. It starts where they are read now"
+                onClick={() => !hasColourLine(shape.colourLine) && colourLine?.onEdit()}
+              >
+                Sample line
+              </button>
+            </div>
+          </div>
+          {/* While it is edited, its box below has Cancel and Done. */}
+          {hasColourLine(shape.colourLine) && colourLine && !colourLine.editing && (
+            <div className="row">
+              <button title="Move its points on the photo, click the line to add one, double-click one to take it away" onClick={colourLine.onEdit}>
+                Edit the sample line
+              </button>
+            </div>
+          )}
+          <EditBox at={`streaks/${index}/colours`} />
           <Slider
+            idle={hasColourLine(shape.colourLine) ? 'The sample line sets where colours are read' : false}
             label="Pull from"
             title={
               shape.mode === 'trail'
@@ -824,10 +855,14 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
             onChange={(pull) => onChange({ pull })}
           />
           <label
-            className="check-row"
-            title="A bar whose colour would come from something a mask keeps in front of the streaks (or from inside a streak mask) takes the colour of a clear bar nearby instead, a different one for each bar"
+            className={`check-row${hasColourLine(shape.colourLine) ? ' is-idle' : ''}`}
+            title={
+              hasColourLine(shape.colourLine)
+                ? 'The sample line reads exactly where it is drawn, masked or not'
+                : 'A bar whose colour would come from something a mask keeps in front of the streaks (or from inside a streak mask) takes the colour of a clear bar nearby instead, a different one for each bar'
+            }
           >
-            <input type="checkbox" checked={shape.skipMasked} onChange={(e) => onChange({ skipMasked: e.target.checked })} />
+            <input type="checkbox" disabled={hasColourLine(shape.colourLine)} checked={shape.skipMasked && !hasColourLine(shape.colourLine)} onChange={(e) => onChange({ skipMasked: e.target.checked })} />
             Skip masked colours
             {!fixes.holds && <span className="muted-note"> (no mask holds these streaks back)</span>}
           </label>
@@ -856,9 +891,17 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
               <h3 className="streak-group" title="The subject the streak comes off, and stays behind">
                 Subject
               </h3>
-              <label className="check-row" title="The subject stays in front of the streak, as if the streak were behind it">
+              <label
+                className="check-row"
+                title={
+                  shape.maskMode === 'only' && shape.maskIds.some((id) => id !== shape.subject?.mask)
+                    ? 'Not while the streak shows only inside its masks: choose Outside them first'
+                    : 'The subject stays in front of the streak, as if the streak were behind it'
+                }
+              >
                 <input
                   type="checkbox"
+                  disabled={shape.maskMode === 'only' && shape.maskIds.some((id) => id !== shape.subject?.mask)}
                   checked={shape.maskMode === 'exclude' && shape.maskIds.includes(shape.subject.mask)}
                   onChange={(e) =>
                     onChange(
@@ -883,11 +926,9 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
               )}
             </>
           )}
-          {hasSubject && (
-            <h3 className="streak-group" title="Other masks: keep the streak off part of the photo, or only on it">
-              Other masks
-            </h3>
-          )}
+          <h3 className="streak-group" title="Masks that keep this streak off part of the photo, or only on it: as every module's Where it applies">
+            Where it applies
+          </h3>
           <StreakWhere index={index} shape={shape} masks={masks} onChange={onChange} trace={trace} newMask={newMask} own={own} />
         </>
       )}
@@ -940,66 +981,22 @@ function StreakWhere({
   newMask?: StreakNewMask
   own?: StreakOwnMasks
 }) {
-  const ids = shape.maskIds ?? []
-  // A subject streak keeps its subject in front as a mask it keeps off: that
-  // is its Subject, not one of these, so with no other masks this shows Off.
-  const others = ids.filter((id) => id !== shape.subject?.mask)
-  const shownMode = shape.subject && !others.length && !(own?.masks.length ?? 0) ? 'off' : (shape.maskMode ?? 'off')
-  const [choosing, setChoosing] = useState(false)
+  const subjectId = shape.subject?.mask ?? null
+  const all = shape.maskIds ?? []
+  // The subject kept in front is its Subject (above), not one of these.
+  const subjectFront = !!subjectId && shape.maskMode === 'exclude' && all.includes(subjectId)
   const owned = own?.masks ?? []
-  // A mask just made opens, to brush or reshape it.
-  const [openOwn, setOpenOwn] = useState<number | null>(null)
+  const choices = [...owned.map((m) => ({ id: m.id, name: m.name })), ...masks.filter((m) => m.id !== subjectId).map((m) => ({ id: m.id, name: m.name }))]
+  const ids = all.filter((id) => id !== subjectId && choices.some((m) => m.id === id))
+  const mode: 'only' | 'exclude' = shape.maskMode === 'only' ? 'only' : 'exclude'
+  // One of its own masks open here (Edit): just made, it opens, to brush or reshape it.
+  const [openOwn, setOpenOwn] = useState<string | null>(null)
   const [ownCount, setOwnCount] = useState(owned.length)
   if (ownCount !== owned.length) {
     setOwnCount(owned.length)
-    setOpenOwn(owned.length > ownCount ? owned.length - 1 : null)
+    setOpenOwn(owned.length > ownCount ? (owned[owned.length - 1]?.id ?? null) : null)
   }
-  // A new mask goes on the side already chosen; with none chosen, the streak is kept off it (its subject stays in front).
-  const side = shape.maskMode === 'only' ? 'only' : 'exclude'
-  const making = newMask?.making ? ADD_KINDS.find((k) => k.kind === newMask.making) : null
-  const choices = newMask && (
-    <div className="mask-choices compact">
-      {ADD_KINDS.map((k) => (
-        <button
-          key={k.kind}
-          className="mask-choice"
-          title={k.title}
-          disabled={!newMask.canMake}
-          onClick={() => {
-            setChoosing(false)
-            newMask.onNew(k.kind, side)
-          }}
-        >
-          <MaskGlyph kind={k.kind} />
-          <span>
-            <b>{k.name}</b>
-            <small>{k.line}</small>
-          </span>
-        </button>
-      ))}
-    </div>
-  )
-  const makeNew = newMask && (
-    <div className="section-mask-new">
-      {newMask.pick ? (
-        <PickPanel p={newMask.pick.view} onPickReading={newMask.pick.onReading} onPickDone={newMask.pick.onDone} />
-      ) : making ? (
-        // Its Cancel and Done, with what to do, in the edit's box (EditBox).
-        <EditBox at={`newmask:streak${index}`} />
-      ) : (
-        <button
-          className={`link${choosing ? ' on' : ''}`}
-          disabled={!newMask.canMake}
-          aria-expanded={choosing}
-          title={newMask.canMake ? 'Make a new mask for this streak' : 'No room for another mask'}
-          onClick={() => setChoosing(!choosing)}
-        >
-          + New mask
-        </button>
-      )}
-      {choosing && !making && !newMask.pick && choices}
-    </div>
-  )
+  const openOwned = owned.find((m) => m.id === openOwn)
   const range = (level: number, soft: number) => ({
     ...(shape.key === 'darker'
       ? { lo: -0.5, hi: level, soft: Math.max(0.01, soft), label: 'Streaked' }
@@ -1008,73 +1005,39 @@ function StreakWhere({
   })
   return (
     <>
-      <div className="field valued">
-        <span title="Keep this streak off its masks, or show it only in them">Masks</span>
-        <div className="segmented">
-          {(
-            [
-              ['off', 'Off', 'Not masked'],
-              ['exclude', 'Keep off', 'The streak stays off the ticked masks: what they cover stays in front'],
-              ['only', 'Only on', 'The streak shows only inside the ticked masks'],
-            ] as const
-          ).map(([mode, label, hint]) => (
-            <button
-              key={mode}
-              title={hint}
-              className={shownMode === mode ? 'on' : ''}
-              onClick={() =>
-                // Off, a subject kept in front stays in front: only the other masks go.
-                mode === 'off' && shape.subject && ids.includes(shape.subject.mask) && shape.maskMode === 'exclude'
-                  ? onChange({ maskMode: 'exclude', maskIds: [shape.subject.mask] })
-                  : onChange({
-                      maskMode: mode,
-                      // Turning masking on with nothing ticked ticks them all.
-                      maskIds: mode !== 'off' && !owned.length && !ids.some((id) => masks.some((m) => m.id === id)) ? masks.map((m) => m.id) : ids,
-                    })
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      {owned.length > 0 && (
-        <ItemList
-          open={openOwn !== null && openOwn < owned.length ? openOwn : null}
-          onOpen={setOpenOwn}
-          items={owned.map((m) => ({ key: m.id, name: m.name, label: m.name, onRemove: () => own!.onRemove(m.id) }))}
-        >
-          {openOwn !== null && owned[openOwn]?.body}
-        </ItemList>
-      )}
-      {newMask && !owned.length && !making && !newMask.pick ? (
-        <>
-          {choices}
-        </>
-      ) : (
-        makeNew
-      )}
-      {masks.length > 0 && (
-        <>
-          <h3 className="streak-group" title="Masks in the Masks list, which other modules can use too: tick one to use it here as well">
-            From the Masks list
-          </h3>
-          {masks.map((m) => (
-            <label key={m.id} className="check-row">
-              <input
-                type="checkbox"
-                checked={ids.includes(m.id)}
-                onChange={(e) => {
-                  const maskIds = e.target.checked ? [...ids, m.id] : ids.filter((id) => id !== m.id)
-                  // The first ticked turns masking on, keeping the streak off it.
-                  onChange({ maskIds, ...(e.target.checked && shape.maskMode === 'off' ? { maskMode: 'exclude' as const } : {}) })
-                }}
-              />
-              {m.name}
-            </label>
-          ))}
-        </>
-      )}
+      <MaskUse
+        title={`Streak ${index + 1}`}
+        masks={choices}
+        ids={ids}
+        mode={mode}
+        onSet={(next, nextMode) =>
+          onChange(
+            nextMode === 'only'
+              ? { maskMode: 'only', maskIds: next }
+              : // Outside keeps the subject in front with the rest.
+                { maskMode: next.length || subjectFront ? 'exclude' : 'off', maskIds: [...(subjectFront ? [subjectId!] : []), ...next] },
+          )
+        }
+        making={newMask?.making ?? null}
+        canMake={!!newMask?.canMake}
+        onNew={(kind, side) => newMask?.onNew(kind, side)}
+        pick={newMask?.pick}
+        onOpenMask={(id) => (owned.some((m) => m.id === id) ? setOpenOwn(openOwn === id ? null : id) : newMask?.onOpenMask?.(id))}
+        openMask={openOwned ? openOwned.id : null}
+        maskBody={
+          openOwned && (
+            <>
+              {openOwned.body}
+              <button className="link quiet" title={`Remove ${openOwned.name}: it is this streak's own`} onClick={() => own!.onRemove(openOwned.id)}>
+                Remove {openOwned.name}
+              </button>
+            </>
+          )
+        }
+        onPeek={newMask?.onPeek}
+        newMaskAt={`newmask:streak${index}`}
+        sideDisabled={subjectFront ? { only: 'Not while its subject is kept in front: untick Keep it in front first' } : undefined}
+      />
       <div className="field valued">
         <span title="Keep the streak to the photo's darker (or lighter) pixels under it: over the sky, not the trees in front">Tone key</span>
         <div className="segmented">

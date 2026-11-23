@@ -1,5 +1,6 @@
 import { keyWords } from '../../platform/os'
 import { EditBox } from '../EditBox'
+import { ModuleMaskGlyph } from '../controls'
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
 import { type BlendParams, type MaskShape, MAX_STREAKS, type StreakParams, type StreakShape } from '../../engine/types'
 import { ItemList } from '../ItemList'
@@ -69,6 +70,8 @@ interface Props {
   onSubjectInset: (i: number, inset: number) => void
   /** A streak's own subject's settings (App: brush, select again, match). */
   subjectSettings: (streak: number, maskId: string) => ReactNode
+  /** Streak i's colour line: being edited on the photo, and editing it (made where it reads now if it has none). */
+  colourLineFor: (i: number) => { editing: boolean; onEdit: () => void }
   /** A copy of streak i next after it, its own subject copied too; false if there is no room. And one removed, its own subject with it (App). */
   copyStreak: (i: number) => boolean
   removeStreak: (i: number) => void
@@ -85,7 +88,7 @@ interface Props {
 }
 
 /** Streaks: the photo smeared along shapes drawn on it, each with its own settings, guides and colour fixes. */
-export function StreaksModule({ previewStreak, moveStreak, copySettings, pasteSettings, clip, ownMasks, subjectSettings, copyStreak, removeStreak, session, startSession, endSession, drawingStreak, image, blend, setDrawingStreak, setDrawingPath, setFixEditing, setStreaks, setEditingStreaks, setSelectedStreak, setEditingLeaks, setEditingGuides, setEditingBands, setMaskDrawing, setMaskEditing, setStatus, selectedStreak, setGuidingStreak, setStreakShape, drawingPath, fixEditing, streakSel, traceOutline, guidingStreak, matchLines, fitRepeat, extendSubject, listedMasks, newMaskFor, repeatFit, streakTab, setStreakTab, pathKind, selectedFix, setSelectedFix, pickingView, pickingStreak, choosePickReading, finishPicking, onStreakSubject, onSubjectInset }: Props) {
+export function StreaksModule({ previewStreak, moveStreak, copySettings, pasteSettings, clip, ownMasks, subjectSettings, colourLineFor, copyStreak, removeStreak, session, startSession, endSession, drawingStreak, image, blend, setDrawingStreak, setDrawingPath, setFixEditing, setStreaks, setEditingStreaks, setSelectedStreak, setEditingLeaks, setEditingGuides, setEditingBands, setMaskDrawing, setMaskEditing, setStatus, selectedStreak, setGuidingStreak, setStreakShape, drawingPath, fixEditing, streakSel, traceOutline, guidingStreak, matchLines, fitRepeat, extendSubject, listedMasks, newMaskFor, repeatFit, streakTab, setStreakTab, pathKind, selectedFix, setSelectedFix, pickingView, pickingStreak, choosePickReading, finishPicking, onStreakSubject, onSubjectInset }: Props) {
   const full = blend.effects.streaks.shapes.length >= MAX_STREAKS
   /** A tool begun from a button in the open streak's tabs; the same button again is Done. */
   const toggleTool = (tool: StreakTool) => {
@@ -192,6 +195,26 @@ export function StreaksModule({ previewStreak, moveStreak, copySettings, pasteSe
                 : 'Hard edge'
               : `${sh.subject ? 'From a subject' : sh.mode === 'trail' ? 'Drawn, trailing' : 'Drawn'}${sh.carry === 'repeat' ? ' · copies' : ''}${sh.path ? ' · curved' : ''}`,
           label: `streak ${i + 1}`,
+          // Masked (more than its subject kept in front): lit, as a module's Mask button is; a click opens its Mask tab.
+          badges: (() => {
+            const own = (sh.maskIds ?? []).filter((id) => id !== sh.subject?.mask && blend.effects.masks.some((m) => m.id === id))
+            if (sh.maskMode === 'off' || !own.length) return null
+            const side = sh.maskMode === 'only' ? 'Only inside' : 'Outside'
+            const names = own.map((id) => blend.effects.masks.find((m) => m.id === id)!.name).join(', ')
+            return (
+              <button
+                className="section-mask-button on streak-mask-mark"
+                title={`Streak ${i + 1}: ${side.toLowerCase()} ${names}. Click for its Mask tab`}
+                aria-label={`Streak ${i + 1} masked`}
+                onClick={() => {
+                  setSelectedStreak(i)
+                  setStreakTab('where')
+                }}
+              >
+                <ModuleMaskGlyph />
+              </button>
+            )
+          })(),
           on: sh.enabled !== false,
           onToggle: () => setStreakShape(i, { enabled: sh.enabled === false }),
           // The pencil: edit it on the photo (a session, Done or Cancel on the photo).
@@ -245,6 +268,7 @@ export function StreaksModule({ previewStreak, moveStreak, copySettings, pasteSe
         {streakSel && selectedStreak !== null && (
                     <StreakSettings
                       index={selectedStreak}
+                      colourLine={colourLineFor(selectedStreak)}
                       editBox={<EditBox at={`streaks/${selectedStreak}`} />}
                       onPreview={(patch) => previewStreak(selectedStreak, patch)}
                       trace={traceOutline}

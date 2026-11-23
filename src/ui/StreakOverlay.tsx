@@ -136,6 +136,7 @@ function mapShape(s: StreakShape, f: (p: Point) => Point): Partial<StreakShape> 
     outline: s.outline.map(f),
     path: s.path ? s.path.map(f) : null,
     ends: s.ends ? s.ends.map(f) : s.ends,
+    ...(s.colourLine ? { colourLine: s.colourLine.map(f) } : {}),
     radialCentre: s.radialCentre ? f(s.radialCentre) : s.radialCentre,
     fixes: (s.fixes ?? []).map((fx) => ({
       ...fx,
