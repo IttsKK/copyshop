@@ -10,8 +10,8 @@
  * programs then come back from them at once (the shader bench: 107 s every
  * launch; 69 s once in a waiting worker, then 0.9 s in all).
  *
- * Started a moment after the look's first picture, on Windows only, once per
- * run of the app. Once kept, it takes about a second.
+ * Started a few seconds after the app opens (renderClient), on Windows only,
+ * once per run of the app. Once kept, it takes about a second.
  */
 let started = false
 

@@ -34,6 +34,17 @@ export interface Selection {
   scores: number[]
   /** The reading the model rates best (index into masks). */
   best: number
+  /** From precise selection (src/ml/precise): `best` is the one to use, and it is already tidy. */
+  precise?: boolean
+  /** Precise selection's sharper answer: masks[best] traced at the subject's own scale (up to PRECISE_SIDE). */
+  sharp?: boolean
+}
+
+/** Precise selection's models, when they are here (the desktop app, once downloaded): it is used instead. */
+async function precise() {
+  const { preciseStore } = await import('./precise/models')
+  const s = preciseStore.get()
+  return s.kind === 'installed' ? { parts: s.parts, mod: await import('./precise/precise') } : null
 }
 
 /** A box dragged round the subject, in fractions of the photo. */
@@ -176,7 +187,19 @@ function photoId(photo: ImageBitmap): number {
 export const segmenterDevice = async () => device
 
 /** Works the photo out ahead of the first click (and loads the model, the first time). */
-export function prepareSegmenter(photo: ImageBitmap): Promise<void> {
+export async function prepareSegmenter(photo: ImageBitmap): Promise<void> {
+  const p = await precise()
+  if (p) {
+    try {
+      return await p.mod.preparePrecise(photo, p.parts)
+    } catch (err) {
+      reportIssue('Precise selection: could not start; the small model instead', 'warning', { error: String((err as Error)?.message ?? err) }, ['precise-start'])
+    }
+  }
+  return prepareSmall(photo)
+}
+
+function prepareSmall(photo: ImageBitmap): Promise<void> {
   let job = prepared.get(photo)
   if (!job) {
     try {
@@ -192,10 +215,25 @@ export function prepareSegmenter(photo: ImageBitmap): Promise<void> {
   return job
 }
 
+export interface SegmentOptions {
+  /** Precise selection's sharper answer, when it is ready. */
+  onBetter?: (sel: Selection) => void
+  /** What precise selection is doing now (null: done), for the status line. */
+  onStage?: (message: string | null) => void
+}
+
 /** The subject the picks (and a box round it, if one was dragged) point at, three ways. */
-export async function segment(photo: ImageBitmap, picks: Pick[], box: PickBox | null = null): Promise<Selection | null> {
+export async function segment(photo: ImageBitmap, picks: Pick[], box: PickBox | null = null, opts: SegmentOptions = {}): Promise<Selection | null> {
   if (!picks.length && !box) return null
-  await prepareSegmenter(photo)
+  const p = await precise()
+  if (p) {
+    try {
+      return await p.mod.preciseSegment(photo, picks, box, p.parts, opts)
+    } catch (err) {
+      reportIssue('Precise selection: failed; the small model instead', 'warning', { error: String((err as Error)?.message ?? err) }, ['precise-segment'])
+    }
+  }
+  await prepareSmall(photo)
   const id = photoId(photo)
   return request((n) => ({ type: 'segment', n, photo: id, picks, box }), CLICK_MS)
 }

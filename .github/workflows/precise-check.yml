@@ -1,0 +1,81 @@
+# Precise selection checked in the built app on Windows and Linux: its models
+# downloaded (scripts/precise-models.mjs), then the app launched for its
+# self-check (src/platform/smoke.ts, precise.json "only"), which selects in a
+# sample photo and writes how long it took, where the models ran, and the
+# selection drawn over the photo. Run by hand, or by a push to a precise-*
+# branch; the results are an artifact.
+name: Precise selection check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['precise-*']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            exe: src-tauri/target/release/grain-emulator.exe
+          - platform: ubuntu-22.04
+            exe: src-tauri/target/release/grain-emulator
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Linux libraries
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb
+
+      - run: npm ci
+
+      - name: Build the app (no installer)
+        run: npx tauri build --no-bundle
+        env:
+          SENTRY_UPLOAD: '0'
+
+      - name: What the build put beside the app
+        shell: bash
+        run: ls -la src-tauri/target/release | grep -v -E '\.d$|\.pdb$' | head -40
+
+      - name: The models
+        shell: bash
+        run: node scripts/precise-models.mjs "$RUNNER_TEMP/data/models/precise-1"
+
+      - name: Self-check
+        shell: bash
+        run: |
+          SMOKE="$RUNNER_TEMP/smoke"
+          mkdir -p "$SMOKE"
+          cp public/samples/sample-street.jpg "$SMOKE/photo.jpg"
+          echo '{"only":true,"box":{"x0":0.30,"y0":0.80,"x1":0.47,"y1":0.97}}' > "$SMOKE/precise.json"
+          export GRAIN_EMULATOR_DATA="$RUNNER_TEMP/data" GRAIN_EMULATOR_SMOKE="$SMOKE"
+          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a "${{ matrix.exe }}" & else "${{ matrix.exe }}" & fi
+          for i in $(seq 1 180); do [ -f "$SMOKE/report.json" ] && break; sleep 5; done
+          sleep 2
+          cat "$SMOKE/report.json" || { echo "No report after 15 minutes"; exit 1; }
+          grep -q '"ok": true' "$SMOKE/report.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: precise-check-${{ matrix.platform }}
+          path: ${{ runner.temp }}/smoke

@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { bytesFor, checkPrecise, downloadPrecise, partsHere, preciseWantedStore, sizeLabel, usePrecise } from '../ml/precise/models'
 import { ModuleGlyph } from './ModuleGlyph'
 import appIcon from './assets/app-icon.png'
 
@@ -27,8 +28,25 @@ const FEATURES: { glyph: string; tint: string; text: string }[] = [
  * trying it without one). How it works is the walk round the app, in Help.
  * Shown the first time, and again from Help.
  */
-export function IntroDialog({ app, hasImage, onOpen, onTour, onClose }: Props) {
+export function IntroDialog({ app, hasImage, onOpen, onTour, onClose: close }: Props) {
   const card = useRef<HTMLDivElement>(null)
+  // Precise selection's models: offered here, ticked, in the app while they are not downloaded (Settings has them too).
+  const precise = usePrecise()
+  const [wantPrecise, setWantPrecise] = useState(true)
+  const [preciseBytes, setPreciseBytes] = useState(() => bytesFor(['find', 'edge']))
+  useEffect(() => {
+    if (!app) return
+    void checkPrecise()
+    void partsHere().then((parts) => setPreciseBytes(bytesFor(parts)))
+  }, [app])
+  const offerPrecise = app && precise.kind === 'none'
+  const onClose = () => {
+    if (offerPrecise && wantPrecise) {
+      preciseWantedStore.set(true)
+      void downloadPrecise()
+    }
+    close()
+  }
   useEffect(() => card.current?.focus(), [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -61,6 +79,15 @@ export function IntroDialog({ app, hasImage, onOpen, onTour, onClose }: Props) {
           ))}
         </ul>
         <p className="intro-after">Save a look as a recipe and use it on a whole set.</p>
+        {offerPrecise && (
+          <label
+            className="check-row intro-precise"
+            title="Selects buildings, people and cars with a cleaner edge, in a few seconds. Two models run on this computer (Segment Anything 2.1 and BiRefNet); nothing is sent anywhere. Downloads in the background; Settings can remove it."
+          >
+            <input type="checkbox" checked={wantPrecise} onChange={(e) => setWantPrecise(e.target.checked)} />
+            Download precise subject selection ({sizeLabel(preciseBytes)})
+          </label>
+        )}
         <button
           className="primary intro-go"
           title={hasImage ? undefined : 'A walk round the editor on a sample photo, then where your photos go'}

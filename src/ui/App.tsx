@@ -223,6 +223,8 @@ import { CATEGORIES, MODULES, MODULE_BY_ID, categoryOrder, inUse, isStackModule,
 import { GROUP_COLOURS, GroupEditor, SlimModule, StackAdd, StackContext, StackRail, StackTitle, groupOf, inTab, type ModuleGroup, type StackApi, type StackTab } from './StackNav'
 import { rulePatch, useRecipeName } from './RecipePicker'
 import { RASTER_SIDE, encodeRaster, rasterBounds, shrinkGrid } from '../engine/maskRaster'
+import { PRECISE_SIDE } from '../ml/precise/side'
+import { checkPrecise, downloadPrecise, preciseWantedStore } from '../ml/precise/models'
 import { findKey, KEY_BAND, type MaskView } from './maskKey'
 import { brushRange, cellColours, paintRaster, rasterOutline } from './maskBrush'
 import { cropActive, cropAngle, cropBitmap, cropRatio, cropRect, fitRatio, keepInside, turnQuarter, type CropParams } from '../engine/crop'
@@ -560,6 +562,13 @@ export function App() {
       fresh ? `${WHOLE_STEP}painting ${now.name}` : `mask${i}:paint${strokeCount.current}`,
     )
   }
+  // Precise selection: whether its models are here; a download asked for on the welcome sheet and not finished goes on (after a moment, so opening stays quick).
+  useEffect(() => {
+    if (!isNative()) return
+    void checkPrecise().then((s) => {
+      if (s.kind === 'none' && preciseWantedStore.get()) setTimeout(() => void downloadPrecise(), 8000)
+    })
+  }, [])
   // Enter or Esc puts the brush down; [ and ] size it, as in other editors.
   useEffect(() => {
     if (!brushing) return
@@ -3376,6 +3385,9 @@ export function App() {
   }, [brushing, maskEditing, maskDrawing, picking, selectedMask, blend.effects.masks])
   const pickSelection = useRef<Selection | null>(null)
   const pickRun = useRef(0)
+  // The pick as it is now, for precise selection's sharper answer arriving later.
+  const pickingRef = useRef(picking)
+  pickingRef.current = picking
   const startPicking = (index: number | null, owner?: MaskOwner, target?: NewMaskTarget, streak?: number) => {
     if (!image) return
     // A pick already going is put back first, and the new one starts from the masks as they were before it.
@@ -3427,8 +3439,10 @@ export function App() {
    */
   const applySelection = (p: NonNullable<typeof picking>, sel: Selection, reading: number) => {
     if (!image) return p
-    const cleaned = cleanSelection(sel.masks[reading], sel.width, sel.height)
-    const small = shrinkGrid(cleaned, sel.width, sel.height)
+    // Precise selection's edge is the subject's own: only specks and pinholes are cleared, no corners rounded or edge grown.
+    const cleaned = sel.precise ? cleanSelection(sel.masks[reading], sel.width, sel.height, false, false) : cleanSelection(sel.masks[reading], sel.width, sel.height)
+    // Its sharper answer kept finer than a click's grid, so a full-size export has a clean edge.
+    const small = shrinkGrid(cleaned, sel.width, sel.height, sel.sharp ? PRECISE_SIDE : RASTER_SIDE)
     const bounds = rasterBounds(small.grid, small.w, small.h)
     if (!bounds) return p
     // Photo fractions to the fractions masks are kept in.
@@ -3509,12 +3523,27 @@ export function App() {
       return
     }
     setPicking({ ...p, busy: true })
-    segment(image.bitmap, p.picks, p.box)
+    const stages = ['Sharpening the selection…', 'Finding the edge…']
+    segment(image.bitmap, p.picks, p.box, {
+      // Precise selection's sharper answer, seconds later: the same reading, if it is still this pick.
+      onBetter: (sel) => {
+        const cur = pickingRef.current
+        if (run !== pickRun.current || !cur) return
+        pickSelection.current = sel
+        const reading = Math.min(cur.reading ?? sel.best, sel.masks.length - 1)
+        setPicking({ ...applyLatest.current(cur, sel, reading), busy: false })
+        setStatus('Selection sharpened')
+      },
+      onStage: (message) => {
+        if (run !== pickRun.current) return
+        setStatus((now) => message ?? (now && stages.includes(now) ? null : now))
+      },
+    })
       .then((sel) => {
         if (run !== pickRun.current || !sel) return
         pickSelection.current = sel
-        // A box says what is meant: the model's own best reading.
-        const reading = Math.min(p.reading ?? (p.box ? sel.best : defaultReading(sel, p.picks.length)), sel.masks.length - 1)
+        // A box says what is meant: the model's own best reading; precise selection's best is its own pick.
+        const reading = Math.min(p.reading ?? (p.box || sel.precise ? sel.best : defaultReading(sel, p.picks.length)), sel.masks.length - 1)
         setPicking({ ...applyLatest.current(p, sel, reading), busy: false })
       })
       .catch((err: Error) => {

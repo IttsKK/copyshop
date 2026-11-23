@@ -10,6 +10,7 @@ import { diskFolder } from '../storage/disk'
 import { libraryAvailable, loadRecent, onRecent, removeRecent } from '../storage/library'
 import { LISTED_LOOKS, NONE_LOOK } from './looks'
 import { DesktopAppSettings } from './DesktopAppSettings'
+import { PreciseSettings } from './PreciseSettings'
 import { launchStore, reduceMotionStore, singleModuleStore, startLookStore, trackpadScrollStore, useLaunch, useReduceMotion, useSingleModule, useStartLook, useTrackpadScroll } from './state/settings'
 import { OFFICIAL } from '../platform/build'
 
@@ -129,6 +130,7 @@ export function GeneralSettings({ onIntro, onReport, onTour, onStatus, onWhatsNe
           </div>
         </section>
       )}
+      {app && <PreciseSettings onStatus={onStatus} />}
       <DesktopAppSettings onStatus={onStatus} />
       <section className="settings-section">
         <div className="settings-head">

@@ -24,6 +24,9 @@ use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Manager, Wry};
 
+/// Precise selection's models, run natively.
+mod ml;
+
 /// Thumbnails and RAW files in Rust, off the Mac (there sips does both).
 #[cfg(any(not(target_os = "macos"), test))]
 mod portable;
@@ -949,8 +952,14 @@ pub fn run() {
             quit_app,
             last_clean_exit,
             set_menu_enabled,
-            hold_quit
+            hold_quit,
+            ml::ml_info,
+            ml::ml_load,
+            ml::ml_unload,
+            ml::ml_run,
+            ml::ml_append
         ])
+        .manage(ml::Ml::default())
         .build(tauri::generate_context!())
         .expect("error while running copyshop")
         .run(|app, event| match event {

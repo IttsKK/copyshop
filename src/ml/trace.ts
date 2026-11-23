@@ -224,7 +224,7 @@ const loopArea = (loop: Point[]) => {
  * filled, and the edge taken out a little so the subject's own soft edge
  * pixels are inside it. 1 inside, 0 out.
  */
-export function cleanSelection(mask: Uint8Array, w: number, h: number, grow = true): Uint8Array {
+export function cleanSelection(mask: Uint8Array, w: number, h: number, grow = true, close = true): Uint8Array {
   const grid = Uint8Array.from(mask, (v) => (v ? 1 : 0))
   const min = Math.max(12, Math.round(w * h * SPECK))
   clearSmall(grid, w, h, 1, min, false)
@@ -232,9 +232,11 @@ export function cleanSelection(mask: Uint8Array, w: number, h: number, grow = tr
   clearSmall(grid, w, h, 0, min, true)
   // Bites out of the edge filled (out, then back in), then the edge taken out a little.
   const short = Math.min(w, h)
-  const close = Math.max(2, CLOSE * short)
-  spread(grid, w, h, close)
-  spread(grid, w, h, -close)
+  if (close) {
+    const r = Math.max(2, CLOSE * short)
+    spread(grid, w, h, r)
+    spread(grid, w, h, -r)
+  }
   if (grow) spread(grid, w, h, Math.max(1.5, SPREAD * short))
   return grid
 }

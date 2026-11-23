@@ -17,6 +17,14 @@ import { joinPath, writeFile } from './native'
  * quits. Never runs otherwise.
  */
 export async function runSmoke(dir: string): Promise<void> {
+  // Only precise selection, when precise.json says so: the other checks write to the app's own data (Recent, a
+  // photo's edit), which is fine on a test machine and not on one in use.
+  try {
+    const ask = await nativeFolder(dir).file('precise.json')
+    if (ask && (JSON.parse(await ask.text()) as { only?: boolean }).only) return runPreciseOnly(dir)
+  } catch {
+    /* the full check */
+  }
   const results: { check: string; ok: boolean; detail?: string }[] = []
   const check = async (name: string, fn: () => Promise<string | boolean>) => {
     try {
@@ -272,5 +280,82 @@ export async function runSmoke(dir: string): Promise<void> {
     results.push({ check: 'filmstrip checks', ok: false, detail: `${(err as Error).message} ${(err as Error).stack ?? ''}` })
   }
 
+  await check('precise selection', () => preciseCheck(dir))
+
   await writeFile(joinPath(dir, 'report.json'), JSON.stringify({ userAgent: navigator.userAgent, results }, null, 2))
+}
+
+/** A selection's chosen reading drawn over the photo: outside darkened, the edge in green. */
+async function drawSelection(photo: ImageBitmap, sel: import('../ml/segment').Selection, path: string): Promise<void> {
+  const m = sel.masks[sel.best]
+  const w = sel.width
+  const h = sel.height
+  const c = new OffscreenCanvas(w, h)
+  const ctx = c.getContext('2d')!
+  ctx.drawImage(photo, 0, 0, w, h)
+  const img = ctx.getImageData(0, 0, w, h)
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x
+      const edge = m[i] && ((x > 0 && !m[i - 1]) || (x < w - 1 && !m[i + 1]) || (y > 0 && !m[i - w]) || (y < h - 1 && !m[i + w]))
+      if (edge) img.data.set([0, 255, 0], i * 4)
+      else if (!m[i]) for (let k = 0; k < 3; k++) img.data[i * 4 + k] = img.data[i * 4 + k] * 0.4
+    }
+  ctx.putImageData(img, 0, 0)
+  await writeFile(path, await c.convertToBlob({ type: 'image/png' }))
+}
+
+/** Precise selection (src/ml/precise), when its models are here: a click (or the box in precise.json), its first
+ * answer and its sharper one, each drawn over the photo, with how long they took. */
+async function preciseCheck(dir: string): Promise<string | boolean> {
+  const { checkPrecise } = await import('../ml/precise/models')
+  const state = await checkPrecise()
+  if (state.kind !== 'installed') return 'not downloaded (skipped)'
+  const { preciseSegment } = await import('../ml/precise/precise')
+  const file = await nativeFolder(dir).file('photo.jpg')
+  if (!file) return false
+  const bitmap = await createImageBitmap(file)
+  const ask = await nativeFolder(dir).file('precise.json').catch(() => null)
+  const prompt = ask ? (JSON.parse(await ask.text()) as { picks?: { x: number; y: number; on: boolean }[]; box?: { x0: number; y0: number; x1: number; y1: number } | null }) : {}
+  const picks = prompt.picks ?? (prompt.box ? [] : [{ x: 0.5, y: 0.5, on: true }])
+  const t0 = performance.now()
+  let stages: string[] = []
+  // The sharper answers: the closer look, then the traced edge; the last is ready when the stage goes back to none.
+  let latest: import('../ml/segment').Selection | null = null
+  let looks = 0
+  const sharp = new Promise<import('../ml/segment').Selection>((resolve, reject) => {
+    setTimeout(() => reject(new Error(`no sharper answer after 300 s (${stages.join(', ')})`)), 300_000)
+    const onBetter = (sel: import('../ml/segment').Selection) => {
+      latest = sel
+      looks++
+      stages = [...stages, `answer ${looks + 1} ${Math.round(performance.now() - t0)} ms`]
+      if (looks === 1) void drawSelection(bitmap, sel, joinPath(dir, 'precise-closer.png'))
+    }
+    const onStage = (m: string | null) => {
+      if (m) stages = [...stages, `${m} ${Math.round(performance.now() - t0)} ms`]
+      else if (latest) resolve(latest)
+    }
+    void preciseSegment(bitmap, picks, prompt.box ?? null, state.parts, { onBetter, onStage })
+      .then((first) => {
+        if (!first) return reject(new Error('nothing selected'))
+        stages = [...stages, `first ${Math.round(performance.now() - t0)} ms`]
+        return drawSelection(bitmap, first, joinPath(dir, 'precise-first.png'))
+      })
+      .catch(reject)
+  })
+  const better = await sharp
+  const total = Math.round(performance.now() - t0)
+  await drawSelection(bitmap, better, joinPath(dir, 'precise-sharp.png'))
+  return `${stages.join(', ')}, sharp ${total} ms, ${better.width}x${better.height}`
+}
+
+async function runPreciseOnly(dir: string): Promise<void> {
+  let result: { check: string; ok: boolean; detail?: string }
+  try {
+    const out = await preciseCheck(dir)
+    result = { check: 'precise selection', ok: out !== false, detail: typeof out === 'string' ? out : undefined }
+  } catch (err) {
+    result = { check: 'precise selection', ok: false, detail: (err as Error).message }
+  }
+  await writeFile(joinPath(dir, 'report.json'), JSON.stringify({ userAgent: navigator.userAgent, results: [result] }, null, 2))
 }

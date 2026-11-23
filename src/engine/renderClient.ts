@@ -327,3 +327,9 @@ class RenderClient {
 
 /** The one client: one worker, its engines and the textures sent to it. */
 export const renderClient = new RenderClient()
+
+// Windows: the look's and the streaks' programs built for keeping (shaderWarmup) a few seconds after the app
+// opens, not only after the first photo is drawn. The first launch after an update, the look took 10-50 s to
+// build when a photo was opened; built while the Library or the welcome is up, it is often ready by then, and
+// at worst both builds run at once. Kept from before, it takes about a second.
+if (typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent)) warmShaderCache(3000)

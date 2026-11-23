@@ -46,6 +46,12 @@ pub fn encode_jpeg(img: &DynamicImage, quality: u8, icc: Option<Vec<u8>>, exif: 
 /// side, as a JPEG. Its colour profile goes with it, so it shows in the
 /// photo's own colours.
 pub fn plain_thumbnail(path: &Path, size: u32) -> Result<Vec<u8>, String> {
+    if let Some((img, icc, orientation)) = small_jpeg(path, size) {
+        let icc = if img.color().has_color() { icc } else { None };
+        let mut small = shrink(img, size);
+        small.apply_orientation(orientation);
+        return encode_jpeg(&small, 80, icc, None);
+    }
     let mut decoder = ImageReader::open(path)
         .map_err(|e| e.to_string())?
         .with_guessed_format()
@@ -60,6 +66,40 @@ pub fn plain_thumbnail(path: &Path, size: u32) -> Result<Vec<u8>, String> {
     let mut small = shrink(img, size);
     small.apply_orientation(orientation);
     encode_jpeg(&small, 80, icc, None)
+}
+
+/// A JPEG read at a half, a quarter or an eighth of its size, the smallest
+/// still at least `size` on its long side: the JPEG's own blocks give those
+/// nearly for free, where reading it whole and shrinking it took 150-300 ms
+/// for a 24-megapixel photo (every thumbnail of a folder, the first time).
+/// None for anything else, or a JPEG this can't read (CMYK, 16-bit), which is
+/// then read whole.
+fn small_jpeg(path: &Path, size: u32) -> Option<(DynamicImage, Option<Vec<u8>>, Orientation)> {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    if ext != "jpg" && ext != "jpeg" {
+        return None;
+    }
+    let file = std::fs::File::open(path).ok()?;
+    let mut decoder = jpeg_decoder::Decoder::new(std::io::BufReader::new(file));
+    decoder.read_info().ok()?;
+    let info = decoder.info()?;
+    let long = u32::from(info.width.max(info.height));
+    // Little to gain under twice the size asked for.
+    if long < size * 2 {
+        return None;
+    }
+    let k = size as f64 / long as f64;
+    let want_w = ((f64::from(info.width) * k).ceil() as u16).max(1);
+    let want_h = ((f64::from(info.height) * k).ceil() as u16).max(1);
+    let (w, h) = decoder.scale(want_w, want_h).ok()?;
+    let pixels = decoder.decode().ok()?;
+    let img = match decoder.info()?.pixel_format {
+        jpeg_decoder::PixelFormat::RGB24 => DynamicImage::ImageRgb8(image::RgbImage::from_raw(u32::from(w), u32::from(h), pixels)?),
+        jpeg_decoder::PixelFormat::L8 => DynamicImage::ImageLuma8(image::GrayImage::from_raw(u32::from(w), u32::from(h), pixels)?),
+        _ => return None,
+    };
+    let orientation = decoder.exif_data().and_then(Orientation::from_exif_chunk).unwrap_or(Orientation::NoTransforms);
+    Some((img, decoder.icc_profile(), orientation))
 }
 
 /// A photo the webview can't decode (a TIFF, in WebView2 and WebKitGTK),
