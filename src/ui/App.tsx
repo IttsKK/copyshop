@@ -1941,7 +1941,8 @@ export function App() {
     const path = await saveFileAs(blob, dir ? joinPath(dir, name) : name)
     if (!path) return null
     try {
-      localStorage.setItem(LAST_SAVE_DIR, path.slice(0, path.lastIndexOf('/')))
+      // Windows answers with backslashes.
+      localStorage.setItem(LAST_SAVE_DIR, path.slice(0, Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))))
     } catch {
       /* asked beside the photo next time */
     }

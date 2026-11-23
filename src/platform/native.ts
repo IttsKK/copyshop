@@ -160,10 +160,39 @@ export async function saveAs(blob: Blob, defaultName: string): Promise<boolean> 
   return (await saveFileAs(blob, defaultName)) !== null
 }
 
+const FILE_KINDS: Record<string, { name: string; extensions: string[] }> = {
+  jpg: { name: 'JPEG image', extensions: ['jpg', 'jpeg'] },
+  jpeg: { name: 'JPEG image', extensions: ['jpeg', 'jpg'] },
+  png: { name: 'PNG image', extensions: ['png'] },
+  tif: { name: 'TIFF image', extensions: ['tif', 'tiff'] },
+  tiff: { name: 'TIFF image', extensions: ['tiff', 'tif'] },
+  webp: { name: 'WebP image', extensions: ['webp'] },
+  mp4: { name: 'MP4 video', extensions: ['mp4'] },
+  json: { name: 'Recipe', extensions: ['json'] },
+}
+
+/** The extension of a file name or path ('jpg'), lower case, or '' when it has none. */
+export const extensionOf = (path: string): string => /\.([^./\\]+)$/.exec(path)?.[1]?.toLowerCase() ?? ''
+
+/**
+ * Where the Save dialog's answer is written. A name typed without an
+ * extension gets the one it was offered with: a file with none shows on
+ * Windows as a plain "File" that photo pickers (Instagram's) leave out.
+ */
+export function withExtension(path: string, offered: string): string {
+  const ext = extensionOf(offered)
+  return ext && !extensionOf(path) ? `${path}.${ext}` : path
+}
+
 /** The Save dialog, starting at `defaultPath` (a name, or a whole path for its folder too): where it was saved, or null if cancelled. */
 export async function saveFileAs(blob: Blob, defaultPath: string): Promise<string | null> {
-  const path = await save({ defaultPath })
-  if (!path) return null
+  // The file's type as the dialog's filter: Windows then adds the extension
+  // to a name typed without one, and the Mac keeps it on.
+  const kind = FILE_KINDS[extensionOf(defaultPath)]
+  const chosen = await save({ defaultPath, ...(kind ? { filters: [kind] } : {}) })
+  if (!chosen) return null
+  // Linux's dialog doesn't add it.
+  const path = withExtension(chosen, defaultPath)
   await writeFile(path, blob)
   return path
 }

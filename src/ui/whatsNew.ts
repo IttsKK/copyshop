@@ -33,6 +33,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.4.1',
+    date: '2026-11-23',
+    things: [
+      {
+        title: 'Saved photos keep .jpg on Windows',
+        line: 'A name typed in the Save box without an extension saved a file Windows didn’t know was a photo, so Instagram and other pickers left it out. The extension is now added.',
+      },
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-11-23',
     things: [
