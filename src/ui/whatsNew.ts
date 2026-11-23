@@ -1,0 +1,110 @@
+import { CATEGORY_BY_ID, MODULE_BY_ID, type StackModuleId } from './moduleCatalog'
+import { persistedStore, useStore } from './state/store'
+
+/**
+ * What's new, version by version: the page a new version opens on its first
+ * run (WhatsNewDialog), and the New tags on modules it added.
+ *
+ * One entry per release, newest first, written when the release is. Each
+ * thing in it is either a module (`module`: its name, picture and where it
+ * is come from the module list, and the page offers to show it) or another
+ * change (`title`, with `where` it is found). `line` says what it does, in a
+ * sentence; no more. Keep a release to the things a user would notice.
+ */
+export interface NewThing {
+  /** A module added: named, pictured and placed from the module list. */
+  module?: StackModuleId
+  /** Anything else: its name. */
+  title?: string
+  /** What it does or what changed, in one plain sentence. */
+  line: string
+  /** Where to find it, when it isn't a module ("Settings › General"). */
+  where?: string
+}
+
+export interface Release {
+  version: string
+  /** When it came out (YYYY-MM-DD). */
+  date: string
+  things: NewThing[]
+}
+
+export const RELEASES: Release[] = [
+  {
+    version: '1.3.0',
+    date: '2026-11-23',
+    things: [
+      { module: 'recolour', line: 'Select parts of the photo and give each its own colour, keeping their light and shade, or keep a part as shot in a black and white photo.' },
+      { module: 'kaleido', line: 'The photo, or a part of it, copied round a point: mirrored or turned, in rings toward the middle, and masked to where it shows.' },
+      { title: 'Updates install themselves', line: 'A new version downloads in the background and installs when you quit; it opens the next time. You can turn this off.', where: 'Settings › General' },
+      { title: 'See the photo while you select', line: 'Selecting or drawing a part for a module (a streak’s subject, what Repeat or the Kaleidoscope copies, a part to recolour) hides that module, so you see the photo itself.' },
+    ],
+  },
+]
+
+/** This copy's version, without a test build's +test.… (the build defines it; tests don't). */
+const appVersion = () => (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0').split('+')[0]
+
+/** a > b, by version numbers (1.10.0 after 1.9.0). */
+export function newer(a: string, b: string): boolean {
+  const pa = a.split(/[.+-]/).map((x) => parseInt(x, 10) || 0)
+  const pb = b.split(/[.+-]/).map((x) => parseInt(x, 10) || 0)
+  for (let i = 0; i < 3; i++) if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0)
+  return false
+}
+
+/** Where a module is, as the panel names it: its category's page, then its name ("Effects › Kaleidoscope"). */
+export const whereIs = (id: StackModuleId) => `${CATEGORY_BY_ID[MODULE_BY_ID[id].category].label} › ${MODULE_BY_ID[id].title}`
+
+/** The version this copy last ran: a newer one now means it has just been updated. */
+const lastVersionStore = persistedStore<string | null>('app.lastVersion', null)
+/** The version updated from, kept until What's new has been seen: the releases after it are what's new. */
+export const updatedFromStore = persistedStore<string | null>('app.updatedFrom', null)
+/** The modules a New tag has been seen on (opened), so the tag goes. */
+const seenStore = persistedStore<string[]>('app.newSeen', [])
+/** The version updated from, for the New tags: kept after What's new itself is seen, until the next update. */
+const taggedFrom = persistedStore<string | null>('app.newFrom', null)
+
+/**
+ * Notes, once per run, whether this run is the first of a new version. A
+ * first run of the app at all (nothing stored) is not: everything is new to
+ * a new user, and nothing is tagged.
+ */
+let noted = false
+export function noteVersion(): void {
+  if (noted) return
+  noted = true
+  const last = lastVersionStore.get()
+  const now = appVersion()
+  if (last && newer(now, last)) {
+    updatedFromStore.set(last)
+    taggedFrom.set(last)
+    seenStore.set([])
+  }
+  if (last !== now) lastVersionStore.set(now)
+}
+
+/** The releases since the version updated from, newest first (none if not updated). */
+export function releasesSince(from: string | null): Release[] {
+  const now = appVersion()
+  return from ? RELEASES.filter((r) => newer(r.version, from) && !newer(r.version, now)) : []
+}
+
+/** What's new is waiting to be seen: updated, and the releases since have something to say. */
+export const useWhatsNewWaiting = (): boolean => releasesSince(useStore(updatedFromStore)).length > 0
+
+/** What's new seen (opened, or put away): its button goes; the New tags stay until each module is opened. */
+export const whatsNewSeen = () => updatedFromStore.set(null)
+
+/** Whether a module wears a New tag: added since the version updated from, and not opened since. */
+export function useIsNew(id: StackModuleId): boolean {
+  const from = useStore(taggedFrom)
+  const seen = useStore(seenStore)
+  if (!from || seen.includes(id)) return false
+  return releasesSince(from).some((r) => r.things.some((t) => t.module === id))
+}
+
+/** A module opened: its New tag goes. */
+export function seenModule(id: StackModuleId): void {
+  if (!seenStore.get().includes(id)) seenStore.set((s) => [...s, id])
+}

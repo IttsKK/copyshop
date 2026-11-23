@@ -1,4 +1,5 @@
 import { createContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { NewTag } from './WhatsNewDialog'
 import type { SectionMaskProps } from './controls'
 import { CategoryIcon } from './CategoryIcon'
 import { ModuleGlyph } from './ModuleGlyph'
@@ -379,7 +380,10 @@ export function StackAdd({ shown, onAdd }: AddProps) {
                 return (
                   <button key={m.id} className={`stack-result${m === first ? ' first' : ''}`} tabIndex={open ? 0 : -1} onClick={() => pick(m.id)} title={here ? `${m.title} is in use: go to it` : `Add ${m.title.toLowerCase()}`}>
                     <ModuleGlyph id={m.id} tint={c.tint} size={13} />
-                    <b>{m.title}</b>
+                    <b>
+                      {m.title}
+                      <NewTag id={m.id} />
+                    </b>
                     <small>{here ? 'In use' : m.blurb}</small>
                   </button>
                 )
@@ -406,7 +410,10 @@ export function SlimModule({ id, order, onAdd }: SlimProps) {
   return (
     <button className="module-slim" style={{ order }} title={`Add ${m.title.toLowerCase()} to this photo`} onClick={() => onAdd(id)}>
       <ModuleGlyph id={id} tint={c.tint} size={14} />
-      <b>{m.title}</b>
+      <b>
+        {m.title}
+        <NewTag id={id} />
+      </b>
       <small>{m.blurb}</small>
       <span className="slim-add">+</span>
     </button>

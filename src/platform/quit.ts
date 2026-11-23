@@ -42,6 +42,16 @@ export async function settleWrites(limitMs = 3000): Promise<void> {
   }
 }
 
+const last = new Set<() => Promise<void>>()
+/**
+ * Run `step` once everything is saved, just before the app quits: a
+ * downloaded update installed (updates.ts). The app waits for it.
+ */
+export function onQuitLast(step: () => Promise<void>): () => void {
+  last.add(step)
+  return () => last.delete(step)
+}
+
 let started = false
 /** The desktop app: answer the app's quit-requested by saving, then quitting. */
 export function startQuitHandling(): void {
@@ -50,6 +60,7 @@ export function startQuitHandling(): void {
   void Promise.all([import('@tauri-apps/api/event'), import('@tauri-apps/api/core')]).then(([{ listen }, { invoke }]) =>
     listen('quit-requested', async () => {
       await settleWrites().catch(() => undefined)
+      for (const step of last) await step().catch(() => undefined)
       await invoke('quit_app')
     }),
   )

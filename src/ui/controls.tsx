@@ -9,6 +9,8 @@ import { ModuleGlyph } from './ModuleGlyph'
 import { ADD_KINDS, MaskGlyph, OverlayToggle, PickPanel, type AddKind, type PickingState } from './maskKinds'
 import { CATEGORY_BY_ID, MASKABLE, MODULE_BY_ID, moduleOrder, presetKind, type StackModuleId } from './moduleCatalog'
 import { StackContext } from './StackNav'
+import { seenModule, useIsNew } from './whatsNew'
+import { NewTag } from './WhatsNewDialog'
 import { HistogramContext, ToneHighlightContext, pointedTone, type ToneRange } from './toneHighlight'
 
 /**
@@ -711,6 +713,11 @@ export function Module({ id, title, summary, children }: ModuleProps) {
   const listView = stack?.listView
   const shownSummary = summary ?? stack?.summaryOf?.(id)
   const [collapsed, setCollapsed] = useLocalStorage(listView ? `ui.module.${listView}.${id}` : `ui.module.${id}`, listView ? true : active === false)
+  // New in this version (whatsNew.ts): tagged until it is opened.
+  const isNew = useIsNew(id)
+  useEffect(() => {
+    if (isNew && !collapsed) seenModule(id)
+  }, [isNew, collapsed, id])
   const tint = CATEGORY_BY_ID[def.category].tint
   const off = active === false
   const sectionRef = useRef<HTMLElement>(null)
@@ -820,6 +827,7 @@ export function Module({ id, title, summary, children }: ModuleProps) {
           <span className="disclosure-caret" aria-hidden />
           <ModuleGlyph id={id} tint={tint} size={14} />
           <h2>{title}</h2>
+          <NewTag id={id} dot />
         </button>
         {/* Its mask, as darktable's modules have it: a button in the header,
             always there, that opens the mask panel right under it. Masked,

@@ -6,6 +6,7 @@ import { HelpIcon, PanelBottomIcon, PanelLeftIcon, PanelRightIcon, SettingsIcon 
 import { setLeftOpen, setLibraryShown, setRightOpen, setStripOpen, useLeftOpen, useLibraryShown, useRightOpen, useStripOpen } from './state/layout'
 import { PANEL_KEYS, keyLabel } from './shortcuts'
 import { installUpdate, useUpdate } from '../platform/updates'
+import { useWhatsNewWaiting } from './whatsNew'
 
 interface Props {
   /** The open photo, named with its size; null before one is open. */
@@ -25,10 +26,13 @@ interface Props {
   /** The file input Open clicks, also clicked by Cmd/Ctrl+O and the empty preview. */
   imageInput: RefObject<HTMLInputElement>
   onOpen: (file: File) => void
+  /** What's new, from the top bar's button after an update. */
+  onWhatsNew: () => void
 }
 
 /** The bar over everything: the panels, the open photo, Open, Settings and help. */
-export function TopBar({ image, fromExport, hasLibrary, onAddFolder, onOpenPhotos, launcher, onQuit, onSettings, onHelp, imageInput, onOpen }: Props) {
+export function TopBar({ image, fromExport, hasLibrary, onAddFolder, onOpenPhotos, launcher, onQuit, onSettings, onHelp, imageInput, onOpen, onWhatsNew }: Props) {
+  const whatsNew = useWhatsNewWaiting()
   const leftOpen = useLeftOpen()
   const rightOpen = useRightOpen()
   const stripOpen = useStripOpen()
@@ -71,19 +75,34 @@ export function TopBar({ image, fromExport, hasLibrary, onAddFolder, onOpenPhoto
         )}
       </div>
       <div className="topbar-actions">
-        {/* A newer version of the desktop app: offered here, installed only on a click. */}
-        {(update.kind === 'available' || update.kind === 'installing') && (
+        {/* Just updated: what's new in it, until looked at. */}
+        {whatsNew && (
+          <button className="update-button whats-new-button" title="What this version adds, and where to find it" onClick={onWhatsNew}>
+            What’s new
+          </button>
+        )}
+        {/* A newer version: with Update automatically off, offered here and installed on a click; downloaded, it
+            installs as the app quits, and Restart to update installs it now. */}
+        {(update.kind === 'available' || update.kind === 'ready' || update.kind === 'installing') && (
           <button
-            className="primary update-button"
+            className={update.kind === 'available' ? 'primary update-button' : 'update-button'}
             disabled={update.kind === 'installing'}
-            title={update.kind === 'available' ? `Download copyshop ${update.version}, install it and restart. Your edits are kept.` : undefined}
+            title={
+              update.kind === 'available'
+                ? `Download copyshop ${update.version}, install it and restart. Your edits are kept.`
+                : update.kind === 'ready'
+                  ? `copyshop ${update.version} is downloaded and installs when you quit. Restart now to use it. Your edits are kept.`
+                  : undefined
+            }
             onClick={() => void installUpdate()}
           >
             {update.kind === 'installing'
               ? update.progress === null
                 ? 'Updating…'
                 : `Updating… ${Math.round(update.progress * 100)}%`
-              : `Update to ${update.version}`}
+              : update.kind === 'ready'
+                ? 'Restart to update'
+                : `Update to ${update.version}`}
           </button>
         )}
         {hasLibrary && (

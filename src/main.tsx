@@ -1,6 +1,7 @@
 import { startTelemetry, Sentry } from './platform/telemetry'
 import { startUsage } from './platform/usage'
 import { startUpdateChecks } from './platform/updates'
+import { noteVersion } from './ui/whatsNew'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './ui/App'
@@ -15,6 +16,8 @@ startTelemetry()
 startUsage()
 // The desktop app looks for a newer version a little after it opens, and every few hours.
 startUpdateChecks()
+// The first run of a newer version: What's new waits in the top bar, and its new modules are tagged.
+noteVersion()
 
 // The desktop app's self-check (src/platform/smoke.ts): only when launched
 // with GRAIN_EMULATOR_SMOKE set; it writes a report and quits.

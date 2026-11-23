@@ -154,6 +154,8 @@ import { ShortcutsOverlay } from './ShortcutsOverlay'
 import { IntroDialog } from './IntroDialog'
 import { Tour, type TourStep } from './Tour'
 import { GetDesktopDialog } from './GetDesktopDialog'
+import { WhatsNewDialog } from './WhatsNewDialog'
+import { releasesSince, updatedFromStore, whatsNewSeen } from './whatsNew'
 import { FeedbackDialog } from './FeedbackDialog'
 import { ActivateDialog } from './ActivateDialog'
 import { SendToAppDialog } from './SendToAppDialog'
@@ -970,6 +972,8 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   /** The browser version: Export's way to the desktop app (GetDesktopDialog). */
   const [getDesktopOpen, setGetDesktopOpen] = useState(false)
+  // What's new: the releases since the version updated from, or (from Settings) every one.
+  const [whatsNewOpen, setWhatsNewOpen] = useState<'since' | 'all' | null>(null)
   /** Report a problem (Help menu, the palette, Settings, the shortcuts sheet). */
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   // The GPU still building the shaders (Windows can take minutes): said on the
@@ -6404,6 +6408,7 @@ export function App() {
             onHelp={() => setShowHelp(true)}
             imageInput={imageInput}
             onOpen={(f) => void openImage(f, f.name)}
+            onWhatsNew={() => setWhatsNewOpen('since')}
           />
 
           {leftPanel.shown && <LeftPanel
@@ -7793,6 +7798,19 @@ export function App() {
             <ActivateDialog mode="change" onDone={() => setChangingLicense(false)} onClose={() => setChangingLicense(false)} />
           )}
           {getDesktopOpen && <GetDesktopDialog onClose={() => setGetDesktopOpen(false)} />}
+          {whatsNewOpen && (
+            <WhatsNewDialog
+              releases={whatsNewOpen === 'since' ? releasesSince(updatedFromStore.get()) : undefined}
+              onShowModule={(id) => {
+                if (isStackModule(id)) showModuleRef.current(id)
+                setSettingsOpen(false)
+              }}
+              onClose={() => {
+                whatsNewSeen()
+                setWhatsNewOpen(null)
+              }}
+            />
+          )}
           {tourOpen && <Tour steps={tourSteps} onClose={() => endTour()} />}
           {guidePage && (
             <Guide
@@ -7820,6 +7838,7 @@ export function App() {
                   setIntroOpen(true)
                 }}
                 onReport={() => setFeedbackOpen(true)}
+                onWhatsNew={() => setWhatsNewOpen('all')}
                 onTour={startTour}
                 onStatus={setStatus}
               />

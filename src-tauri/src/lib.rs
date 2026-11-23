@@ -628,8 +628,34 @@ fn request_quit(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(QUIT_GRACE);
+        // Held longer while an update is installed (hold_quit): quit once that time is up too.
+        loop {
+            let until = QUIT_HELD_UNTIL.load(std::sync::atomic::Ordering::SeqCst);
+            let now = now_ms();
+            if until <= now {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis((until - now).min(1000)));
+        }
         app.exit(0);
     });
+}
+
+/// Until when (ms since 1970) a quit under way waits for the page: an update
+/// being installed as the app quits takes longer than saving (src/platform/updates.ts).
+#[cfg(desktop)]
+static QUIT_HELD_UNTIL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+#[cfg(desktop)]
+fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+}
+
+/// The page asks the quit under way to wait up to `ms` more (at most two minutes).
+#[cfg(desktop)]
+#[tauri::command]
+fn hold_quit(ms: u64) {
+    QUIT_HELD_UNTIL.store(now_ms() + ms.min(120_000), std::sync::atomic::Ordering::SeqCst);
 }
 
 /// When the app last quit properly (ms since 1970), from a note written as it
@@ -922,7 +948,8 @@ pub fn run() {
             smoke_dir,
             quit_app,
             last_clean_exit,
-            set_menu_enabled
+            set_menu_enabled,
+            hold_quit
         ])
         .build(tauri::generate_context!())
         .expect("error while running copyshop")

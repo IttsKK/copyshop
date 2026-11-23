@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { revealInFinder } from '../platform/native'
 import { allowCrashReports, crashReportsAllowed } from '../platform/telemetry'
 import { allowUsage, usageAllowed } from '../platform/usage'
-import { APP_VERSION, canUpdate, checkForUpdate, installUpdate, useUpdate } from '../platform/updates'
+import { APP_VERSION, autoUpdateStore, canUpdate, checkForUpdate, installUpdate, useUpdate } from '../platform/updates'
+import { useStore } from './state/store'
 import { diskFolder } from '../storage/disk'
 import { libraryAvailable, loadRecent, onRecent, removeRecent } from '../storage/library'
 import { LISTED_LOOKS, NONE_LOOK } from './looks'
@@ -17,6 +18,8 @@ interface Props {
   onReport: () => void
   onTour: () => void
   onStatus: (message: string) => void
+  /** Every release's What's new. */
+  onWhatsNew: () => void
 }
 
 /**
@@ -24,7 +27,8 @@ interface Props {
  * with, motion, and the library's housekeeping. The library's are the Mac
  * app's only; a browser keeps too little between visits for them.
  */
-export function GeneralSettings({ onIntro, onReport, onTour, onStatus }: Props) {
+export function GeneralSettings({ onIntro, onReport, onTour, onStatus, onWhatsNew }: Props) {
+  const autoUpdate = useStore(autoUpdateStore)
   const [crashReports, setCrashReports] = useState(crashReportsAllowed)
   const [usage, setUsage] = useState(usageAllowed)
   const update = useUpdate()
@@ -136,24 +140,38 @@ export function GeneralSettings({ onIntro, onReport, onTour, onStatus }: Props) 
                     ? ' · up to date'
                     : update.kind === 'available'
                       ? ` · ${update.version} is out`
-                      : update.kind === 'installing'
+                      : update.kind === 'downloading'
+                        ? ` · downloading ${update.version}…`
+                        : update.kind === 'ready'
+                          ? ` · ${update.version} installs when you quit`
+                          : update.kind === 'installing'
                         ? ' · updating…'
-                        : update.kind === 'failed'
-                          ? ` · ${update.message}`
-                          : ''}
+                          : update.kind === 'failed'
+                            ? ` · ${update.message}`
+                            : ''}
               </small>
             </span>
-            {update.kind === 'available' ? (
+            {update.kind === 'available' || update.kind === 'ready' ? (
               <button className="primary" onClick={() => void installUpdate()}>
-                Update and restart
+                {update.kind === 'ready' ? 'Restart to update' : 'Update and restart'}
               </button>
             ) : (
-              <button disabled={update.kind === 'checking' || update.kind === 'installing'} onClick={() => void checkForUpdate(true)}>
+              <button disabled={update.kind === 'checking' || update.kind === 'downloading' || update.kind === 'installing'} onClick={() => void checkForUpdate(true)}>
                 Check for updates
               </button>
             )}
           </div>
         )}
+        {canUpdate() && (
+          <label className="check-row" title="New versions download in the background and install when you quit, so copyshop opens as the new version next time. Off, the top bar offers each one and nothing is downloaded until you click.">
+            <input type="checkbox" checked={autoUpdate} onChange={(e) => autoUpdateStore.set(e.target.checked)} />
+            Update automatically
+          </label>
+        )}
+        <div className="settings-row">
+          <span>copyshop {APP_VERSION.split('+')[0]}: what each version added</span>
+          <button onClick={onWhatsNew}>What’s new</button>
+        </div>
         <div className="settings-row">
           <span>Something not working?</span>
           <button onClick={onReport}>Report a problem…</button>
