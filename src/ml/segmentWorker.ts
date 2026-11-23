@@ -1,4 +1,5 @@
 /// <reference lib="webworker" />
+import { edgeGuide, refineEdge } from './refineEdge'
 import type { Pick, PickBox, Selection } from './segment'
 
 /**
@@ -67,10 +68,15 @@ interface GpuDevice {
 let gpuUnusable = false
 
 async function load(): Promise<Loaded> {
+  // Where there is no WebGPU to try, the runtime's CPU-only build: half the size of the one
+  // that can also drive WebGPU (14 MB, not 27), and half the memory while it starts (about
+  // 500 MB less at its peak in WebKit), which on a phone is the difference.
+  const hasGpu = 'gpu' in navigator
+  const cpuOnly = !hasGpu || gpuUnusable
   const [T, { default: ortFactory }, { default: ortWasm }] = await Promise.all([
     import('@huggingface/transformers'),
-    import('onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?raw'),
-    import('onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'),
+    cpuOnly ? import('onnxruntime-web/ort-wasm-simd-threaded.mjs?raw') : import('onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?raw'),
+    cpuOnly ? import('onnxruntime-web/ort-wasm-simd-threaded.wasm?url') : import('onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'),
   ])
   const { env } = T
   env.allowRemoteModels = false
@@ -91,8 +97,7 @@ async function load(): Promise<Loaded> {
   }
   ;(env as { useWasmCache?: boolean }).useWasmCache = false
   const processor = await T.AutoProcessor.from_pretrained(MODEL)
-  const hasGpu = 'gpu' in navigator
-  for (const device of hasGpu && !gpuUnusable ? ['webgpu', 'wasm'] : ['wasm']) {
+  for (const device of cpuOnly ? ['wasm'] : ['webgpu', 'wasm']) {
     stage(`Selection model: loading (${device})`)
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -290,7 +295,8 @@ async function segment(id: number, picks: Pick[], box: PickBox | null): Promise<
   }
   stage('Selection model: refining the edge')
   const data = new Uint8Array(n * size)
-  for (let i = 0; i < n; i++) data.set(refineEdge(logits.subarray(i * size, (i + 1) * size), gray, width, height), i * size)
+  const guide = edgeGuide(gray, width, height)
+  for (let i = 0; i < n; i++) refineEdge(logits.subarray(i * size, (i + 1) * size), guide, data.subarray(i * size, (i + 1) * size))
   const scores = Array.from(out.iou_scores.data as Float32Array).slice(0, n)
   disposeTensors(out)
   const readings = Array.from({ length: n }, (_, i) => {
@@ -303,65 +309,6 @@ async function segment(id: number, picks: Pick[], box: PickBox | null): Promise<
   let best = 0
   readings.forEach((r, i) => r.score > readings[best].score && (best = i))
   return { width, height, masks: readings.map((r) => r.mask), scores: readings.map((r) => r.score), best }
-}
-
-/** Sums over a (2r+1)² box at every cell, edges clamped: an integral image. */
-function boxMean(src: Float32Array, w: number, h: number, r: number): Float32Array {
-  const sum = new Float64Array((w + 1) * (h + 1))
-  for (let y = 0; y < h; y++) {
-    let row = 0
-    for (let x = 0; x < w; x++) {
-      row += src[y * w + x]
-      sum[(y + 1) * (w + 1) + x + 1] = sum[y * (w + 1) + x + 1] + row
-    }
-  }
-  const out = new Float32Array(w * h)
-  for (let y = 0; y < h; y++) {
-    const y0 = Math.max(0, y - r)
-    const y1 = Math.min(h, y + r + 1)
-    for (let x = 0; x < w; x++) {
-      const x0 = Math.max(0, x - r)
-      const x1 = Math.min(w, x + r + 1)
-      const s = sum[y1 * (w + 1) + x1] - sum[y0 * (w + 1) + x1] - sum[y1 * (w + 1) + x0] + sum[y0 * (w + 1) + x0]
-      out[y * w + x] = s / ((x1 - x0) * (y1 - y0))
-    }
-  }
-  return out
-}
-
-/**
- * A selection's edge refined against the photo (a guided filter, He et al.):
- * the model's soft answer smoothed where the photo is flat, and snapped to
- * the photo's own edges where it has them; then cut at half. 1 inside.
- */
-function refineEdge(logits: Float32Array, gray: Float32Array, w: number, h: number): Uint8Array {
-  const p = new Float32Array(w * h)
-  for (let i = 0; i < p.length; i++) p[i] = 1 / (1 + Math.exp(-Math.max(-30, Math.min(30, logits[i]))))
-  const r = Math.max(3, Math.round(Math.min(w, h) * 0.008))
-  const eps = 1e-3
-  const meanI = boxMean(gray, w, h, r)
-  const meanP = boxMean(p, w, h, r)
-  const II = new Float32Array(w * h)
-  const IP = new Float32Array(w * h)
-  for (let i = 0; i < II.length; i++) {
-    II[i] = gray[i] * gray[i]
-    IP[i] = gray[i] * p[i]
-  }
-  const corrI = boxMean(II, w, h, r)
-  const corrIP = boxMean(IP, w, h, r)
-  const a = new Float32Array(w * h)
-  const b = new Float32Array(w * h)
-  for (let i = 0; i < a.length; i++) {
-    const varI = corrI[i] - meanI[i] * meanI[i]
-    const cov = corrIP[i] - meanI[i] * meanP[i]
-    a[i] = cov / (varI + eps)
-    b[i] = meanP[i] - a[i] * meanI[i]
-  }
-  const ma = boxMean(a, w, h, r)
-  const mb = boxMean(b, w, h, r)
-  const out = new Uint8Array(w * h)
-  for (let i = 0; i < out.length; i++) out[i] = ma[i] * gray[i] + mb[i] >= 0.5 ? 1 : 0
-  return out
 }
 
 // One request at a time: the model isn't run twice at once, and a switch to

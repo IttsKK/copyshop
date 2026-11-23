@@ -69,30 +69,30 @@ function spread(grid: Uint8Array, w: number, h: number, r: number) {
 
 /** Clears pieces of `value` smaller than `min` cells (4-connected), turning them to the other value. */
 function clearSmall(grid: Uint8Array, w: number, h: number, value: number, min: number, keepEdge: boolean) {
+  // Typed arrays and no array per cell: a selection is millions of cells, and the garbage of a
+  // small array for each was a few hundred MB at once, enough to end the page on a phone.
   const seen = new Uint8Array(w * h)
-  const stack: number[] = []
-  const cells: number[] = []
+  const stack = new Int32Array(w * h)
+  const cells = new Int32Array(w * h)
   for (let start = 0; start < w * h; start++) {
     if (seen[start] || grid[start] !== value) continue
-    stack.push(start)
+    let top = 0
+    let count = 0
+    stack[top++] = start
     seen[start] = 1
-    cells.length = 0
     let edge = false
-    while (stack.length) {
-      const c = stack.pop()!
-      cells.push(c)
+    while (top) {
+      const c = stack[--top]
+      cells[count++] = c
       const x = c % w
       const y = (c / w) | 0
       if (x === 0 || y === 0 || x === w - 1 || y === h - 1) edge = true
-      const next = [x > 0 ? c - 1 : -1, x < w - 1 ? c + 1 : -1, y > 0 ? c - w : -1, y < h - 1 ? c + w : -1]
-      for (const n of next) {
-        if (n >= 0 && !seen[n] && grid[n] === value) {
-          seen[n] = 1
-          stack.push(n)
-        }
-      }
+      if (x > 0 && !seen[c - 1] && grid[c - 1] === value) (seen[c - 1] = 1), (stack[top++] = c - 1)
+      if (x < w - 1 && !seen[c + 1] && grid[c + 1] === value) (seen[c + 1] = 1), (stack[top++] = c + 1)
+      if (y > 0 && !seen[c - w] && grid[c - w] === value) (seen[c - w] = 1), (stack[top++] = c - w)
+      if (y < h - 1 && !seen[c + w] && grid[c + w] === value) (seen[c + w] = 1), (stack[top++] = c + w)
     }
-    if (cells.length < min && !(keepEdge && edge)) for (const c of cells) grid[c] = 1 - value
+    if (count < min && !(keepEdge && edge)) for (let i = 0; i < count; i++) grid[cells[i]] = 1 - value
   }
 }
 

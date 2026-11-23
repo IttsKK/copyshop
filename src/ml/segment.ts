@@ -55,8 +55,15 @@ const CLICK_MS = 120_000
 let worker: Worker | null = null
 /** Where the model runs in the current worker. */
 let device: string | null = null
-/** A worker on the GPU stopped answering or crashed: later ones use the CPU. */
-let cpuOnly = false
+/**
+ * The model runs on the CPU from the start on phones and tablets (a touch
+ * screen), and later ones use it after a worker on the GPU stopped answering
+ * or crashed. A phone ends a page that takes more memory than it allows, and
+ * the CPU's way has the lower peak: its runtime build is half the size, and
+ * nothing goes through the GPU (measured in WebKit, Nov 22: about 520 MB at
+ * most, against 1.15 GB on WebGPU). Slower to select, and phones say so.
+ */
+let cpuOnly = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
 /** Workers that crashed or got stuck: past a few, selecting is switched off. */
 let deaths = 0
 let n = 0
