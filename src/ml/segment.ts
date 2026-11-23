@@ -17,6 +17,8 @@
 import { Sentry, reportIssue } from '../platform/telemetry'
 import type { FromSegmenter, ToSegmenter } from './segmentWorker'
 
+const isNativeApp = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+
 export interface Pick {
   /** Fractions of the photo. */
   x: number
@@ -40,11 +42,22 @@ export interface Selection {
   sharp?: boolean
 }
 
-/** Precise selection's models, when they are here (the desktop app, once downloaded): it is used instead. */
+/**
+ * Precise selection (src/ml/precise), used instead where it is here: the
+ * desktop app once its models are downloaded, and the web playground on a
+ * computer with WebGPU (Segment Anything only, from the site). Once it has
+ * failed to start in a browser, the small model from then on.
+ */
+let preciseBroken = false
 async function precise() {
-  const { preciseStore } = await import('./precise/models')
+  if (preciseBroken) return null
+  const { preciseStore, webPreciseHere } = await import('./precise/models')
   const s = preciseStore.get()
-  return s.kind === 'installed' ? { parts: s.parts, mod: await import('./precise/precise') } : null
+  if (s.kind === 'installed') return { parts: s.parts, mod: await import('./precise/precise') }
+  if (!webPreciseHere()) return null
+  const mod = await import('./precise/precise')
+  mod.preciseFromSite()
+  return { parts: ['find'] as ('find' | 'edge')[], mod }
 }
 
 /** A box dragged round the subject, in fractions of the photo. */
@@ -193,6 +206,7 @@ export async function prepareSegmenter(photo: ImageBitmap): Promise<void> {
     try {
       return await p.mod.preparePrecise(photo, p.parts)
     } catch (err) {
+      preciseBroken = !isNativeApp()
       reportIssue('Precise selection: could not start; the small model instead', 'warning', { error: String((err as Error)?.message ?? err) }, ['precise-start'])
     }
   }
@@ -218,6 +232,8 @@ function prepareSmall(photo: ImageBitmap): Promise<void> {
 export interface SegmentOptions {
   /** Precise selection's sharper answer, when it is ready. */
   onBetter?: (sel: Selection) => void
+  /** Precise selection's closer look waited for and given instead of its first answer (the playground, which takes one). */
+  settle?: boolean
   /** What precise selection is doing now (null: done), for the status line. */
   onStage?: (message: string | null) => void
 }
@@ -228,8 +244,27 @@ export async function segment(photo: ImageBitmap, picks: Pick[], box: PickBox | 
   const p = await precise()
   if (p) {
     try {
-      return await p.mod.preciseSegment(photo, picks, box, p.parts, opts)
+      if (!opts.settle) return await p.mod.preciseSegment(photo, picks, box, p.parts, opts)
+      // The closer look, a second or so after the first answer; the first if it does not come.
+      return await new Promise<Selection | null>((resolve, reject) => {
+        let first: Selection | null = null
+        const give = () => resolve(first)
+        p.mod
+          .preciseSegment(photo, picks, box, p.parts, {
+            onBetter: resolve,
+            onStage: (m) => {
+              opts.onStage?.(m)
+              if (m === null) give()
+            },
+          })
+          .then((sel) => {
+            first = sel
+            if (!sel) resolve(null)
+            else setTimeout(give, 15_000)
+          }, reject)
+      })
     } catch (err) {
+      preciseBroken = !isNativeApp()
       reportIssue('Precise selection: failed; the small model instead', 'warning', { error: String((err as Error)?.message ?? err) }, ['precise-segment'])
     }
   }

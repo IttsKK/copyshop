@@ -46,6 +46,23 @@ let dirPromise: Promise<string> | null = null
 export const preciseDir = () => (dirPromise ??= dataDir().then((d) => `${d}/models/${SET}`))
 export const precisePath = async (repoName: 'sam' | 'edge', file: string) => `${await preciseDir()}/${repoName === 'sam' ? 'sam2.1-hiera-small-ONNX' : 'BiRefNet-ONNX'}/${file}`
 
+/**
+ * The web playground on a computer: Segment Anything 2.1 small from the site
+ * (R2, /app/models/precise-1), kept by the browser after the first time, run
+ * on WebGPU. Not on phones and tablets (their memory) or without WebGPU; not
+ * the edge model (it needs the app's native runtime).
+ */
+export const WEB_MODELS = '/app/models/precise-1/sam2.1-hiera-small-ONNX/'
+export function webPreciseHere(): boolean {
+  if (isNative() || typeof navigator === 'undefined' || !('gpu' in navigator)) return false
+  if (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) return false
+  return ((navigator as { deviceMemory?: number }).deviceMemory ?? 8) >= 4
+}
+
+/** The models being fetched in a browser, while they are: bytes so far and in all. */
+export const preciseLoadingStore = createStore<{ done: number; total: number } | null>(null)
+export const usePreciseLoading = () => useStore(preciseLoadingStore)
+
 /** What this computer can run natively (src-tauri/src/ml.rs). */
 export interface MlInfo {
   native: boolean

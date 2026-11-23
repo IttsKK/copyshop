@@ -3,7 +3,7 @@ import { readFile } from '../../platform/native'
 import { Sentry, reportIssue } from '../../platform/telemetry'
 import { track } from '../../platform/usage'
 import type { Pick, PickBox, Selection } from '../segment'
-import { mlInfo, precisePath, preciseStore, type PrecisePart } from './models'
+import { PRECISE_FILES, WEB_MODELS, mlInfo, preciseLoadingStore, precisePath, preciseStore, type PrecisePart } from './models'
 import type { FromPrecise, Rect, ToPrecise, WebInput } from './preciseWorker'
 import { PRECISE_SIDE } from './side'
 
@@ -108,12 +108,49 @@ const native: Runner = {
   forget: (kept) => invoke('ml_unload', { kept }),
 }
 
+/**
+ * A model's file in a browser: from the site, kept in the browser's own cache
+ * after the first time (82 MB for Segment Anything's encoder), with its
+ * progress in preciseLoadingStore.
+ */
+const CACHE = 'copyshop-models-1'
+async function fetchModel(url: string): Promise<Uint8Array<ArrayBuffer>> {
+  const cache = typeof caches !== 'undefined' ? await caches.open(CACHE).catch(() => null) : null
+  const hit = await cache?.match(url).catch(() => undefined)
+  if (hit) return new Uint8Array(await hit.arrayBuffer())
+  const res = await fetch(url)
+  if (!res.ok || !res.body) throw new Error(`The selection model did not download (${res.status}).`)
+  const reader = res.body.getReader()
+  const parts: Uint8Array[] = []
+  let got = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    parts.push(value)
+    got += value.length
+    preciseLoadingStore.set({ done: loadingBase + got, total: loadingTotal })
+  }
+  loadingBase += got
+  const bytes = new Uint8Array(got)
+  let at = 0
+  for (const p of parts) {
+    bytes.set(p, at)
+    at += p.length
+  }
+  void cache?.put(url, new Response(bytes.slice(), { headers: { 'content-type': 'application/octet-stream', 'content-length': String(got) } })).catch(() => undefined)
+  return bytes
+}
+let loadingBase = 0
+let loadingTotal = 0
+/** A path on the site (the playground) is fetched; anything else is a file on disk (the app). */
+const readModel = (path: string) => (path.startsWith(WEB_MODELS) ? fetchModel(path) : readFile(path))
+
 /** ONNX Runtime Web in the worker, on WebGPU where there is one. */
 const web: Runner = {
   async load(name, model, data) {
-    const bytes = await readFile(model)
+    const bytes = await readModel(model)
     if (!bytes) throw new Error(`${model} is missing`)
-    const extra = data ? await readFile(data) : null
+    const extra = data ? await readModel(data) : null
     if (data && !extra) throw new Error(`${data} is missing`)
     const transfer: Transferable[] = [bytes.buffer, ...(extra ? [extra.buffer] : [])]
     const m = await ask<Extract<FromPrecise, { type: 'loaded' }>>(
@@ -152,7 +189,36 @@ function reset() {
 
 /** Opens the models (once): where each runs is chosen here (see the top of this file). */
 function load(parts: PrecisePart[]): Promise<Ready> {
-  ready ??= (async () => {
+  ready ??= (fromSite ? loadWeb() : loadApp(parts)).catch((err) => {
+    ready = null
+    preciseLoadingStore.set(null)
+    throw err
+  })
+  return ready
+}
+
+/** The playground's way (preciseFromSite): Segment Anything from the site, in the page; no edge model. */
+let fromSite = false
+export function preciseFromSite(): void {
+  fromSite = true
+}
+
+/** The playground: Segment Anything from the site, in the page; no edge model. */
+async function loadWeb(): Promise<Ready> {
+  const sam = PRECISE_FILES.filter((f) => f.part === 'find')
+  loadingBase = 0
+  loadingTotal = sam.reduce((a, f) => a + f.size, 0)
+  preciseLoadingStore.set({ done: 0, total: loadingTotal })
+  const d1 = await web.load('sam_enc', `${WEB_MODELS}vision_encoder_fp16.onnx`, `${WEB_MODELS}vision_encoder_fp16.onnx_data`)
+  const d2 = await web.load('sam_dec', `${WEB_MODELS}prompt_encoder_mask_decoder_fp16.onnx`, `${WEB_MODELS}prompt_encoder_mask_decoder_fp16.onnx_data`)
+  preciseLoadingStore.set(null)
+  preciseDevices = `find ${d1}/${d2} (web)`
+  Sentry.setTag('precise.devices', preciseDevices)
+  return { find: web, edge: Promise.resolve(null), devices: preciseDevices }
+}
+
+function loadApp(parts: PrecisePart[]): Promise<Ready> {
+  return (async () => {
     const info = await mlInfo()
     // Segment Anything: natively when that has the GPU (Windows) or the page has no WebGPU; else in the page.
     const findHere = info.native && (info.gpu !== null || !('gpu' in navigator)) ? native : web
@@ -178,11 +244,7 @@ function load(parts: PrecisePart[]): Promise<Ready> {
     Sentry.setTag('precise.devices', devices)
     preciseDevices = devices
     return { find: findHere, edge, devices }
-  })().catch((err) => {
-    ready = null
-    throw err
-  })
-  return ready
+  })()
 }
 
 /* ------------------------------------------------------------- selecting */
