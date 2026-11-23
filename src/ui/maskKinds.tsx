@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 import { keyWords } from '../platform/os'
 import { EditBox } from './EditBox'
-import type { MaskSection } from '../engine/types'
+import type { MaskOwner, MaskSection } from '../engine/types'
 
 /** The kinds of mask, as the Masks panel and a module's Mask menu offer them. */
 export type AddKind = 'subject' | 'outline' | 'paint' | 'gradient' | 'radial'
@@ -73,7 +73,7 @@ export interface PickingState {
   leaveOut: boolean
   onLeaveOut: (on: boolean) => void
   /** For a module's own piece (Repeat's) or a subject to streak, shown there rather than here. */
-  owner?: 'repeat' | 'streak'
+  owner?: MaskOwner
   /** A new mask for a module or a streak, started from its Mask row or Mask tab: shown there too, rather than here. */
   forTarget?: boolean
 }

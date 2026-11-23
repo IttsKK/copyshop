@@ -2,6 +2,7 @@ import { colourKeyOf, edgeColours, EDGE_REACH, KEY_BAND } from './maskCover'
 import { decodeRaster, rasterKey } from './maskRaster'
 import type { EffectParams, LeakSpot, MaskRaster, MaskShape } from './types'
 import { composeRepeat } from './repeat'
+import { composeKaleido } from './kaleido'
 import { withLighting } from './lighting'
 import { unbend } from './lensBend'
 import { leanName, leanStreakShader, type LeanKind, type LeanVariant } from './streakLean'
@@ -2467,6 +2468,28 @@ export class GrainEngine {
   }
   private repeatCache: { base: RenderRequest['base']; key: string; canvas: OffscreenCanvas } | null = null
 
+  /**
+   * The photo with the Kaleidoscope's copies in it (engine/kaleido.ts), from
+   * the photo as Repeat left it; made again only when that, the settings or
+   * its piece change; null when it is doing nothing.
+   */
+  private kaleidoBase(base: RenderRequest['base'], size: Size, params: BlendParams): RenderRequest['base'] | null {
+    const fx = params.effects
+    if (!fx.kaleido?.enabled) return null
+    const print = printSize(size, params.border)
+    const photoAt = photoFrame(size, params.border)
+    const maskFrame = fx.shapeSpace === 'print' ? { x: 0, y: 0, ...print } : photoAt
+    const k = fx.kaleido
+    const piece = k.source ? fx.masks.find((m) => m.id === k.source) : undefined
+    const key = JSON.stringify([size, k, piece, maskFrame, photoAt])
+    const kept = this.kaleidoCache
+    if (kept && kept.base === base && kept.key === key) return kept.canvas
+    const canvas = composeKaleido(base, size, fx, maskFrame, photoAt)
+    this.kaleidoCache = canvas ? { base, key, canvas } : null
+    return canvas
+  }
+  private kaleidoCache: { base: RenderRequest['base']; key: string; canvas: OffscreenCanvas } | null = null
+
   render(given: RenderRequest): AnyCanvas {
     if (this.disposed) throw new Error('GrainEngine has been disposed.')
     // Lighting's lights are drawn as leaks are (engine/lighting.ts). A
@@ -2502,8 +2525,11 @@ export class GrainEngine {
     this.streaksLeftOut = wantStreaks && !withStreaks && !this.leanOn
     const req: RenderRequest = {
       ...input,
-      // Repeat's copies go into the photo itself, before everything else.
-      base: this.repeatedBase(input.base, input.baseSize, resolved) ?? input.base,
+      // Repeat's copies go into the photo itself, before everything else; then the Kaleidoscope's.
+      base: (() => {
+        const repeated = this.repeatedBase(input.base, input.baseSize, resolved) ?? input.base
+        return this.kaleidoBase(repeated, input.baseSize, resolved) ?? repeated
+      })(),
       params: resolved,
     }
     // The print is the photo plus its border; with no border they are the same

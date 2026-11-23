@@ -417,20 +417,23 @@ function coverFor(photo: object, m: MaskShape, gw: number, gh: number, px: Uint8
 const gridCache = new WeakMap<object, { gw: number; gh: number; px: Uint8ClampedArray }>()
 
 /**
- * The photo with Repeat's copies in it, or null when Repeat is doing
- * nothing. Each repeat in the list goes in, the one higher in the list in
- * front (as streaks are), its piece cut from the photo as it was (not from
- * another repeat's copies). `maskFrame` is the
- * frame masks are kept in and `photoFrame` where the photo sits, both in
- * print pixels (see GrainEngine's buildLayers).
+ * What cutting pieces from a photo needs, worked out once per compose: the
+ * photo as something to draw, its grid for working out what masks cover
+ * (kept per photo), and the mask frame brought onto the photo's pixels.
  */
-export function composeRepeat(base: TextureSource, size: Size, fx: EffectParams, maskFrame: Rect, photoFrame: Rect): OffscreenCanvas | null {
-  const mod = fx.repeat
-  if (!mod?.enabled) return null
-  const ids = fx.masks.map((m) => m.id)
-  // Last first, so the first in the list is drawn last, in front.
-  const items = mod.items.filter((r) => repeatActive(r, ids)).reverse()
-  if (!items.length) return null
+export interface PieceCutter {
+  photo: Drawable
+  W: number
+  H: number
+  /** A point in the mask frame's fractions, in photo pixels. */
+  toPx: (p: RepeatPoint) => { x: number; y: number }
+  /** What a mask covers, as a picture to cut with, the photo's size. */
+  coverPicture: (m: MaskShape) => OffscreenCanvas
+  /** The piece a mask cuts out, with where its box is on the photo; null when it covers nothing. */
+  cut: (m: MaskShape) => { piece: OffscreenCanvas; bx: number; by: number; bw: number; bh: number } | null
+}
+
+export function pieceCutter(base: TextureSource, size: Size, maskFrame: Rect, photoFrame: Rect): PieceCutter {
   const photo = asDrawable(base)
   const W = size.width
   const H = size.height
@@ -452,25 +455,13 @@ export function composeRepeat(base: TextureSource, size: Size, fx: EffectParams,
   const kx = W / photoFrame.width
   const ky = H / photoFrame.height
   const toPx = (p: RepeatPoint) => ({ x: (maskFrame.x + p.x * maskFrame.width - photoFrame.x) * kx, y: (maskFrame.y + p.y * maskFrame.height - photoFrame.y) * ky })
-
-  // Its module's mask, as any module's: the copies only inside the masks
-  // (the sky, say), or everywhere but them. The same for every repeat.
-  const use = fx.maskUse?.repeat
-  const held = (use?.ids ?? []).map((id) => fx.masks.find((m) => m.id === id)).filter((m): m is NonNullable<typeof m> => !!m && maskOn(m))
-  let heldCover: OffscreenCanvas | null = null
-  if (use && held.length) {
-    heldCover = new OffscreenCanvas(W, H)
-    const cc = heldCover.getContext('2d')!
-    for (const m of held) cc.drawImage(coverCanvas(coverOf(m), gw, gh), 0, 0, W, H)
+  const coverPicture = (m: MaskShape) => {
+    const c = new OffscreenCanvas(W, H)
+    c.getContext('2d')!.drawImage(coverCanvas(coverOf(m), gw, gh), 0, 0, W, H)
+    return c
   }
-
-  let out: OffscreenCanvas | null = null
-  for (const r of items) {
-    const source = fx.masks.find((m) => m.id === r.source)
-    if (!source || !maskOn(source)) continue
-    const kind = maskKind(source)
-    if (kind !== 'outline' && kind !== 'subject') continue
-    const cover = coverOf(source)
+  const cut = (m: MaskShape) => {
+    const cover = coverOf(m)
     // The piece: the cells it covers, a cell's margin round them, in photo pixels.
     let x0 = gw
     let y0 = gh
@@ -484,7 +475,7 @@ export function composeRepeat(base: TextureSource, size: Size, fx: EffectParams,
           if (y < y0) y0 = y
           if (y > y1) y1 = y
         }
-    if (x1 < 0) continue
+    if (x1 < 0) return null
     x0 = Math.max(0, x0 - 1)
     y0 = Math.max(0, y0 - 1)
     x1 = Math.min(gw - 1, x1 + 1)
@@ -500,6 +491,49 @@ export function composeRepeat(base: TextureSource, size: Size, fx: EffectParams,
     pc.imageSmoothingEnabled = true
     pc.imageSmoothingQuality = 'high'
     pc.drawImage(coverCanvas(cover, gw, gh), -bx, -by, W, H)
+    return { piece, bx, by, bw, bh }
+  }
+  return { photo, W, H, toPx, coverPicture, cut }
+}
+
+/**
+ * The photo with Repeat's copies in it, or null when Repeat is doing
+ * nothing. Each repeat in the list goes in, the one higher in the list in
+ * front (as streaks are), its piece cut from the photo as it was (not from
+ * another repeat's copies). `maskFrame` is the
+ * frame masks are kept in and `photoFrame` where the photo sits, both in
+ * print pixels (see GrainEngine's buildLayers).
+ */
+export function composeRepeat(base: TextureSource, size: Size, fx: EffectParams, maskFrame: Rect, photoFrame: Rect): OffscreenCanvas | null {
+  const mod = fx.repeat
+  if (!mod?.enabled) return null
+  const ids = fx.masks.map((m) => m.id)
+  // Last first, so the first in the list is drawn last, in front.
+  const items = mod.items.filter((r) => repeatActive(r, ids)).reverse()
+  if (!items.length) return null
+  const cutter = pieceCutter(base, size, maskFrame, photoFrame)
+  const { photo, W, H, toPx } = cutter
+
+  // Its module's mask, as any module's: the copies only inside the masks
+  // (the sky, say), or everywhere but them. The same for every repeat.
+  const use = fx.maskUse?.repeat
+  const held = (use?.ids ?? []).map((id) => fx.masks.find((m) => m.id === id)).filter((m): m is NonNullable<typeof m> => !!m && maskOn(m))
+  let heldCover: OffscreenCanvas | null = null
+  if (use && held.length) {
+    heldCover = new OffscreenCanvas(W, H)
+    const cc = heldCover.getContext('2d')!
+    for (const m of held) cc.drawImage(cutter.coverPicture(m), 0, 0)
+  }
+
+  let out: OffscreenCanvas | null = null
+  for (const r of items) {
+    const source = fx.masks.find((m) => m.id === r.source)
+    if (!source || !maskOn(source)) continue
+    const kind = maskKind(source)
+    if (kind !== 'outline' && kind !== 'subject') continue
+    const cutOut = cutter.cut(source)
+    if (!cutOut) continue
+    const { piece, bx, by, bw, bh } = cutOut
 
     const centre = { x: bx + bw / 2, y: by + bh / 2 }
     const copies = repeatCopies(r, centre, { width: bw, height: bh }, toPx)

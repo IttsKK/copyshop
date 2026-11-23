@@ -70,6 +70,11 @@ export const MODULE_HELP: Record<StackModuleId, string[]> = {
     'Copies a piece of the photo: on a grid out from it, along a path you draw, or wherever you click.',
     'Make the piece here: select a subject, draw round it, or paint it. The copies go in before every other effect, so colour and grain treat them like the rest of the picture.',
   ],
+  kaleido: [
+    'Copies the photo round a point. Slice takes a wedge of the photo from the point and copies it all the way round; Select or Draw copies just that part round it, over the photo.',
+    'Mirror flips every other copy, so they meet edge to edge. Rings put it inside itself again, smaller and turned, toward the point.',
+    'Move the point with Move centre. While you select or draw the part to copy, the copies are hidden so you see the photo itself.',
+  ],
   halftone: ['Prints the finished picture as ink on paper: halftone dots or lines in one ink, or riso in two inks slightly out of line.'],
   border: ['Paper round the photo, as on a print, with its own colour and texture. A deeper bottom edge gives an instant-film frame.'],
   dust: ['Dust, hairs and scratches on the film and the scanner glass, over everything.'],

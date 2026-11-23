@@ -1,5 +1,6 @@
 import { DEFAULT_LIGHTING } from '../engine/lighting'
 import { DEFAULT_REPEAT, DEFAULT_REPEAT_MODULE } from '../engine/repeatParams'
+import { DEFAULT_KALEIDO } from '../engine/kaleido'
 import { baseActive } from '../engine/base'
 import { doubleOn, lensOn, prismOn } from '../engine/extras'
 import { DEFAULT_BLEND_PARAMS, DEFAULT_GLASS, glassOn, type BlendParams } from '../engine/types'
@@ -41,7 +42,7 @@ export const CATEGORIES: Category[] = [
   { id: 'colour', label: 'Colour & tone', tint: '#e48aa6', hint: "Tone and colour grading", brief: "Tone, colour grading", short: 'Colour' },
   { id: 'light', label: 'Glow', tint: '#f2a65e', hint: "Glow, edge light, solarizing, lights placed on the photo, light leaks and burns", brief: "Glow, edges, solarize, lighting, leaks", short: 'Glow' },
   { id: 'texture', label: 'Film & texture', tint: '#d6c6a2', hint: "Black and white, grain, dither and pixel art", brief: "B&W, grain, dither, pixel art", short: 'Film' },
-  { id: 'shapes', label: 'Effects', tint: '#7fcdc4', hint: "Effects made on the photo from your selections: streaks, glass, collage and repeat", brief: "Streaks, glass, collage, repeat", short: 'Effects' },
+  { id: 'shapes', label: 'Effects', tint: '#7fcdc4', hint: "Effects made on the photo from your selections: streaks, glass, collage, repeat and kaleidoscope", brief: "Streaks, glass, collage, repeat, kaleidoscope", short: 'Effects' },
   { id: 'print', label: 'Print', tint: '#b9b2a6', hint: "Halftone, borders and print damage", brief: "Halftone, border, dust, surge", short: 'Print' },
 ]
 
@@ -51,6 +52,7 @@ export type StackModuleId =
   | 'curve'
   | 'crop'
   | 'repeat'
+  | 'kaleido'
   | 'lighting'
   | 'lens'
   | 'prism'
@@ -109,6 +111,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'glass', title: 'Glass', category: 'shapes', blurb: 'Reeded, faceted or rippled glass distortion', keywords: 'reeded prism ripple refraction' },
   { id: 'collage', title: 'Collage', category: 'shapes', blurb: 'Pieces from other photos placed into this one', keywords: 'pieces cut paste arrange' },
   { id: 'repeat', title: 'Repeat', category: 'shapes', blurb: 'Copies of a masked part of the photo, on a grid, along a path or placed', keywords: 'repeat copy clone stamp duplicate echo array grid pattern tile' },
+  { id: 'kaleido', title: 'Kaleidoscope', category: 'shapes', blurb: 'The photo, or a part of it, copied round a point', keywords: 'kaleidoscope mirror symmetry symmetric radial rotate turn spin mandala twist tunnel reflect fold' },
   { id: 'halftone', title: 'Halftone & riso', category: 'print', blurb: 'Halftone dots or lines, or a two-colour riso print', keywords: 'halftone dots screen print riso risograph zine newspaper comic duotone' },
   { id: 'border', title: 'Border', category: 'print', blurb: 'A paper border around the image', keywords: 'frame paper edge white' },
   { id: 'dust', title: 'Dust & scratches', category: 'print', blurb: 'Dust, hairs and scratches', keywords: 'defects dirt hair scratch scan' },
@@ -183,6 +186,9 @@ function clearModule(id: StackModuleId, b: BlendParams): BlendParams {
     case 'repeat':
       // What each copies stays: its piece is made, not a setting.
       return fx({ repeat: { enabled: !!e.repeat?.enabled, items: (e.repeat?.items ?? []).map((r) => ({ ...DEFAULT_REPEAT, id: r.id, enabled: r.enabled, source: r.source })) } })
+    case 'kaleido':
+      // Its piece stays: it is made, not a setting. The point goes back to the middle.
+      return fx({ kaleido: { ...DEFAULT_KALEIDO, enabled: !!e.kaleido?.enabled, source: e.kaleido?.source ?? null } })
     case 'lighting':
       return fx({ lighting: { ...DEFAULT_LIGHTING, enabled: !!e.lighting?.enabled } })
     default:
@@ -268,6 +274,8 @@ export function inUse(id: StackModuleId, b: BlendParams): boolean {
     case 'repeat':
       // On as soon as it is switched on: its piece is chosen in the module.
       return !!e.repeat?.enabled
+    case 'kaleido':
+      return !!e.kaleido?.enabled
     case 'lighting':
       return !!e.lighting?.enabled
     case 'border':
@@ -364,6 +372,9 @@ export function startModule(id: StackModuleId, b: BlendParams): BlendParams {
       return fx({ collage: { ...e.collage, enabled: true } })
     case 'repeat':
       return fx({ repeat: { ...(e.repeat ?? DEFAULT_REPEAT_MODULE), enabled: true } })
+    case 'kaleido':
+      // Straight away: a slice from the middle, copied round it.
+      return fx({ kaleido: { ...(e.kaleido ?? DEFAULT_KALEIDO), enabled: true } })
     case 'lighting':
       return fx({ lighting: { ...(e.lighting ?? DEFAULT_LIGHTING), enabled: true } })
     case 'border': {
@@ -406,6 +417,8 @@ export function switchOn(id: StackModuleId, b: BlendParams): BlendParams {
       return fx({ [id]: { ...e[id], enabled: true } } as Partial<BlendParams['effects']>)
     case 'repeat':
       return fx({ repeat: { ...(e.repeat ?? DEFAULT_REPEAT_MODULE), enabled: true } })
+    case 'kaleido':
+      return fx({ kaleido: { ...(e.kaleido ?? DEFAULT_KALEIDO), enabled: true } })
     case 'lighting':
       return fx({ lighting: { ...(e.lighting ?? DEFAULT_LIGHTING), enabled: true } })
     case 'pixel':
@@ -473,6 +486,8 @@ export function stopModule(id: StackModuleId, b: BlendParams): BlendParams {
       return fx({ collage: { ...e.collage, enabled: false } })
     case 'repeat':
       return fx({ repeat: { ...(e.repeat ?? DEFAULT_REPEAT_MODULE), enabled: false } })
+    case 'kaleido':
+      return fx({ kaleido: { ...(e.kaleido ?? DEFAULT_KALEIDO), enabled: false } })
     case 'lighting':
       return fx({ lighting: { ...(e.lighting ?? DEFAULT_LIGHTING), enabled: false } })
   }

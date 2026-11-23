@@ -166,6 +166,8 @@ export function shapesOnCrop(params: BlendParams, photo: Size, crop: Rect, deg =
       masks: (fx.masks ?? []).map((m) => maskOnCrop(m, move, Math.min(frame.width, frame.height) / Math.min(crop.width, crop.height), deg ? { deg, back } : undefined)),
       // Repeat's path and placed copies are points on the photo too.
       ...(fx.repeat ? { repeat: { ...fx.repeat, items: fx.repeat.items.map((r) => ({ ...r, path: r.path.map(move), placed: r.placed.map(move), ...(r.vanish ? { vanish: move(r.vanish) } : {}) })) } } : {}),
+      // The Kaleidoscope's centre too (left as the middle, it is the crop's middle), its slice turned with the photo.
+      ...(fx.kaleido ? { kaleido: { ...fx.kaleido, angle: fx.kaleido.angle + deg, centre: fx.kaleido.centre ? move(fx.kaleido.centre) : null } } : {}),
       shapeSpace: 'photo',
     },
   }

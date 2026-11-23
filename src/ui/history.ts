@@ -367,6 +367,7 @@ const NAMES: Record<string, string> = {
   lens: 'lens',
   prism: 'prism',
   repeat: 'repeat',
+  kaleido: 'kaleidoscope',
   lighting: 'lighting',
 }
 

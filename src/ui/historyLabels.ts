@@ -122,6 +122,7 @@ const EFFECT_KEYS: Record<string, StackModuleId> = {
   surge: 'surge',
   crop: 'crop',
   repeat: 'repeat',
+  kaleido: 'kaleido',
   lighting: 'lighting',
 }
 

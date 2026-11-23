@@ -68,6 +68,7 @@ import type { SerializedGrainSource } from '../sources/GrainSource'
 import { PRESET_STORE, getAll, newId, put, remove, type PresetRecord } from './db'
 import { CROP_ASPECTS, type CropAspect } from '../engine/crop'
 import { DEFAULT_REPEAT, MAX_REPEATS, type RepeatModule, type RepeatParams } from '../engine/repeatParams'
+import { DEFAULT_KALEIDO, KALEIDO_COPIES, KALEIDO_RINGS, type KaleidoParams } from '../engine/kaleido'
 import { DEFAULT_LIGHT, MAX_LIGHTS } from '../engine/lighting'
 import type { ExportFormat, ExportSizing } from '../pipeline/exportSize'
 
@@ -295,7 +296,7 @@ function parseMask(raw: unknown, fallbackId: string, fallbackName: string): Mask
     ...(m.keyWas === 'darker' || m.keyWas === 'lighter' ? { keyWas: m.keyWas } : {}),
     ...(m.keyAt === 'edge' ? { keyAt: 'edge' as const, keyBand: m.keyBand === OLD_KEY_BAND ? KEY_BAND : num(m.keyBand, KEY_BAND, 0.002, 0.2) } : {}),
     grow: num(m.grow, 0, 0, 0.5),
-    ...(m.owner === 'repeat' || m.owner === 'streak' ? { owner: m.owner } : {}),
+    ...(m.owner === 'repeat' || m.owner === 'streak' || m.owner === 'kaleido' ? { owner: m.owner } : {}),
     ...(() => {
       const r = (m.raster ?? null) as Record<string, unknown> | null
       if (!r || typeof r.runs !== 'string' || !r.runs) return {}
@@ -475,6 +476,7 @@ export function ownMasks(fx: EffectParams): EffectParams {
     use(sh.repeatMask ?? null, `streak:${i}`)
   })
   fx.repeat?.items.forEach((r) => use(r.source, 'piece'))
+  use(fx.kaleido?.source ?? null, 'kaleido')
   for (const [section, m] of Object.entries(fx.maskUse ?? {})) m?.ids.forEach((id) => use(id, `section:${section}`))
   ;(fx.lighting?.lights ?? []).forEach((l) => {
     use(l.mask ?? null, 'light')
@@ -489,7 +491,7 @@ export function ownMasks(fx: EffectParams): EffectParams {
     if (m.owner) return m
     const by = [...(uses.get(m.id) ?? [])]
     if (by.length !== 1) return m
-    const owner = by[0].startsWith('subject:') ? ('streak' as const) : by[0] === 'piece' ? ('repeat' as const) : null
+    const owner = by[0].startsWith('subject:') ? ('streak' as const) : by[0] === 'piece' ? ('repeat' as const) : by[0] === 'kaleido' ? ('kaleido' as const) : null
     if (!owner) return m
     changed = true
     return { ...m, owner }
@@ -857,6 +859,25 @@ function parseEffectsAsSaved(value: unknown): EffectParams {
       }
     })(),
     repeat: parseRepeatModule(e.repeat),
+    ...(e.kaleido ? { kaleido: parseKaleido(e.kaleido) } : {}),
+  }
+}
+
+/** Kaleidoscope's settings, each kept within what its controls reach. */
+export function parseKaleido(value: unknown): KaleidoParams {
+  const k = (value ?? {}) as Record<string, unknown>
+  const d = DEFAULT_KALEIDO
+  const c = (k.centre ?? null) as Record<string, unknown> | null
+  return {
+    enabled: k.enabled === true,
+    centre: c && typeof c.x === 'number' && typeof c.y === 'number' ? { x: num(c.x, 0.5, -1, 2), y: num(c.y, 0.5, -1, 2) } : null,
+    copies: Math.round(num(k.copies, d.copies, KALEIDO_COPIES.min, KALEIDO_COPIES.max)),
+    mirror: k.mirror !== false,
+    angle: num(k.angle, d.angle, -180, 180),
+    source: typeof k.source === 'string' && k.source ? k.source : null,
+    rings: Math.round(num(k.rings, d.rings, KALEIDO_RINGS.min, KALEIDO_RINGS.max)),
+    ringSize: num(k.ringSize, d.ringSize, 0.2, 0.95),
+    twist: num(k.twist, d.twist, -180, 180),
   }
 }
 

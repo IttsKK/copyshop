@@ -24,10 +24,11 @@ export type ClipPart = StackModuleId | 'masks'
 
 /**
  * Parts that belong to where things are on one photo (its crop, its streaks
- * and their subjects, its repeats and their pieces, its lights, its masks,
+ * and their subjects, its repeats and their pieces, the Kaleidoscope's centre
+ * and part, its lights, its masks,
  * pieces and a second photo laid in): offered, but not chosen unless asked for.
  */
-export const PLACED: readonly ClipPart[] = ['crop', 'streaks', 'repeat', 'lighting', 'collage', 'double', 'masks']
+export const PLACED: readonly ClipPart[] = ['crop', 'streaks', 'repeat', 'kaleido', 'lighting', 'collage', 'double', 'masks']
 
 /** The base photo's modules share one set of settings: each one's own. */
 export const BASE_SETTINGS: Partial<Record<StackModuleId, (keyof BaseParams)[]>> = {
@@ -65,7 +66,7 @@ export function pasteClip(clip: EditClip, into: { blend: BlendParams; grainSourc
   if (look.length && look.every((p) => clip.parts.includes(p)))
     for (const m of MODULES) if (!PLACED.includes(m.id) && !look.includes(m.id) && inUse(m.id, blend)) blend = stopModule(m.id, blend)
   // A module's own masks (a streak's subject, a repeat's piece), swapped for the copied photo's.
-  const owned = (owner: 'streak' | 'repeat') => fx({ masks: [...blend.effects.masks.filter((m) => m.owner !== owner), ...structuredClone(from.effects.masks.filter((m) => m.owner === owner))] })
+  const owned = (owner: 'streak' | 'repeat' | 'kaleido') => fx({ masks: [...blend.effects.masks.filter((m) => m.owner !== owner), ...structuredClone(from.effects.masks.filter((m) => m.owner === owner))] })
   for (const p of clip.parts) {
     const base = p !== 'masks' ? BASE_SETTINGS[p] : undefined
     const kind = p !== 'masks' ? presetKind(p) : null
@@ -78,6 +79,9 @@ export function pasteClip(clip: EditClip, into: { blend: BlendParams; grainSourc
     } else if (p === 'repeat') {
       fx({ repeat: structuredClone(from.effects.repeat) })
       owned('repeat')
+    } else if (p === 'kaleido') {
+      fx({ kaleido: structuredClone(from.effects.kaleido) })
+      owned('kaleido')
     } else if (p === 'crop') fx({ crop: structuredClone(from.effects.crop) })
     else if (p === 'lighting') fx({ lighting: structuredClone(from.effects.lighting) })
     else if (p === 'collage') fx({ collage: structuredClone(from.effects.collage) })

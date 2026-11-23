@@ -116,6 +116,17 @@ export function moduleSummary(id: StackModuleId, b: BlendParams): string {
       const where = r.layout === 'grid' ? 'on a grid' : r.layout === 'path' ? 'along a path' : 'placed'
       return `${n} ${n === 1 ? 'copy' : 'copies'} ${where}`
     }
+    case 'kaleido': {
+      const k = e.kaleido
+      if (!k) return ''
+      const piece = !!k.source && e.masks.some((m) => m.id === k.source)
+      return join([
+        `${k.copies} ${piece ? 'copies of a part' : 'slices'}`,
+        k.mirror && 'mirrored',
+        k.rings > 1 && `${k.rings} rings`,
+        k.rings > 1 && k.twist !== 0 && `twist ${signed(k.twist)}°`,
+      ])
+    }
     case 'border':
       return join([`Width ${pct(b.border.width)}`, b.border.bottomExtra > 0 && 'deeper at the foot'])
     case 'dust':

@@ -181,6 +181,13 @@ const GLYPHS: Record<string, (c: string) => ReactNode> = {
       <rect x="8.5" y="1.5" width="5.5" height="5.5" rx="1.2" fill={c} opacity="0.35" />
     </>
   ),
+  // Six wedges round a point, every other one stronger, as a kaleidoscope's mirrors show a slice.
+  kaleido: (c) => (
+    <>
+      <path d="M8 8 L8 1.5 L13.63 4.75 Z M8 8 L13.63 11.25 L8 14.5 Z M8 8 L2.37 11.25 L2.37 4.75 Z" fill={c} />
+      <path d="M8 8 L13.63 4.75 L13.63 11.25 Z M8 8 L8 14.5 L2.37 11.25 Z M8 8 L2.37 4.75 L8 1.5 Z" fill={c} opacity="0.4" />
+    </>
+  ),
   border: (c) => <rect x="2" y="2" width="12" height="12" rx="2.5" fill="none" stroke={c} strokeWidth="2.6" />,
   dust: (c) => (
     <>

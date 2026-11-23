@@ -52,6 +52,7 @@ import {
   type CollageArrange,
   MAX_COLLAGE_PIECES,
   type Rect,
+  type MaskOwner,
 } from '../engine/types'
 import { constrainPlacement, coverPlacement, gapsAt, pieceAt, pieceMaps, setCollagePhoto } from '../engine/collage'
 import { ARRANGED_ID, arrangement, cellArea, cellAt } from '../engine/arrange'
@@ -167,6 +168,9 @@ import type { GuideState, StreakGuideEditor } from './StreakGuideOverlay'
 import type { LightEditor } from './LightOverlay'
 import { DEFAULT_LIGHT, DEFAULT_LIGHTING, type LightShape, type LightingParams } from '../engine/lighting'
 import type { RepeatEditor } from './RepeatOverlay'
+import type { KaleidoEditor } from './KaleidoOverlay'
+import { DEFAULT_KALEIDO, type KaleidoParams } from '../engine/kaleido'
+import { KaleidoModule } from './modules/KaleidoModule'
 import { pieceBoxOf, pieceCentreOf } from '../engine/repeat'
 import { DEFAULT_REPEAT_MODULE, NEW_REPEAT_PARAMS, fitRepeat as fitRepeatToPiece, MAX_REPEATS, newRepeat, repeatsActive, type RepeatModule as RepeatModuleParams, type RepeatParams } from '../engine/repeatParams'
 import { ModuleExample, bigOf, editThumb } from './RecipeThumb'
@@ -412,6 +416,9 @@ export function App() {
   const cancelFamilyRef = useRef<(f: OnPhotoFamily) => void>(() => undefined)
   /** The outline being drawn is Repeat's own piece. */
   const [drawingPiece, setDrawingPiece] = useState(false)
+  // The Kaleidoscope's own part being drawn, and its centre being moved on the photo.
+  const [drawingKaleido, setDrawingKaleido] = useState(false)
+  const [editingKaleido, setEditingKaleido] = useState(false)
   // The selected streak's guides being laid on the photo.
   const [guidingStreak, setGuidingStreak] = useState(false)
   // What laying them is doing, for the bar over the photo (StreakGuideOverlay).
@@ -3096,6 +3103,13 @@ export function App() {
   }
   const setLight = (i: number, patch: Partial<LightShape>, step: string) =>
     setLighting({ lights: lighting.lights.map((l, j) => (j === i ? { ...l, ...patch } : l)), ...(lighting.enabled ? {} : { enabled: true }) }, step)
+  const kaleido = blend.effects.kaleido ?? DEFAULT_KALEIDO
+  const setKaleido = (patch: Partial<KaleidoParams>, step: string | null = null) => {
+    history.hint(step)
+    setEffects({ kaleido: { ...kaleido, ...patch } })
+  }
+  /** Where the Kaleidoscope's own part is in the masks; -1: none (a slice of the photo). */
+  const kaleidoPieceAt = kaleido.source ? blend.effects.masks.findIndex((m) => m.id === kaleido.source) : -1
   const repeats = blend.effects.repeat ?? DEFAULT_REPEAT_MODULE
   /**
    * The repeat open in Repeat's list; past the end (or none open), the one
@@ -3345,7 +3359,7 @@ export function App() {
   }, [brushing, maskEditing, maskDrawing, picking, selectedMask, blend.effects.masks])
   const pickSelection = useRef<Selection | null>(null)
   const pickRun = useRef(0)
-  const startPicking = (index: number | null, owner?: 'repeat' | 'streak', target?: NewMaskTarget, streak?: number) => {
+  const startPicking = (index: number | null, owner?: MaskOwner, target?: NewMaskTarget, streak?: number) => {
     if (!image) return
     // A pick already going is put back first, and the new one starts from the masks as they were before it.
     const earlier = picking
@@ -3362,6 +3376,8 @@ export function App() {
     setEditingLeaks(false)
     setEditingGuides(false)
     setEditingBands(false)
+    setEditingKaleido(false)
+    setDrawingKaleido(false)
     pickSelection.current = null
     setPicking({ index, picks: [], box: null, past: [], future: [], reading: null, shown: 0, busy: false, before: earlier ? earlier.before : blend.effects.masks, beforeUse: earlier ? earlier.beforeUse : blend.effects.maskUse, ...(owner ? { owner } : {}), ...(target ? { target } : {}), ...(streak !== undefined ? { streak } : {}) })
     setStatus('Getting the selection model ready…')
@@ -3373,7 +3389,9 @@ export function App() {
           pickRun.current === run
             ? owner === 'streak'
               ? 'Click the thing to streak'
-              : 'Click the subject, or box it'
+              : owner === 'kaleido'
+                ? 'Click the part to copy round, or box it'
+                : 'Click the subject, or box it'
             : now === 'Getting the selection model ready…'
               ? null
               : now,
@@ -3417,6 +3435,15 @@ export function App() {
         remember(null)
         setEffects({ masks: [...masks, { ...DEFAULT_MASK, id, name: 'Original', outline, raster, owner: 'repeat' }], repeat: { ...repeatWith({ source: id, enabled: true }), enabled: true } })
         return { ...p, index: masks.length, shown: reading }
+      }
+      // The Kaleidoscope's part: copied round as soon as it is made.
+      if (p.owner === 'kaleido') {
+        const id = newId('mask')
+        remember(null)
+        // A part drawn before goes: it has one part at a time.
+        const kept = masks.filter((m) => !(m.owner === 'kaleido' && m.id === kaleido.source))
+        setEffects({ masks: [...kept, { ...DEFAULT_MASK, id, name: 'Kaleidoscope part', outline, raster, owner: 'kaleido' }], kaleido: { ...kaleido, source: id, enabled: true } })
+        return { ...p, index: kept.length, shown: reading }
       }
       // A streak's subject is its own, kept in the streak, not the Masks list.
       if (p.owner === 'streak') {
@@ -3506,11 +3533,17 @@ export function App() {
       // Put back as it was; Repeat lets go of a piece that is gone again, and
       // a "Start from" cancelled here takes its settings back with it.
       const lost = repeats.items.some((r) => !!r.source && !picking.before.some((m) => m.id === r.source))
+      const kaleidoLost = !!kaleido.source && !picking.before.some((m) => m.id === kaleido.source)
       // Nothing picked: no step for it.
-      if (lost || blend.effects.masks !== picking.before || blend.effects.maskUse !== picking.beforeUse) {
+      if (lost || kaleidoLost || blend.effects.masks !== picking.before || blend.effects.maskUse !== picking.beforeUse) {
         remember(null)
-        // A repeat whose piece was made in this pick goes with it.
-        setEffects({ masks: picking.before, maskUse: picking.beforeUse, ...(lost ? { repeat: { ...repeats, items: repeats.items.filter((r) => !r.source || picking.before.some((m) => m.id === r.source)) } } : {}) })
+        // A repeat whose piece was made in this pick goes with it; the Kaleidoscope goes back to its slice.
+        setEffects({
+          masks: picking.before,
+          maskUse: picking.beforeUse,
+          ...(lost ? { repeat: { ...repeats, items: repeats.items.filter((r) => !r.source || picking.before.some((m) => m.id === r.source)) } } : {}),
+          ...(kaleidoLost ? { kaleido: { ...kaleido, source: null } } : {}),
+        })
       }
       if (picking.index !== null && picking.index >= picking.before.length) setSelectedMask(null)
     } else if (picking.index !== null) {
@@ -3841,8 +3874,10 @@ export function App() {
    * used by that section straight away. One thing on the photo at a time.
    */
   const drawMask = (target: NewMaskTarget | null) => {
-    const stop = maskDrawing && newTarget?.section === target?.section && newTarget?.streak === target?.streak && !drawingPiece
+    const stop = maskDrawing && newTarget?.section === target?.section && newTarget?.streak === target?.streak && !drawingPiece && !drawingKaleido
     setDrawingPiece(false)
+    setDrawingKaleido(false)
+    setEditingKaleido(false)
     // One way of making a mask at a time: a radial or gradient being placed, or a brush, stops.
     setMaskPlacing(null)
     setBrushing(null)
@@ -3871,6 +3906,28 @@ export function App() {
     setMaskEditing(!stop)
     setEditingRepeat(false)
     if (!stop) setStatus('Click points round what to copy. Double-click or Done closes it.')
+  }
+  /** Start or stop drawing the Kaleidoscope's own part, an outline round what it copies round. */
+  const drawKaleidoPiece = () => {
+    const stop = maskDrawing && drawingKaleido
+    if (picking) finishPicking(false)
+    drawMask(null)
+    setDrawingKaleido(!stop)
+    setMaskDrawing(!stop)
+    setMaskEditing(!stop)
+    if (!stop) setStatus('Click points round the part to copy round. Double-click or Done closes it.')
+  }
+  /** The Kaleidoscope back on a slice of the photo: its own part, if it has one, goes. */
+  const kaleidoSlice = () => {
+    if (picking?.owner === 'kaleido') finishPicking(false)
+    if (drawingKaleido) {
+      setDrawingKaleido(false)
+      setMaskDrawing(false)
+      setMaskEditing(false)
+    }
+    const masks = blend.effects.masks.filter((m) => !(m.id === kaleido.source && m.owner === 'kaleido'))
+    history.hint(`${WHOLE_STEP}copying a slice round`)
+    setEffects({ masks, kaleido: { ...kaleido, source: null, enabled: true } })
   }
   /** A new mask painted by hand from nothing: for the Masks list, or Repeat's own piece. */
   const newPainted = (owner?: 'repeat', target?: NewMaskTarget) => {
@@ -4719,11 +4776,12 @@ export function App() {
    * that has gone. A family also ends when its module is folded or out of
    * view, and everything ends when another photo opens.
    */
-  type OnPhotoFamily = 'streaks' | 'masks' | 'repeat' | 'picking' | 'lighting' | 'leaks' | 'dither' | 'collage' | 'crop' | 'dropper'
+  type OnPhotoFamily = 'streaks' | 'masks' | 'repeat' | 'kaleido' | 'picking' | 'lighting' | 'leaks' | 'dither' | 'collage' | 'crop' | 'dropper'
   const onPhotoModes: Record<OnPhotoFamily, Record<string, boolean>> = {
     streaks: { drawingStreak, drawingPath, editingStreaks, guidingStreak, fixEditing: !!fixEditing },
     masks: { maskDrawing, maskEditing, maskPlacing: !!maskPlacing, brushing: !!brushing },
     repeat: { editingRepeat, drawingPiece },
+    kaleido: { editingKaleido, drawingKaleido },
     picking: { picking: !!picking },
     lighting: { lightDrawing, lightEditing },
     leaks: { editingLeaks, drawingLeakShape },
@@ -4749,6 +4807,13 @@ export function App() {
     } else if (f === 'repeat') {
       setEditingRepeat(false)
       setDrawingPiece(false)
+    } else if (f === 'kaleido') {
+      setEditingKaleido(false)
+      if (drawingKaleido) {
+        setDrawingKaleido(false)
+        setMaskDrawing(false)
+        setMaskEditing(false)
+      }
     } else if (f === 'picking') {
       // Cancelled, the masks go back as they were; but not onto another photo.
       if (photoChanged) {
@@ -4881,7 +4946,7 @@ export function App() {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [streakSession, drawingPath, fixEditing])
-  const makingNew = drawingStreak || drawingPath || maskDrawing || !!maskPlacing || drawingPiece || lightDrawing || drawingLeakShape || !!picking || !!dropperTarget
+  const makingNew = drawingStreak || drawingPath || maskDrawing || !!maskPlacing || drawingPiece || drawingKaleido || lightDrawing || drawingLeakShape || !!picking || !!dropperTarget
   const pressKey = (key: 'Enter' | 'Escape' | 'Delete') => window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
 
   // A straight streak bent by its arrow's middle has a curve and no arrow:
@@ -4908,7 +4973,7 @@ export function App() {
    * was when it came on, and what was done in it is one step to undo.
    * (Subject picking keeps its own: it holds the masks from before.)
    */
-  const SESSION_FAMILIES: OnPhotoFamily[] = ['masks', 'repeat', 'lighting', 'leaks', 'dither', 'collage']
+  const SESSION_FAMILIES: OnPhotoFamily[] = ['masks', 'repeat', 'kaleido', 'lighting', 'leaks', 'dither', 'collage']
   const familySessions = useRef(new Map<OnPhotoFamily, { row: number; photo: string | null; cancelled?: boolean }>())
   const familiesKey = familiesOn.join(',')
   useEffect(() => {
@@ -4955,15 +5020,28 @@ export function App() {
     if (openingPhoto || !image) return null
     const masks = blend.effects.masks
     if (picking) {
-      const home = picking.owner === 'repeat' ? 'repeat' : picking.owner === 'streak' || picking.target?.streak !== undefined ? 'streaks' : (picking.target?.section ?? 'masks')
+      const home = picking.owner === 'repeat' ? 'repeat' : picking.owner === 'kaleido' ? 'kaleido' : picking.owner === 'streak' || picking.target?.streak !== undefined ? 'streaks' : (picking.target?.section ?? 'masks')
       return {
         at: 'pick',
         home,
         // Again: a mask in the list, or a streak's subject, selected over.
         name:
-          picking.index !== null && (picking.owner !== 'streak' || picking.streak !== undefined)
+          picking.owner === 'kaleido'
+            ? picking.index !== null && picking.index < picking.before.length
+              ? 'Selecting the part again'
+              : 'Selecting the part to copy'
+            : picking.index !== null && (picking.owner !== 'streak' || picking.streak !== undefined)
             ? `Selecting ${picking.owner === 'streak' ? 'the subject' : (masks[picking.index]?.name ?? 'the subject')} again`
             : 'Selecting a subject',
+        // Its module's own output is left out while its part is selected (hideOwnOutput): said here.
+        hint:
+          picking.owner === 'kaleido' && kaleido.enabled
+            ? 'Kaleidoscope hidden while you select'
+            : picking.owner === 'repeat' && repeats.enabled && repeats.items.length
+              ? 'Copies hidden while you select'
+              : picking.owner === 'streak' && blend.effects.streaks.enabled && blend.effects.streaks.shapes.length
+                ? 'Streaks hidden while you select'
+                : undefined,
         onCancel: () => finishPicking(false),
         cancelTitle: 'Stop selecting; nothing changes (Esc)',
         onDone: () => finishPicking(true),
@@ -5030,6 +5108,7 @@ export function App() {
       onDone: () => doneFamily(f),
       doneTitle: makingNew ? 'Finish it (Enter)' : 'Keep the changes (Enter)',
     })
+    if (drawingKaleido) return { at: 'kaleido/piece', home: 'kaleido', name: 'Drawing the part to copy', hint: kaleido.enabled ? 'Kaleidoscope hidden while you draw' : 'Click round the part', ...family('kaleido'), ...outlineDone('round the part') }
     if (maskDrawing) return { at: newMaskAt, home: newMaskHome, name: 'Drawing a new mask', hint: 'Click round it', ...family('masks'), ...outlineDone('round it') }
     if (maskPlacing) return { at: newMaskAt, home: newMaskHome, name: maskPlacing === 'radial' ? 'Placing a radial mask' : 'Placing a gradient mask', hint: maskPlacing === 'radial' ? 'Drag from the middle out' : 'Drag from full to faded', ...family('masks') }
     // Brushing: the mask brushed (a streak's subject or Repeat's piece is not the one open in the Masks list).
@@ -5067,6 +5146,7 @@ export function App() {
         ) : undefined,
         ...family('masks'),
       }
+    if (editingKaleido) return { at: 'kaleido/centre', home: 'kaleido', name: 'Kaleidoscope: centre', hint: 'Drag the centre', ...family('kaleido') }
     if (drawingPiece) return { at: repeatAt < repeats.items.length ? `repeat/${repeatAt}` : 'repeat', home: 'repeat', name: 'Drawing what to copy', hint: 'Click round what to copy', ...family('repeat'), ...outlineDone('round what to copy') }
     if (editingRepeat) {
       const r = repeats.items[repeatAt]
@@ -5177,10 +5257,10 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoKey])
   // Its module folded, out of view on another tab, or the panel on Recipes or Export.
-  const FAMILY_MODULE: Partial<Record<OnPhotoFamily, StackModuleId>> = { streaks: 'streaks', repeat: 'repeat', lighting: 'lighting', leaks: 'leaks', dither: 'dither', collage: 'collage' }
+  const FAMILY_MODULE: Partial<Record<OnPhotoFamily, StackModuleId>> = { streaks: 'streaks', repeat: 'repeat', kaleido: 'kaleido', lighting: 'lighting', leaks: 'leaks', dither: 'dither', collage: 'collage' }
   const hiddenFamilies = familiesOn.filter((f) => {
     // Picking a subject for Streaks or Repeat goes with that module (its panel is in it).
-    const id = f === 'picking' ? (picking?.owner === 'repeat' ? 'repeat' : picking?.owner === 'streak' ? 'streaks' : undefined) : FAMILY_MODULE[f]
+    const id = f === 'picking' ? (picking?.owner === 'repeat' ? 'repeat' : picking?.owner === 'kaleido' ? 'kaleido' : picking?.owner === 'streak' ? 'streaks' : undefined) : FAMILY_MODULE[f]
     return id && (panelPage !== 'modules' || !showModule(id))
   })
   useEffect(() => {
@@ -5972,9 +6052,10 @@ export function App() {
       } else if (maskDrawing) {
         setMaskDrawing(false)
         setNewTarget(null)
-        // A module's piece being drawn (Repeat): stopped altogether, nothing left on the photo.
-        if (drawingPiece) {
+        // A module's piece being drawn (Repeat, the Kaleidoscope): stopped altogether, nothing left on the photo.
+        if (drawingPiece || drawingKaleido) {
           setDrawingPiece(false)
+          setDrawingKaleido(false)
           if (selectedMask === null) setMaskEditing(false)
         }
         setStatus(null)
@@ -6061,11 +6142,25 @@ export function App() {
   // Kept as the same object until what it shows changes, so the preview does
   // not render the photo again for every unrelated change in the app (a
   // status line, a selection, a hover).
+  /** The module whose own part is being selected, drawn or painted (MaskOwner), or null. */
+  const selectingFor: MaskOwner | null = picking?.owner
+    ? picking.owner
+    : drawingKaleido
+      ? 'kaleido'
+      : drawingPiece
+        ? 'repeat'
+        : brushing
+          ? (blend.effects.masks[brushing.index]?.owner ?? null)
+          : null
   const layer = useMemo(() => {
     const from = previewBlend ?? viewBlend
-    const shownBlend = previewGrade
+    const graded = previewGrade
       ? { ...from, effects: { ...from.effects, grade: mergeGrade(from.effects.grade, previewGrade) } }
       : from
+    // Selecting, drawing or painting a module's own part: that module's own
+    // output is left out, so the photo shows as it is under it (the copies,
+    // the streaks, the kaleidoscope); everything else stays as it is.
+    const shownBlend = hideOwnOutput(graded, selectingFor)
     // The open selected or painted mask, shown on the photo by the render
     // itself: exactly what the modules get, and no work here as a brush paints.
     // Repeat's own piece, while its row is open in Repeat.
@@ -6084,7 +6179,7 @@ export function App() {
     const showMask = showId ? { id: showId, view: maskView } : undefined
     return grain ? { grain, params: shownBlend, ...(showMask ? { showMask } : {}) } : null
     // collageTick: a collage image or the photo's analysis became ready.
-  }, [grain, viewBlend, previewBlend, previewGrade, collageTick, brushing, selectedMask, maskEditing, picking, maskView, repeatPieceShown, repeat.source, maskOverlay, peekMask])
+  }, [grain, viewBlend, previewBlend, previewGrade, collageTick, brushing, selectedMask, maskEditing, picking, maskView, repeatPieceShown, repeat.source, maskOverlay, peekMask, selectingFor])
   // Pointing at a recipe shows the whole picture in it, in place of the edit.
   const viewLayer = useMemo(
     () => viewLayerOf(recipeHover && recipeHoverLayer ? recipeHoverLayer.layer : layer),
@@ -6389,6 +6484,16 @@ export function App() {
                     } satisfies RepeatEditor)
                   : null
               }
+              kaleidoEditor={
+                editingKaleido && image && kaleido.enabled
+                  ? ({
+                      kaleido,
+                      slice: kaleidoPieceAt < 0,
+                      onChange: (patch, step) => setKaleido(patch, step),
+                      onDone: () => setEditingKaleido(false),
+                    } satisfies KaleidoEditor)
+                  : null
+              }
               cropEditor={
                 editingCrop && image
                   ? ({
@@ -6560,6 +6665,25 @@ export function App() {
                         let n = 1
                         while (masks.some((m) => m.name === `Mask ${n}`)) n++
                         const id = newId('mask')
+                        if (drawingKaleido) {
+                          // The Kaleidoscope's own part: copied round at once. Drawn again, the same part takes the new outline.
+                          history.hint(`${WHOLE_STEP}drawing the Kaleidoscope's part`)
+                          const at = kaleidoPieceAt
+                          const made =
+                            at >= 0
+                              ? masks.map((m, j) => {
+                                  if (j !== at) return m
+                                  const { raster: _drop, ...rest } = m
+                                  return { ...rest, kind: undefined, outline, key: 'off' as const }
+                                })
+                              : [...masks, { ...DEFAULT_MASK, id, name: 'Kaleidoscope part', outline, owner: 'kaleido' as const }]
+                          setEffects({ masks: made, kaleido: { ...kaleido, source: at >= 0 ? masks[at].id : id, enabled: true } })
+                          setMaskDrawing(false)
+                          setDrawingKaleido(false)
+                          setMaskEditing(false)
+                          setStatus(null)
+                          return
+                        }
                         if (drawingPiece) {
                           // Repeat's own piece: copied from at once, its outline left to reshape.
                           history.hint(`${WHOLE_STEP}drawing Repeat's original`)
@@ -7223,6 +7347,30 @@ export function App() {
                   />
                 )}
 
+                {showModule('kaleido') && (
+                  <KaleidoModule
+                    blend={blend}
+                    kaleido={kaleido}
+                    image={image}
+                    setKaleido={setKaleido}
+                    onSlice={kaleidoSlice}
+                    onSelect={() => startPicking(kaleidoPieceAt >= 0 && blend.effects.masks[kaleidoPieceAt]?.raster ? kaleidoPieceAt : null, 'kaleido')}
+                    onDraw={drawKaleidoPiece}
+                    drawing={drawingKaleido}
+                    pickingView={pickingView}
+                    choosePickReading={choosePickReading}
+                    finishPicking={finishPicking}
+                    editingCentre={editingKaleido}
+                    onEditCentre={() => {
+                      if (!editingKaleido) {
+                        if (picking) finishPicking(false)
+                        if (!kaleido.enabled) setKaleido({ enabled: true })
+                      }
+                      setEditingKaleido(!editingKaleido)
+                    }}
+                  />
+                )}
+
                 {showModule('collage') && (
                   <CollageModule
                     collage={collage}
@@ -7503,4 +7651,17 @@ function TourKeys({ rows }: { rows: [string, string][] }) {
       ))}
     </span>
   )
+}
+
+/**
+ * The edit with one module's own output left out, while its own part is
+ * selected, drawn or painted: Repeat's copies, the streaks, the
+ * Kaleidoscope's copies. What it is cut from is then what shows.
+ */
+function hideOwnOutput(b: BlendParams, owner: MaskOwner | null): BlendParams {
+  const e = b.effects
+  if (owner === 'kaleido' && e.kaleido?.enabled) return { ...b, effects: { ...e, kaleido: { ...e.kaleido, enabled: false } } }
+  if (owner === 'repeat' && e.repeat?.enabled) return { ...b, effects: { ...e, repeat: { ...e.repeat, enabled: false } } }
+  if (owner === 'streak' && e.streaks.enabled) return { ...b, effects: { ...e, streaks: { ...e.streaks, enabled: false } } }
+  return b
 }

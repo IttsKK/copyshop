@@ -2,7 +2,7 @@ import { setBrushRange, useBrushRange } from './maskBrush'
 import './lists.css'
 import { EditBox } from './EditBox'
 import { KEY_BAND } from '../engine/maskCover'
-import { MAX_MASKS, MASK_SECTIONS, type EffectParams, type MaskSection, type MaskShape, type SectionMask } from '../engine/types'
+import { MAX_MASKS, MASK_SECTIONS, type EffectParams, type MaskOwner, type MaskSection, type MaskShape, type SectionMask } from '../engine/types'
 import { useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ADD_KINDS, MaskGlyph, MaskOverlayContext, PickPanel, type AddKind, type NewMaskTarget, type PickingState } from './maskKinds'
 
@@ -124,7 +124,7 @@ export interface Picking {
    * Selecting Repeat's own piece, not a mask for the Masks list; or a subject
    * to streak (Streak a subject), shown in Streaks while it is picked.
    */
-  owner?: 'repeat' | 'streak'
+  owner?: MaskOwner
   /** Streak a subject: the streak whose subject is picked again; missing, a new one. */
   streak?: number
   /** Started from a module's Mask menu: the new mask is used there. */

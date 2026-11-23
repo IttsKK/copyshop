@@ -2128,6 +2128,12 @@ button.link.danger { color: #e07b6f; }
 .repeat-point circle { fill: rgba(20, 22, 26, 0.55); stroke: #fff; stroke-width: 1.5; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
 .repeat-point.first circle { fill: #7fd3ff; }
 .repeat-point text { fill: #fff; font: 600 10px -apple-system, sans-serif; text-anchor: middle; pointer-events: none; }
+/* The Kaleidoscope's centre and the lines its slices are cut along (KaleidoOverlay). */
+.kaleido-slice { fill: rgba(127, 211, 255, 0.12); stroke: rgba(127, 211, 255, 0.95); stroke-width: 1.5; pointer-events: none; filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.7)); }
+.kaleido-edge { stroke: rgba(255, 255, 255, 0.55); stroke-width: 1; stroke-dasharray: 5 4; pointer-events: none; filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8)); }
+.kaleido-centre { pointer-events: all; cursor: grab; }
+.kaleido-centre circle { fill: rgba(20, 22, 26, 0.55); stroke: #fff; stroke-width: 1.5; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+.kaleido-centre path { stroke: #fff; stroke-width: 1.5; pointer-events: none; }
 .field.valued.wide > select { grid-column: 2 / span 2; width: 100%; min-width: 0; }
 /* A streak's guides: lines laid along the photo's edges (StreakGuideOverlay). */
 .sguide-overlay { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
