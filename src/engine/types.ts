@@ -667,6 +667,13 @@ export interface StreakShape {
   maskIds: string[]
   maskMode: 'off' | 'exclude' | 'only'
   /**
+   * Where its bars read their colours, drawn across it (engine/colourLine.ts):
+   * each line reads where it crosses this one, exactly there; a line that
+   * doesn't cross it reads at its edge. Fractions of the frame shapes are
+   * kept in. Missing: at the edge, as the shape decides.
+   */
+  colourLine?: { x: number; y: number }[] | null
+  /**
    * A tone key on where this streak shows: only over the photo's pixels
    * darker (or lighter) than `keyLevel` — streaks over the sky and not the
    * trees in front of it — measured in brightness or blue, as a mask's is.

@@ -4,6 +4,7 @@ import type { EffectParams, LeakSpot, MaskRaster, MaskShape } from './types'
 import { composeRepeat } from './repeat'
 import { composeKaleido } from './kaleido'
 import { keyValue, packKeyColour } from './keyValue'
+import { colourLineRow, hasColourLine } from './colourLine'
 import { composeRecolour, withAsShot } from './recolour'
 import { withLighting } from './lighting'
 import { unbend } from './lensBend'
@@ -1338,7 +1339,9 @@ export class GrainEngine {
     // while it is drawn into: the line table there instead, for skipping
     // masked colours, or the blank.
     gl.activeTexture(gl.TEXTURE12)
-    gl.bindTexture(gl.TEXTURE_2D, this.leanHolds && this.lineTable ? this.lineTable.texture : this.blankTexture())
+    // (Colour lines read it too: uStreakRepeat3's y.)
+    const lined = ((this.kept.get('uStreakRepeat3')?.args[0] as Float32Array | undefined) ?? []).some((v, k) => k % 4 === 1 && v > 0.5)
+    gl.bindTexture(gl.TEXTURE_2D, (this.leanHolds || lined) && this.lineTable ? this.lineTable.texture : this.blankTexture())
     const count = Math.min((this.kept.get('uStreakCount')?.args[0] as number) ?? 0, MAX_STREAKS)
     const extra = this.kept.get('uStreakExtra')?.args[0] as Float32Array | undefined
     const pass = this.kept.get('uLinePass')?.args[0] as number | undefined
@@ -2312,7 +2315,7 @@ export class GrainEngine {
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
   }
 
-  private drawLineTable(lean = false): void {
+  private drawLineTable(lean = false, colourRows?: Map<number, Uint8Array>): void {
     const gl = this.gl
     if (!this.lineTable) {
       gl.activeTexture(gl.TEXTURE12)
@@ -2337,7 +2340,11 @@ export class GrainEngine {
     // never read and written at once.
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.lineTable.framebuffer)
     gl.viewport(0, 0, LINE_TABLE_WIDTH, MAX_STREAKS)
-    if (lean) {
+    // Lean, with nothing holding the streaks back, only colour lines need the
+    // table: their rows are written below, and its lines program isn't built.
+    if (lean && !this.leanHolds) {
+      // (Nothing drawn.)
+    } else if (lean) {
       this.useLean('lines', { path: this.leanPath() })
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       gl.useProgram(this.program)
@@ -2349,6 +2356,40 @@ export class GrainEngine {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.activeTexture(gl.TEXTURE12)
     gl.bindTexture(gl.TEXTURE_2D, this.lineTable.texture)
+    // Streaks with a colour line: their rows as worked out (colourLine.ts), over what the pass drew.
+    if (colourRows?.size) {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      for (const [row, data] of colourRows) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, data.length / 4, 1, gl.RGBA, gl.UNSIGNED_BYTE, data)
+    }
+  }
+
+  /**
+   * The photo's brightness at a point (fractions of it), from a small copy
+   * kept per photo: what a colour line's table rows need of it.
+   */
+  private lumGrid: { base: unknown; w: number; h: number; px: Uint8ClampedArray } | null = null
+  private lumOn(base: RenderRequest['base'], size: Size): (fx: number, fy: number) => number {
+    if (!this.lumGrid || this.lumGrid.base !== base) {
+      const k = Math.min(1, 512 / Math.max(size.width, size.height))
+      const w = Math.max(2, Math.round(size.width * k))
+      const h = Math.max(2, Math.round(size.height * k))
+      const c = new OffscreenCanvas(w, h)
+      const ctx = c.getContext('2d', { willReadFrequently: true })!
+      if (base instanceof ImageData) {
+        const full = new OffscreenCanvas(base.width, base.height)
+        full.getContext('2d')!.putImageData(base, 0, 0)
+        ctx.drawImage(full, 0, 0, w, h)
+      } else ctx.drawImage(base as CanvasImageSource, 0, 0, w, h)
+      this.lumGrid = { base, w, h, px: ctx.getImageData(0, 0, w, h).data }
+    }
+    const g = this.lumGrid
+    return (fx, fy) => {
+      const x = Math.min(g.w - 1, Math.max(0, Math.floor(fx * g.w)))
+      const y = Math.min(g.h - 1, Math.max(0, Math.floor(fy * g.h)))
+      const q = (y * g.w + x) * 4
+      return (0.2126 * g.px[q] + 0.7152 * g.px[q + 1] + 0.0722 * g.px[q + 2]) / 255
+    }
   }
 
   /** The streaks' paths (see pathFlow) into their float texture, on unit 13. */
@@ -2775,6 +2816,9 @@ export class GrainEngine {
     let fixCount = 0
     const lInfo = new Float32Array(MAX_STREAKS * 4)
     const lSpan = new Float32Array(MAX_STREAKS)
+    // Streaks with a colour line: their line table rows, worked out here and
+    // written over the drawn table (see colourLine.ts), by row.
+    const colourRows = new Map<number, Uint8Array>()
     const sCross = new Float32Array(MAX_STREAKS * 4)
     const follows = (shape: StreakShape) => shape.mode !== 'mask' && (shape.path?.length ?? 0) >= 2
     const rad = Math.PI / 180
@@ -2787,7 +2831,9 @@ export class GrainEngine {
       let reach = sShapes.reach[i]
       const a = shape.angle * rad
       const mode = shape.mode === 'mask' ? 2 : shape.mode === 'trail' ? 1 : 0
-      sInfo.set([shape.mode !== 'mask' && shape.skipMasked !== false ? 1 : 0, follows(shape) ? (shape.pathWidth ?? 0) : 0, Math.cos(a), Math.sin(a)], i * 4)
+      const lined = shape.mode !== 'mask' && hasColourLine(shape.colourLine)
+      // A colour line reads exactly where it is drawn: no skipping past what is held back.
+      sInfo.set([shape.mode !== 'mask' && shape.skipMasked !== false && !lined ? 1 : 0, follows(shape) ? (shape.pathWidth ?? 0) : 0, Math.cos(a), Math.sin(a)], i * 4)
       sEnds.set([shape.lengthMax ?? 1, shape.lengthMin ?? 1, shape.variation ?? 1, shape.anchor === 'far' ? 0 : 1], i * 4)
       const clipped = shape.mode === 'fill' && shape.clip !== false
       sEndSoft[i] = shape.endSoftness ?? shape.feather ?? 0
@@ -2881,7 +2927,7 @@ export class GrainEngine {
       // The line table's extent: the shape's lines across (t) and along (s),
       // from its outline, which holds the extremes of both — but for the
       // nearest point to a vanishing point, which may be along a side.
-      if (shape.mode !== 'mask' && (shape.skipMasked !== false || (shape.fixes?.length ?? 0) > 0)) {
+      if (shape.mode !== 'mask' && (shape.skipMasked !== false || (shape.fixes?.length ?? 0) > 0 || lined)) {
         const dir = flowDir
         const st = shape.outline.map((p) => streakCoords(toS(p), dir, followed, vanish))
         const t0 = Math.min(...st.map((c) => c.t))
@@ -2903,9 +2949,26 @@ export class GrainEngine {
           if (vanish.g > 0) s0 = Math.min(s0, near - 0.01)
           else s1 = Math.max(s1, -near + 0.01)
         }
+        // The colour line's own reach along, so every place it reads is in the table's range.
+        const lineST = lined ? shape.colourLine!.map((p) => streakCoords(toS(p), dir, followed, vanish)) : []
+        for (const c of lineST) {
+          s0 = Math.min(s0, c.s - 0.01)
+          s1 = Math.max(s1, c.s + 0.01)
+        }
         const count = Math.min(LINE_TABLE_WIDTH, Math.max(1, Math.ceil(((t1 - t0) / shape.band) * 4)))
         lInfo.set([t0, Math.max((t1 - t0) / count, 1e-6), count, s0], i * 4)
         lSpan[i] = s1 - s0
+        if (lined) {
+          sRepeat3[i * 4 + 1] = 1
+          const lum = this.lumOn(req.base, req.baseSize)
+          const at = photoFrame(req.baseSize, req.params.border)
+          colourRows.set(
+            i,
+            colourLineRow(shape.colourLine!, (p) => streakCoords(toS(p), dir, followed, vanish), t0, Math.max((t1 - t0) / count, 1e-6), count, s0, s1 - s0, (p) =>
+              lum((frame.x + p.x * frame.width - at.x) / req.baseSize.width, (frame.y + p.y * frame.height - at.y) / req.baseSize.height),
+            ),
+          )
+        }
       }
       // Colour fixes: each span's ends placed across the flow, and the
       // stretches beside it a borrowing span takes its colours from.
@@ -3154,7 +3217,8 @@ export class GrainEngine {
     this.leanHolds = holds
     // Fixes read their sources from the table too.
     streaks.forEach((sh, i) => {
-      if (!holds && !(sh.mode !== 'mask' && (sh.fixes?.length ?? 0) > 0)) lInfo.fill(0, i * 4, i * 4 + 4)
+      // (So does a colour line: its rows are where its bars read.)
+      if (!holds && !(sh.mode !== 'mask' && (sh.fixes?.length ?? 0) > 0) && !colourRows.has(i)) lInfo.fill(0, i * 4, i * 4 + 4)
     })
     gl.uniform4fv(u.uLineInfo, lInfo)
     gl.uniform1fv(u.uLineSpan, lSpan)
@@ -3409,8 +3473,8 @@ export class GrainEngine {
     }
     if (this.leanOn && streaks.length && fx.streaks.amount > 0) this.drawCrossTable(JSON.stringify([streaks, sCross, this.streakLayers.keys]))
     // Skipping masked colours: the line table, by a lean program of its own.
-    if (this.leanOn && this.leanHolds && streaks.length && fx.streaks.amount > 0 && lInfo.some((v, k) => k % 4 === 2 && v > 0)) this.drawLineTable(true)
-    if (this.renderStreaks && streaks.length && fx.streaks.amount > 0 && lInfo.some((v, k) => k % 4 === 2 && v > 0)) this.drawLineTable()
+    if (this.leanOn && (this.leanHolds || colourRows.size) && streaks.length && fx.streaks.amount > 0 && lInfo.some((v, k) => k % 4 === 2 && v > 0)) this.drawLineTable(true, colourRows)
+    if (this.renderStreaks && streaks.length && fx.streaks.amount > 0 && lInfo.some((v, k) => k % 4 === 2 && v > 0)) this.drawLineTable(false, colourRows)
 
     // The wide passes: their own targets, programs and viewports, so the main
     // program is put back after. With streaks, from the streaked photo.

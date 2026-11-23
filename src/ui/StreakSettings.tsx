@@ -4,6 +4,8 @@ import { AngleDial } from './AngleDial'
 import { TraceToKey, type TraceOutline } from './TraceToKey'
 import { STREAK_DEFAULTS, type MaskShape, type StreakShape } from '../engine/types'
 import { MaskUse, Slider, ToneGauge, toneTrack } from './controls'
+import { EditBox } from './EditBox'
+import { hasColourLine } from '../engine/colourLine'
 import { StreakFixes, type FixEditing } from './StreakFixes'
 import { ToneAlong } from './ToneAlong'
 import { EXTEND_STYLE, FINISHES, STREAK_STYLES, finishOf, finishPatch, stylePatch, styleOf } from './streakStyles'
@@ -95,6 +97,8 @@ interface Props {
   }
   /** Its own masks (not its subject), in its Mask tab. */
   own?: StreakOwnMasks
+  /** Its colour line (StreakShape.colourLine) being edited on the photo, and editing it (made where it reads now, if it has none). */
+  colourLine?: { editing: boolean; onEdit: () => void }
 }
 
 /** Making a mask of a streak's own, from its Mask tab. */
@@ -121,7 +125,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`
 const softFormat = (v: number) => (v > 0 ? `${(v * 100).toFixed(1)}%` : 'Hard')
 
 /** One streak's settings, a tab at a time (see StreakTab). */
-export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolBox, sessionTool, onAdjust, onChange, tab, onTab, drawingPath, onDrawPath, drawingEnds, onDrawEnds, masks, newMask, fixes, trace, guiding, onGuides, onMirrorMiddle, onMatchLines, onFitRepeat, onExtend, subject, own }: Props) {
+export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolBox, sessionTool, onAdjust, onChange, tab, onTab, drawingPath, onDrawPath, drawingEnds, onDrawEnds, masks, newMask, fixes, trace, guiding, onGuides, onMirrorMiddle, onMatchLines, onFitRepeat, onExtend, subject, own, colourLine }: Props) {
   const clipped = shape.mode === 'fill' && shape.clip
   const softOutline = shape.mode === 'mask' || clipped
   // A tone that changes along the bar is two sets of values; most streaks
@@ -811,7 +815,31 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
                 onChange={subject.onInset}
               />
           )}
+          <div className="field valued">
+            <span title="Where along each line its colour is read">Colours from</span>
+            <div className="segmented">
+              <button className={!hasColourLine(shape.colourLine) ? 'on' : ''} title="Where each line meets the shape's edge (moved by Pull from)" onClick={() => onChange({ colourLine: null })}>
+                Edge
+              </button>
+              <button
+                className={hasColourLine(shape.colourLine) ? 'on' : ''}
+                title="A line you draw across the streak: each bar reads its colour where its line crosses it. It starts where the colours are read now"
+                onClick={() => !hasColourLine(shape.colourLine) && colourLine?.onEdit()}
+              >
+                Your line
+              </button>
+            </div>
+          </div>
+          {hasColourLine(shape.colourLine) && colourLine && (
+            <div className="row">
+              <button className={colourLine.editing ? 'on' : ''} title="Move its points on the photo, click the line to add one, double-click one to take it away" onClick={colourLine.onEdit}>
+                {colourLine.editing ? 'Done' : 'Edit the line on the photo'}
+              </button>
+            </div>
+          )}
+          <EditBox at={`streaks/${index}/colours`} />
           <Slider
+            idle={hasColourLine(shape.colourLine) ? 'Your line sets where colours are read' : false}
             label="Pull from"
             title={
               shape.mode === 'trail'

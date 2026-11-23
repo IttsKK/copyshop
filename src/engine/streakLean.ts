@@ -735,6 +735,8 @@ float leanGeometry(int i, vec2 printPx, out vec2 hitSrc, out float along, out ve
 #endif
   if (weight <= 0.0) return 0.0;
   src = LEAN_POS(i, vec2(st.x - leaves - 0.002 - pull, sy));
+  float lineAt = colourLineS(i, sy);
+  if (lineAt > -1e8) src = LEAN_POS(i, vec2(lineAt, sy));
   rep = vec2(st.x - leaves - 0.002, st.x);
   lineT = sy;
   float t2;
@@ -827,6 +829,8 @@ float leanGeometry(int i, vec2 printPx, out vec2 hitSrc, out float along, out ve
   weight *= cover;
   if (weight <= 0.0) return 0.0;
   src = LEAN_POS(i, vec2(readAt + depth - enters, sy));
+  float lineAt = colourLineS(i, sy);
+  if (lineAt > -1e8) src = LEAN_POS(i, vec2(lineAt, sy));
   rep = vec2(readAt + pull + depth - enters, st.x + depth - enters);
   lineT = sy;
   float t2;

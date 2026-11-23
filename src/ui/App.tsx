@@ -173,6 +173,8 @@ import type { RepeatEditor } from './RepeatOverlay'
 import type { KaleidoEditor } from './KaleidoOverlay'
 import { DEFAULT_KALEIDO, type KaleidoParams } from '../engine/kaleido'
 import { KaleidoModule } from './modules/KaleidoModule'
+import { defaultColourLine, hasColourLine, streakCoordsOf } from '../engine/colourLine'
+import type { ColourLineEditor } from './ColourLineOverlay'
 import { RecolourModule } from './modules/RecolourModule'
 import { DEFAULT_RECOLOUR, MAX_RECOLOURS, newRecolourItem, type RecolourItem } from '../engine/recolour'
 import { pieceBoxOf, pieceCentreOf } from '../engine/repeat'
@@ -423,6 +425,8 @@ export function App() {
   // The Kaleidoscope's own part being drawn, and its centre being moved on the photo.
   const [drawingKaleido, setDrawingKaleido] = useState(false)
   const [editingKaleido, setEditingKaleido] = useState(false)
+  // A streak's colour line being edited on the photo: which streak.
+  const [editingColourLine, setEditingColourLine] = useState<number | null>(null)
   // A Recolour part being drawn: a new one, or (`again`) the open one's outline replaced.
   const [drawingRecolour, setDrawingRecolour] = useState<{ again: boolean } | null>(null)
   // The Recolour part open in its list.
@@ -4614,6 +4618,32 @@ export function App() {
   const streakSpace = image
     ? { frame: shapeFrame(image.size, blend), measure: shapeMeasure(image.size, activeBorder(blend), blend.effects.shapeUnits) }
     : null
+  /**
+   * Streak i's colour line (StreakShape.colourLine), edited on the photo; with
+   * none yet, made first where its bars read now (along the shape's edge).
+   */
+  const colourLineFor = (i: number) => ({
+    editing: editingColourLine === i,
+    onEdit: () => {
+      if (editingColourLine === i) return setEditingColourLine(null)
+      const sh = blend.effects.streaks.shapes[i]
+      if (!sh || !streakSpace) return
+      if (!hasColourLine(sh.colourLine)) {
+        const { frame, measure } = streakSpace
+        const toShort = (p: { x: number; y: number }) => ({ x: (frame.x + p.x * frame.width - measure.x) / measure.unit, y: (frame.y + p.y * frame.height - measure.y) / measure.unit })
+        const line = defaultColourLine(sh.outline, streakCoordsOf(sh, toShort), sh.mode === 'trail')
+        if (!line.length) return setStatus("Couldn't find the streak's edge to start the line from")
+        history.hint(`${WHOLE_STEP}streak ${i + 1}: colours from your line`)
+        setStreaks({ shapes: blend.effects.streaks.shapes.map((x, j) => (j === i ? { ...x, colourLine: line } : x)) }, null)
+      }
+      setEditingColourLine(i)
+    },
+  })
+  // Its line gone (Edge chosen, the streak removed, undone): nothing left to edit.
+  useEffect(() => {
+    if (editingColourLine === null) return
+    if (!hasColourLine(blend.effects.streaks.shapes[editingColourLine]?.colourLine)) setEditingColourLine(null)
+  }, [editingColourLine, blend.effects.streaks.shapes])
   /** A streak's guides changed: its angle and perspective follow them once there are two. */
   const setStreakGuides = (i: number, guides: StreakGuide[], step: string) => {
     const sh = blend.effects.streaks.shapes[i]
@@ -4894,12 +4924,13 @@ export function App() {
    * that has gone. A family also ends when its module is folded or out of
    * view, and everything ends when another photo opens.
    */
-  type OnPhotoFamily = 'streaks' | 'masks' | 'repeat' | 'kaleido' | 'recolour' | 'picking' | 'lighting' | 'leaks' | 'dither' | 'collage' | 'crop' | 'dropper'
+  type OnPhotoFamily = 'streaks' | 'colourLine' | 'masks' | 'repeat' | 'kaleido' | 'recolour' | 'picking' | 'lighting' | 'leaks' | 'dither' | 'collage' | 'crop' | 'dropper'
   const onPhotoModes: Record<OnPhotoFamily, Record<string, boolean>> = {
     streaks: { drawingStreak, drawingPath, editingStreaks, guidingStreak, fixEditing: !!fixEditing },
     masks: { maskDrawing, maskEditing, maskPlacing: !!maskPlacing, brushing: !!brushing },
     repeat: { editingRepeat, drawingPiece },
     kaleido: { editingKaleido, drawingKaleido },
+    colourLine: { editingColourLine: editingColourLine !== null },
     recolour: { drawingRecolour: !!drawingRecolour },
     picking: { picking: !!picking },
     lighting: { lightDrawing, lightEditing },
@@ -4926,6 +4957,8 @@ export function App() {
     } else if (f === 'repeat') {
       setEditingRepeat(false)
       setDrawingPiece(false)
+    } else if (f === 'colourLine') {
+      setEditingColourLine(null)
     } else if (f === 'recolour') {
       if (drawingRecolour) {
         setDrawingRecolour(null)
@@ -5098,7 +5131,7 @@ export function App() {
    * was when it came on, and what was done in it is one step to undo.
    * (Subject picking keeps its own: it holds the masks from before.)
    */
-  const SESSION_FAMILIES: OnPhotoFamily[] = ['masks', 'repeat', 'kaleido', 'recolour', 'lighting', 'leaks', 'dither', 'collage']
+  const SESSION_FAMILIES: OnPhotoFamily[] = ['masks', 'repeat', 'kaleido', 'recolour', 'colourLine', 'lighting', 'leaks', 'dither', 'collage']
   const familySessions = useRef(new Map<OnPhotoFamily, { row: number; photo: string | null; cancelled?: boolean }>())
   const familiesKey = familiesOn.join(',')
   useEffect(() => {
@@ -5239,6 +5272,14 @@ export function App() {
       onDone: () => doneFamily(f),
       doneTitle: makingNew ? 'Finish it (Enter)' : 'Keep the changes (Enter)',
     })
+    if (editingColourLine !== null)
+      return {
+        at: `streaks/${editingColourLine}/colours`,
+        home: 'streaks',
+        name: `Streak ${editingColourLine + 1}: colour line`,
+        hint: 'Drag the points',
+        ...family('colourLine'),
+      }
     if (drawingRecolour)
       return {
         at: drawingRecolour.again && recolourOpen !== null ? `recolour/${recolourOpen}` : 'recolour',
@@ -5397,7 +5438,7 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoKey])
   // Its module folded, out of view on another tab, or the panel on Recipes or Export.
-  const FAMILY_MODULE: Partial<Record<OnPhotoFamily, StackModuleId>> = { streaks: 'streaks', repeat: 'repeat', kaleido: 'kaleido', recolour: 'recolour', lighting: 'lighting', leaks: 'leaks', dither: 'dither', collage: 'collage' }
+  const FAMILY_MODULE: Partial<Record<OnPhotoFamily, StackModuleId>> = { streaks: 'streaks', colourLine: 'streaks', repeat: 'repeat', kaleido: 'kaleido', recolour: 'recolour', lighting: 'lighting', leaks: 'leaks', dither: 'dither', collage: 'collage' }
   const hiddenFamilies = familiesOn.filter((f) => {
     // Picking a subject for Streaks or Repeat goes with that module (its panel is in it).
     const id = f === 'picking' ? (picking?.owner === 'repeat' ? 'repeat' : picking?.owner === 'kaleido' ? 'kaleido' : picking?.owner === 'recolour' ? 'recolour' : picking?.owner === 'streak' ? 'streaks' : undefined) : FAMILY_MODULE[f]
@@ -6629,6 +6670,16 @@ export function App() {
                     } satisfies RepeatEditor)
                   : null
               }
+              colourLineEditor={
+                editingColourLine !== null && hasColourLine(blend.effects.streaks.shapes[editingColourLine]?.colourLine)
+                  ? ({
+                      points: blend.effects.streaks.shapes[editingColourLine].colourLine!,
+                      onChange: (points, step) =>
+                        setStreaks({ shapes: blend.effects.streaks.shapes.map((x, j) => (j === editingColourLine ? { ...x, colourLine: points } : x)) }, `shape${editingColourLine}:${step}`),
+                      onDone: () => setEditingColourLine(null),
+                    } satisfies ColourLineEditor)
+                  : null
+              }
               kaleidoEditor={
                 editingKaleido && image && kaleido.enabled
                   ? ({
@@ -7496,6 +7547,7 @@ export function App() {
                     copySettings={copyStreakSettings}
                     pasteSettings={pasteStreakSettings}
                     clip={streakClip?.from ?? null}
+                    colourLineFor={colourLineFor}
                     ownMasks={(i) => {
                       const sh = blend.effects.streaks.shapes[i]
                       return {

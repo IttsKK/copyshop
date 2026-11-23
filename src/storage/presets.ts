@@ -672,6 +672,7 @@ function parseEffectsAsSaved(value: unknown): EffectParams {
               pathEase: num(sh.pathEase, d.pathEase, 0, 1),
               pathWidth: num(sh.pathWidth, d.pathWidth, 0, 2),
               ends: Array.isArray(sh.ends) && sh.ends.length >= 2 ? sh.ends.slice(0, 32).map(point) : null,
+              ...(Array.isArray(sh.colourLine) && sh.colourLine.length >= 2 ? { colourLine: sh.colourLine.slice(0, 24).map(point) } : {}),
               band: num(sh.band, d.band, 0.002, 0.1),
               stripeMin: Math.min(num(sh.stripeMin, d.stripeMin, 0, 0.1), num(sh.stripeMax, d.stripeMax, 0, 0.1)),
               stripeMax: num(sh.stripeMax, d.stripeMax, 0, 0.1),

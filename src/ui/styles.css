@@ -3261,3 +3261,7 @@ input[type="range"].tinted::-moz-range-progress { background: transparent; }
 .mask-applies-body { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px 22px; padding-left: 10px; border-left: 1px solid var(--line); }
 /* A streak masked: the module header's lit mask mark, on its row. */
 .streak-mask-mark { margin: 0 2px 0 0; padding: 1px 4px; }
+
+/* A streak's colour line (ColourLineOverlay): where its bars read their colours. */
+.colour-line { fill: none; stroke: #ffd27a; stroke-width: 2; pointer-events: none; filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.8)); }
+.colour-line-point circle { stroke: #ffd27a; }

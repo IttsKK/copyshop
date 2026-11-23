@@ -152,6 +152,7 @@ export function shapesOnCrop(params: BlendParams, photo: Size, crop: Rect, deg =
           outline: s.outline.map(move),
           path: s.path ? s.path.map(move) : null,
           ends: s.ends ? s.ends.map(move) : null,
+          ...(s.colourLine ? { colourLine: s.colourLine.map(move) } : {}),
           fixes: (s.fixes ?? []).map((f) => ({
             ...f,
             a: move(f.a),
