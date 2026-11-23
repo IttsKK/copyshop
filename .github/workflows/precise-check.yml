@@ -56,15 +56,15 @@ jobs:
 
       - name: Install it (Windows)
         if: runner.os == 'Windows'
-        shell: bash
+        shell: pwsh
         run: |
-          installer=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -1)
-          "$installer" //S //D="$(cygpath -w "$RUNNER_TEMP/inst")"
-          for i in $(seq 1 60); do ls "$RUNNER_TEMP/inst"/*.exe >/dev/null 2>&1 && break; sleep 2; done
-          ls -la "$RUNNER_TEMP/inst"
-          test -f "$RUNNER_TEMP/inst/DirectML.dll" || { echo "DirectML.dll is not beside the installed app"; exit 1; }
-          exe=$(ls "$RUNNER_TEMP/inst"/*.exe | grep -v -i uninstall | head -1)
-          echo "APP=$exe" >> "$GITHUB_ENV"
+          $installer = Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait
+          $dir = Join-Path $env:LOCALAPPDATA 'copyshop'
+          Get-ChildItem $dir
+          if (-not (Test-Path (Join-Path $dir 'DirectML.dll'))) { Write-Error 'DirectML.dll is not beside the installed app'; exit 1 }
+          $exe = Get-ChildItem $dir -Filter *.exe | Where-Object { $_.Name -notmatch 'uninstall' } | Select-Object -First 1
+          "APP=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: The app (Linux)
         if: runner.os == 'Linux'
