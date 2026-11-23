@@ -6,7 +6,8 @@
 
 !macro NSIS_HOOK_POSTINSTALL
   SetOutPath "$INSTDIR"
-  File "${__FILEDIR__}\..\target\release\DirectML.dll"
+  ; ${__FILEDIR__} is where the installer's script is made: target/release/nsis/x64.
+  File "${__FILEDIR__}\..\..\DirectML.dll"
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
