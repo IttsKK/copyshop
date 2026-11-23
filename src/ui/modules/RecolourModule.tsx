@@ -5,7 +5,7 @@ import { ItemList } from '../ItemList'
 import { Module, Slider } from '../controls'
 import { PickPanel, type PickingState } from '../MasksPanel'
 import { moduleSummary } from '../moduleSummary'
-import { MAX_RECOLOURS, type RecolourItem } from '../../engine/recolour'
+import { MAX_RECOLOURS, RECOLOUR_NATURAL, type RecolourItem } from '../../engine/recolour'
 import type { Palette } from '../../engine/palette'
 import { type BlendParams, MAX_MASKS } from '../../engine/types'
 import type { LoadedImage } from '../loadedImage'
@@ -133,6 +133,40 @@ export function RecolourModule({ blend, items, open, onOpen, image, palette, onS
                   step={0.01}
                   format={(v) => `${Math.round(v * 100)}%`}
                   onChange={(strength) => setItem(openOne, { strength })}
+                />
+                <Slider
+                  label="Brightness"
+                  title="Its own light, or the new colour's: toward the colour's, a pale colour makes the part pale and a dark one dark, its light and shade kept"
+                  value={openItem.brightness ?? 0}
+                  def={RECOLOUR_NATURAL.brightness}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  format={(v) => (v <= 0.005 ? 'Its own' : v >= 0.995 ? 'The colour’s' : `${Math.round(v * 100)}%`)}
+                  onChange={(brightness) => setItem(openOne, { brightness })}
+                />
+                <Slider
+                  label="Highlights"
+                  title="How much the brightest parts (reflections, lit windows) keep their own colour"
+                  value={openItem.highlights ?? 0}
+                  def={RECOLOUR_NATURAL.highlights}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  format={(v) => (v <= 0.005 ? 'Recoloured' : `${Math.round(v * 100)}% kept`)}
+                  onChange={(highlights) => setItem(openOne, { highlights })}
+                />
+                <Slider
+                  label="Variation"
+                  title="How much of the part's own differences in colour show through: none is one even colour, more keeps panels and reflections a little different"
+                  value={openItem.variation ?? 0}
+                  def={RECOLOUR_NATURAL.variation}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  format={(v) => (v <= 0.005 ? 'Even' : `${Math.round(v * 100)}%`)}
+                  idle={openItem.mode === 'hue' ? 'Hue only keeps the part’s own strength of colour' : false}
+                  onChange={(variation) => setItem(openOne, { variation })}
                 />
                 <label className="check-row" title="Colour and Black & white leave this part, so it keeps its new colour in a graded or black and white photo">
                   <input type="checkbox" checked={!!openItem.keep} onChange={(e) => setItem(openOne, { keep: e.target.checked }, `${nameOf(openItem, openOne)}: ${e.target.checked ? 'kept out of the look' : 'in the look'}`)} />

@@ -1,7 +1,7 @@
 import { DEFAULT_LIGHTING } from '../engine/lighting'
 import { DEFAULT_REPEAT, DEFAULT_REPEAT_MODULE } from '../engine/repeatParams'
 import { DEFAULT_KALEIDO } from '../engine/kaleido'
-import { DEFAULT_RECOLOUR } from '../engine/recolour'
+import { DEFAULT_RECOLOUR, RECOLOUR_NATURAL } from '../engine/recolour'
 import { baseActive } from '../engine/base'
 import { doubleOn, lensOn, prismOn } from '../engine/extras'
 import { DEFAULT_BLEND_PARAMS, DEFAULT_GLASS, glassOn, type BlendParams } from '../engine/types'
@@ -190,8 +190,8 @@ function clearModule(id: StackModuleId, b: BlendParams): BlendParams {
       // What each copies stays: its piece is made, not a setting.
       return fx({ repeat: { enabled: !!e.repeat?.enabled, items: (e.repeat?.items ?? []).map((r) => ({ ...DEFAULT_REPEAT, id: r.id, enabled: r.enabled, source: r.source })) } })
     case 'recolour':
-      // Its parts stay (they are made, not settings): each back to its colour at full strength.
-      return fx({ recolour: { enabled: !!e.recolour?.enabled, items: (e.recolour?.items ?? []).map((it) => ({ ...it, mode: 'colour' as const, strength: 1 })) } })
+      // Its parts stay (they are made, not settings): each back to its colour at full strength, natural.
+      return fx({ recolour: { enabled: !!e.recolour?.enabled, items: (e.recolour?.items ?? []).map((it) => ({ ...it, mode: 'colour' as const, strength: 1, keep: false, ...RECOLOUR_NATURAL })) } })
     case 'kaleido':
       // Its piece stays: it is made, not a setting. The point goes back to the middle.
       return fx({ kaleido: { ...DEFAULT_KALEIDO, enabled: !!e.kaleido?.enabled, source: e.kaleido?.source ?? null } })

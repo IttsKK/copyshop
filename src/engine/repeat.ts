@@ -431,6 +431,8 @@ export interface PieceCutter {
   coverPicture: (m: MaskShape) => OffscreenCanvas
   /** The piece a mask cuts out, with where its box is on the photo; null when it covers nothing. */
   cut: (m: MaskShape) => { piece: OffscreenCanvas; bx: number; by: number; bw: number; bh: number } | null
+  /** The box round what a mask covers, photo pixels (a cell's margin round it); null when it covers nothing. */
+  box: (m: MaskShape) => { bx: number; by: number; bw: number; bh: number } | null
 }
 
 export function pieceCutter(base: TextureSource, size: Size, maskFrame: Rect, photoFrame: Rect): PieceCutter {
@@ -460,9 +462,9 @@ export function pieceCutter(base: TextureSource, size: Size, maskFrame: Rect, ph
     c.getContext('2d')!.drawImage(coverCanvas(coverOf(m), gw, gh), 0, 0, W, H)
     return c
   }
-  const cut = (m: MaskShape) => {
+  const box = (m: MaskShape) => {
     const cover = coverOf(m)
-    // The piece: the cells it covers, a cell's margin round them, in photo pixels.
+    // The cells it covers, a cell's margin round them, in photo pixels.
     let x0 = gw
     let y0 = gh
     let x1 = -1
@@ -484,6 +486,13 @@ export function pieceCutter(base: TextureSource, size: Size, maskFrame: Rect, ph
     const by = Math.floor((y0 / gh) * H)
     const bw = Math.max(1, Math.ceil(((x1 + 1) / gw) * W) - bx)
     const bh = Math.max(1, Math.ceil(((y1 + 1) / gh) * H) - by)
+    return { bx, by, bw, bh }
+  }
+  const cut = (m: MaskShape) => {
+    const b = box(m)
+    if (!b) return null
+    const { bx, by, bw, bh } = b
+    const cover = coverOf(m)
     const piece = new OffscreenCanvas(bw, bh)
     const pc = piece.getContext('2d')!
     pc.drawImage(photo, bx, by, bw, bh, 0, 0, bw, bh)
@@ -493,7 +502,7 @@ export function pieceCutter(base: TextureSource, size: Size, maskFrame: Rect, ph
     pc.drawImage(coverCanvas(cover, gw, gh), -bx, -by, W, H)
     return { piece, bx, by, bw, bh }
   }
-  return { photo, W, H, toPx, coverPicture, cut }
+  return { photo, W, H, toPx, coverPicture, cut, box }
 }
 
 /**

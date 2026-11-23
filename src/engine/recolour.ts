@@ -27,7 +27,20 @@ export interface RecolourItem {
   strength: number
   /** Its new colour kept through the look: Colour and Black & white leave the part (as they do one kept as shot). */
   keep?: boolean
+  /**
+   * How much the part takes the new colour's own brightness, 0..1: 0 keeps
+   * its own light (a grey building turned red is lit as it was), 1 brings it
+   * to the colour's lightness (a pale red is pale), its contrast kept.
+   */
+  brightness?: number
+  /** How much the brightest parts (reflections, lit windows) keep their own colour, 0..1. */
+  highlights?: number
+  /** How much of the part's own differences in colour show through the new one, 0..1 (0: one even colour). */
+  variation?: number
 }
+
+/** What a part starts with: natural, its reflections and its own variety in colour kept. */
+export const RECOLOUR_NATURAL = { brightness: 0, highlights: 0.5, variation: 0.5 }
 
 export interface RecolourModule {
   enabled: boolean
@@ -39,14 +52,18 @@ export const DEFAULT_RECOLOUR: RecolourModule = { enabled: false, items: [] }
 /** Room for this many parts (each has its own mask, and masks are limited). */
 export const MAX_RECOLOURS = 6
 
-/** Each new part's colour, in turn, so three parts made one after another come out three colours. */
+/**
+ * Each new part's colour, in turn, so three parts made one after another come
+ * out three colours: muted, as paint, brick and stone are, so a part starts
+ * out looking like it could be that colour (a vivid one is a pick away).
+ */
 export const RECOLOUR_STARTS: Rgb[] = [
-  [0.85, 0.25, 0.18],
-  [0.2, 0.42, 0.85],
-  [0.93, 0.72, 0.15],
-  [0.2, 0.62, 0.42],
-  [0.75, 0.25, 0.65],
-  [0.95, 0.5, 0.18],
+  [0.66, 0.3, 0.24], // brick
+  [0.32, 0.43, 0.6], // slate blue
+  [0.78, 0.62, 0.32], // ochre
+  [0.42, 0.56, 0.44], // sage
+  [0.55, 0.36, 0.52], // plum
+  [0.8, 0.47, 0.26], // rust
 ]
 
 export const newRecolourItem = (id: string, source: string, n: number): RecolourItem => ({
@@ -56,6 +73,7 @@ export const newRecolourItem = (id: string, source: string, n: number): Recolour
   mode: 'colour',
   colour: { source: 'manual', colour: RECOLOUR_STARTS[n % RECOLOUR_STARTS.length] },
   strength: 1,
+  ...RECOLOUR_NATURAL,
 })
 
 const live = (fx: EffectParams) => {
@@ -87,12 +105,52 @@ export function withAsShot(section: MaskSection, use: SectionMask | undefined, f
   return use
 }
 
-const css = (c: Rgb) => `rgb(${c.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255)).join(',')})`
+// Colour as the compositing spec's non-separable blend modes have it
+// (Color, Hue): lightness by Rec. 601 weights, a colour's strength as its
+// highest channel less its lowest.
+const lum = (r: number, g: number, b: number) => 0.3 * r + 0.59 * g + 0.11 * b
+
+/** (r, g, b) given lightness l, kept in range by moving it toward grey (ClipColor). Writes into o. */
+function setLum(r: number, g: number, b: number, l: number, o: Float32Array) {
+  const d = l - lum(r, g, b)
+  r += d
+  g += d
+  b += d
+  const L = lum(r, g, b)
+  const n = Math.min(r, g, b)
+  const x = Math.max(r, g, b)
+  if (n < 0 && L - n > 1e-6) {
+    const k = L / (L - n)
+    r = L + (r - L) * k
+    g = L + (g - L) * k
+    b = L + (b - L) * k
+  }
+  if (x > 1 && x - L > 1e-6) {
+    const k = (1 - L) / (x - L)
+    r = L + (r - L) * k
+    g = L + (g - L) * k
+    b = L + (b - L) * k
+  }
+  o[0] = r
+  o[1] = g
+  o[2] = b
+}
+
+const smooth = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
+  return t * t * (3 - 2 * t)
+}
 
 /**
  * The photo with Recolour's parts in their new colours, or null when it
  * changes none. Colours are resolved already (resolveParams). The first in
  * the list is laid last, in front, as streaks and repeats are.
+ *
+ * Each pixel of a part takes the new colour's hue; its strength of colour is
+ * the new colour's, scaled by how coloured the pixel is against the part as
+ * a whole (Variation: panels and reflections stay a little different); its
+ * lightness is its own, moved toward the colour's (Brightness) with its
+ * contrast kept; the brightest pixels keep more of their own (Highlights).
  */
 export function composeRecolour(base: TextureSource, size: Size, fx: EffectParams, maskFrame: Rect, photoFrame: Rect): OffscreenCanvas | null {
   const all = live(fx)
@@ -104,29 +162,85 @@ export function composeRecolour(base: TextureSource, size: Size, fx: EffectParam
   const cutter = pieceCutter(base, size, maskFrame, photoFrame)
   const { photo, W, H } = cutter
   const out = new OffscreenCanvas(W, H)
-  const oc = out.getContext('2d')!
+  const oc = out.getContext('2d', { willReadFrequently: true })!
   oc.drawImage(photo, 0, 0, W, H)
+  const o = new Float32Array(3)
   for (const it of items) {
     const m = fx.masks.find((x) => x.id === it.source)!
-    const layer = cutter.coverPicture(m)
-    const lc = layer.getContext('2d')!
-    lc.globalCompositeOperation = 'source-in'
     if (it.mode === 'asShot') {
       // The photo as it was, cut to the part.
+      const layer = cutter.coverPicture(m)
+      const lc = layer.getContext('2d')!
+      lc.globalCompositeOperation = 'source-in'
       lc.drawImage(photo, 0, 0, W, H)
-      oc.globalAlpha = 1
-      oc.globalCompositeOperation = 'source-over'
-    } else {
-      // The colour, cut to the part (its soft edge with it). Color: its hue and
-      // strength of colour, the photo's own light. Hue: the hue alone.
-      lc.fillStyle = css(it.colour.colour)
-      lc.fillRect(0, 0, W, H)
-      oc.globalAlpha = Math.min(1, Math.max(0, it.strength))
-      oc.globalCompositeOperation = it.mode === 'hue' ? 'hue' : 'color'
+      oc.drawImage(layer, 0, 0)
+      continue
     }
-    oc.drawImage(layer, 0, 0)
+    const box = cutter.box(m)
+    if (!box) continue
+    const { bx, by, bw, bh } = box
+    const cover = cutter.coverPicture(m).getContext('2d', { willReadFrequently: true })!.getImageData(bx, by, bw, bh).data
+    // Read from the photo as it was (another part laid under this one changes
+    // nothing it reads), laid over what is there now.
+    const src = new OffscreenCanvas(bw, bh)
+    const sc = src.getContext('2d', { willReadFrequently: true })!
+    sc.drawImage(photo, bx, by, bw, bh, 0, 0, bw, bh)
+    const px = sc.getImageData(0, 0, bw, bh).data
+    const img = oc.getImageData(bx, by, bw, bh)
+    const dst = img.data
+    // The part as a whole: its mean lightness and strength of colour.
+    let wsum = 0
+    let lsum = 0
+    let ssum = 0
+    for (let i = 0; i < px.length; i += 4) {
+      const a = cover[i + 3] / 255
+      if (a <= 0.004) continue
+      const r = px[i] / 255
+      const g = px[i + 1] / 255
+      const b = px[i + 2] / 255
+      wsum += a
+      lsum += a * lum(r, g, b)
+      ssum += a * (Math.max(r, g, b) - Math.min(r, g, b))
+    }
+    if (wsum <= 0) continue
+    const meanL = lsum / wsum
+    const meanS = ssum / wsum
+    const [tr, tg, tb] = it.colour.colour
+    const tMin = Math.min(tr, tg, tb)
+    const tMax = Math.max(tr, tg, tb)
+    const tS = tMax - tMin
+    const tL = lum(tr, tg, tb)
+    const strength = Math.min(1, Math.max(0, it.strength))
+    const bright = it.brightness ?? 0
+    const keepHigh = it.highlights ?? 0
+    const vary = it.variation ?? 0
+    const shift = bright * (tL - meanL)
+    const hue = it.mode === 'hue'
+    for (let i = 0; i < px.length; i += 4) {
+      const a = cover[i + 3] / 255
+      if (a <= 0.004) continue
+      const r = px[i] / 255
+      const g = px[i + 1] / 255
+      const b = px[i + 2] / 255
+      const l = lum(r, g, b)
+      const s = Math.max(r, g, b) - Math.min(r, g, b)
+      // How strong its colour is: the pixel's own (Hue only), or the new colour's, varied as the part varies.
+      // (Kept within half to one and a half times: a stray reflection is a little different, not a blotch.)
+      const k = Math.min(1.5, Math.max(0.5, (s + 0.015) / (meanS + 0.015)))
+      const sat = hue ? s : tS * (1 + (k - 1) * vary)
+      // The new colour's hue at that strength (SetSat), then the pixel's lightness, moved by Brightness (SetLum).
+      const f = tS > 1e-6 ? sat / tS : 0
+      setLum((tr - tMin) * f, (tg - tMin) * f, (tb - tMin) * f, l + shift, o)
+      // Reflections and lit windows keep more of their own.
+      const w = a * strength * (1 - keepHigh * smooth(0.62, 0.95, l))
+      const cr = dst[i] / 255
+      const cg = dst[i + 1] / 255
+      const cb = dst[i + 2] / 255
+      dst[i] = Math.round((cr + (o[0] - cr) * w) * 255)
+      dst[i + 1] = Math.round((cg + (o[1] - cg) * w) * 255)
+      dst[i + 2] = Math.round((cb + (o[2] - cb) * w) * 255)
+    }
+    oc.putImageData(img, bx, by)
   }
-  oc.globalAlpha = 1
-  oc.globalCompositeOperation = 'source-over'
   return out
 }

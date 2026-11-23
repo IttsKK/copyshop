@@ -161,6 +161,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 
 .segmented { display: flex; }
+/* Every row of choices fills its width: no empty end left hanging after the last button (CONTRIBUTING, Interface). */
+.segmented > button { flex: 1 1 auto; }
 .segmented button { border-radius: 0; margin-left: -1px; }
 .segmented button:first-child { border-radius: 3px 0 0 3px; margin-left: 0; }
 .segmented button:last-child { border-radius: 0 3px 3px 0; }

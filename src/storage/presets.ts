@@ -886,6 +886,10 @@ export function parseRecolour(value: unknown): RecolourModule {
       },
       strength: num(it.strength, 1, 0, 1),
       ...(it.keep === true ? { keep: true } : {}),
+      // Missing (a part from before these): even colour, its own light, as it was then.
+      brightness: num(it.brightness, 0, 0, 1),
+      highlights: num(it.highlights, 0, 0, 1),
+      variation: num(it.variation, 0, 0, 1),
     }
   })
   return { enabled: r.enabled === true, items }

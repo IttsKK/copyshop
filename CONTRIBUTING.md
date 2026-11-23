@@ -32,5 +32,14 @@ npm test
 Keep the change focused on one thing, and match the code around it. Interface
 text is short and plain: say what something does, not how great it is.
 
+## Interface
+
+- A row of choices (`.segmented`) fills the width it is given: its buttons
+  share the row, with no empty stretch left after the last one. The base
+  style does this; don't override a row back to its buttons' own widths.
+- One way to do a thing in one place. Don't add a line or control that says
+  again what the controls beside it already show.
+- Text is a few plain words: what something does, or what was just set.
+
 By sending a contribution you agree to the terms in [LICENSE](LICENSE),
 section 3: it can be used in copyshop, including the official builds.

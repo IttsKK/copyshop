@@ -410,7 +410,7 @@ const MASK_FIELDS: Record<string, string> = {
 }
 
 /** A Recolour part's settings, as its panel names them. */
-const PART_FIELDS: Record<string, string> = { mode: 'colour, hue only or as shot', colour: 'new colour', strength: 'strength', keep: 'kept out of Colour and B&W', source: 'part' }
+const PART_FIELDS: Record<string, string> = { mode: 'colour, hue only or as shot', colour: 'new colour', strength: 'strength', keep: 'kept out of Colour and B&W', source: 'part', brightness: 'brightness', highlights: 'highlights', variation: 'variation' }
 
 /** A streak's tone key fields, as its Mask tab names them. */
 const STREAK_KEY_FIELDS: Record<string, string> = {
