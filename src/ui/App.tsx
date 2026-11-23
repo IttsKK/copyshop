@@ -3418,7 +3418,7 @@ export function App() {
         setStatus((now) =>
           pickRun.current === run
             ? owner === 'streak'
-              ? 'Click the thing to streak'
+              ? 'Click the thing to streak, or box it'
               : owner === 'kaleido'
                 ? 'Click the part to copy round, or box it'
                 : owner === 'recolour'

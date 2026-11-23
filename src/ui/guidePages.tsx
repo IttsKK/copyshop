@@ -199,7 +199,7 @@ export const GUIDE_PAGES: Record<GuideTopic['id'], () => ReactNode> = {
       <p>There are five ways to make one, at the top of the Masks list or from a module’s Mask button:</p>
       <ul>
         <li>
-          <b>Select subject</b>: drag a box round something or click it, and a model on your computer finds its edge. Click more parts to add them, or Leave out to take parts away.
+          <b>Select subject</b>: drag a box round something or click it, and a model on your computer finds its edge. Click more parts to add them, or Leave out to take parts away. A box keeps out what is joined to it, a wing off a tower. With precise selection (Settings → Selection, a download), the selection sharpens a moment later and its edge a few seconds after that.
         </li>
         <li>
           <b>Draw outline</b>: click points round it.

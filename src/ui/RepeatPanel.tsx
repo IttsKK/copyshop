@@ -76,7 +76,7 @@ const signedPct = (v: number) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`
 const count = (v: number) => `${v > 0 ? '+' : ''}${Math.round(v)}`
 
 const MAKE: { kind: AddKind; name: string; line: string; title: string }[] = [
-  { kind: 'subject', name: 'Select subject', line: 'Drag a box round it or click it', title: 'A small model on this computer finds the subject and its edge' },
+  { kind: 'subject', name: 'Select subject', line: 'Drag a box round it or click it', title: 'A model on this computer finds the subject and its edge (Settings → Selection has a precise one)' },
   { kind: 'outline', name: 'Draw outline', line: 'Click points round it', title: 'Click points round what to copy. Double-click or Enter closes it.' },
   { kind: 'paint', name: 'Paint', line: 'Brush it on by hand', title: 'Paint over what to copy, on the photo' },
 ]

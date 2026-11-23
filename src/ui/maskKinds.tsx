@@ -11,7 +11,7 @@ export type NewMaskTarget = { section?: MaskSection; streak?: number; mode: 'onl
 
 /** The kinds of mask, as offered in Add and the empty list. */
 export const ADD_KINDS: { kind: AddKind; name: string; line: string; title: string }[] = [
-  { kind: 'subject', name: 'Select subject', line: 'Drag a box round it or click it', title: 'A small model on this computer finds the subject and its edge' },
+  { kind: 'subject', name: 'Select subject', line: 'Drag a box round it or click it', title: 'A model on this computer finds the subject and its edge (Settings → Selection has a precise one)' },
   { kind: 'outline', name: 'Draw outline', line: 'Click points round it', title: keyWords("Click points round the subject; drag to place each one, Option-drag to trace freehand. Double-click or Enter closes it.") },
   { kind: 'paint', name: 'Paint', line: 'Brush it on by hand', title: 'A mask you paint on the photo with a brush' },
   { kind: 'gradient', name: 'Gradient', line: 'Fades across the photo', title: 'Full at one end, fading away towards the other, like a graduated filter' },
