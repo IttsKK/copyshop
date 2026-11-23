@@ -143,7 +143,7 @@ export function GeneralSettings({ onIntro, onReport, onTour, onStatus, onWhatsNe
                       : update.kind === 'downloading'
                         ? ` · downloading ${update.version}…`
                         : update.kind === 'ready'
-                          ? ` · ${update.version} installs when you quit`
+                          ? ` · ${update.version} opens next time`
                           : update.kind === 'installing'
                         ? ' · updating…'
                           : update.kind === 'failed'
@@ -163,7 +163,7 @@ export function GeneralSettings({ onIntro, onReport, onTour, onStatus, onWhatsNe
           </div>
         )}
         {canUpdate() && (
-          <label className="check-row" title="New versions download in the background and install when you quit, so copyshop opens as the new version next time. Off, the top bar offers each one and nothing is downloaded until you click.">
+          <label className="check-row" title="New versions download in the background and are put in place by themselves, so copyshop opens as the new version next time. Off, the top bar offers each one and nothing is downloaded until you click.">
             <input type="checkbox" checked={autoUpdate} onChange={(e) => autoUpdateStore.set(e.target.checked)} />
             Update automatically
           </label>

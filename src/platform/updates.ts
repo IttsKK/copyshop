@@ -14,11 +14,15 @@ import { persistedStore } from '../ui/state/store'
  *
  * Checked a little after the app opens and every few hours. With Update
  * automatically on (Settings, General; on unless turned off), a new version
- * is downloaded in the background as soon as it is found and installed as
- * the app quits, so the next time it opens it is the new one; the top bar
- * offers Restart to update for now. Off, the top bar offers it and nothing
- * is downloaded or installed without a click. A Linux .deb can't replace
- * itself: there it opens the download page.
+ * is downloaded in the background as soon as it is found and put in place,
+ * so the next time the app opens it is the new one; the top bar offers
+ * Restart to update for now. On a Mac (and Linux) it is put in place at
+ * once, beside the running app, which carries on as it is: however the app
+ * is quit (the Dock's Quit and logging out skip the app's own quit, see
+ * lib.rs), the next launch is the new version. On Windows its installer has
+ * to run, so it runs as the app quits. Off, the top bar offers each one and
+ * nothing is downloaded or installed without a click. A Linux .deb can't
+ * replace itself: there it opens the download page.
  */
 
 export type UpdateState =
@@ -29,7 +33,7 @@ export type UpdateState =
   | { kind: 'available'; version: string; notes?: string }
   /** Found, being downloaded in the background. */
   | { kind: 'downloading'; version: string; progress: number | null }
-  /** Downloaded: installed as the app quits, or now with Restart to update. */
+  /** Downloaded and put in place (a Mac): the next launch is the new version; or downloaded (Windows): installed as the app quits. */
   | { kind: 'ready'; version: string }
   | { kind: 'installing'; version: string; progress: number | null }
   | { kind: 'failed'; message: string }
@@ -45,9 +49,26 @@ export const autoUpdateStore = persistedStore<boolean>('settings.autoUpdate', tr
  */
 const cannotInstallStore = persistedStore<string | null>('updates.cannotInstall', null)
 
+/**
+ * Test builds (+test in the version) note each step to updates.log in the
+ * app's data folder: what an update did can be read after the app has quit.
+ */
+const traced: string[] = []
+function trace(line: string): void {
+  if (!__APP_VERSION__.includes('+test')) return
+  traced.push(`${new Date().toISOString()} ${line}`)
+  void import('@tauri-apps/api/core')
+    .then(async ({ invoke }) => {
+      const dir = await invoke<string>('data_dir')
+      await invoke('write_file', new TextEncoder().encode(traced.join('\n') + '\n'), { headers: { 'x-path': encodeURIComponent(`${dir}/updates.log`) } })
+    })
+    .catch(() => undefined)
+}
+
 let state: UpdateState = { kind: 'idle' }
 const listeners = new Set<() => void>()
 const set = (next: UpdateState) => {
+  if (next.kind !== state.kind) trace(`state ${next.kind}${'version' in next ? ` ${next.version}` : ''}${next.kind === 'failed' ? ` ${next.message}` : ''}`)
   state = next
   listeners.forEach((l) => l())
 }
@@ -56,6 +77,10 @@ const set = (next: UpdateState) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let pending: any = null
 let downloaded = false
+/** Put in place already: the next launch is the new version (a Mac, Linux). */
+let installed = false
+/** Windows: the update is an installer, run as the app quits. Elsewhere it is put in place as soon as it is downloaded. */
+const installsOnQuit = (): boolean => typeof navigator !== 'undefined' && /win/i.test(navigator.platform || navigator.userAgent)
 
 /** Whether this copy can update itself: the desktop app, in a release build. */
 export const canUpdate = (): boolean => isNative() && import.meta.env.PROD && OFFICIAL
@@ -77,6 +102,7 @@ export async function checkForUpdate(byHand = false): Promise<void> {
     if (before.kind === 'ready' && before.version === update.version && downloaded) return set(before)
     pending = update
     downloaded = false
+    installed = false
     if (!autoUpdateStore.get() || cannotInstallStore.get() === update.version) {
       return set({ kind: 'available', version: update.version, notes: update.body ?? undefined })
     }
@@ -100,6 +126,19 @@ async function download(version: string): Promise<void> {
     }
   })
   downloaded = true
+  if (!installsOnQuit()) {
+    try {
+      // In place now, beside the running app: whatever way the app is quit, it opens as the new version.
+      await pending.install()
+      installed = true
+      trace('installed in place')
+    } catch (err) {
+      trace(`install failed: ${(err as Error).message ?? err}`)
+      // Not installable here (a Linux .deb): offered with the download page from now on.
+      cannotInstallStore.set(version)
+      return set({ kind: 'available', version })
+    }
+  }
   set({ kind: 'ready', version })
 }
 
@@ -111,6 +150,13 @@ export async function installUpdate(): Promise<void> {
   if (cannotInstallStore.get() === version) return void openUrl(DOWNLOAD_PAGE)
   set({ kind: 'installing', version, progress: null })
   try {
+    // Already in place: saved, then opened again as the new version.
+    if (installed) {
+      const { settleWrites } = await import('./quit')
+      await settleWrites().catch(() => undefined)
+      const { relaunch } = await import('@tauri-apps/plugin-process')
+      return await relaunch()
+    }
     if (!downloaded) {
       let total = 0
       let got = 0
@@ -144,14 +190,17 @@ export async function installUpdate(): Promise<void> {
  * opening it again.
  */
 async function installOnQuit(): Promise<void> {
-  if (state.kind !== 'ready' || !pending || !downloaded) return
+  trace(`quitting: state ${state.kind}, downloaded ${downloaded}, installed ${installed}`)
+  if (state.kind !== 'ready' || !pending || !downloaded || installed) return
   const version = state.version
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     await invoke('hold_quit', { ms: 120_000 }).catch(() => undefined)
     set({ kind: 'installing', version, progress: null })
     await pending.install({ restartAfterInstall: false })
-  } catch {
+    trace('installed')
+  } catch (err) {
+    trace(`install failed: ${(err as Error).message ?? err}`)
     // Not installable here (a Linux .deb): offered with the download page from now on.
     cannotInstallStore.set(version)
   }

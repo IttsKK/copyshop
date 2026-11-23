@@ -91,7 +91,7 @@ export function TopBar({ image, fromExport, hasLibrary, onAddFolder, onOpenPhoto
               update.kind === 'available'
                 ? `Download copyshop ${update.version}, install it and restart. Your edits are kept.`
                 : update.kind === 'ready'
-                  ? `copyshop ${update.version} is downloaded and installs when you quit. Restart now to use it. Your edits are kept.`
+                  ? `copyshop ${update.version} is ready: copyshop opens as it next time. Restart now to use it. Your edits are kept.`
                   : undefined
             }
             onClick={() => void installUpdate()}
