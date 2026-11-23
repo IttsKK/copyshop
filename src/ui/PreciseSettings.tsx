@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { track } from '../platform/usage'
+import { isNative } from '../platform/native'
+import { persistedStore, useStore } from './state/store'
 import { bytesFor, checkPrecise, downloadPrecise, mlInfo, partsHere, preciseWantedStore, removePrecise, sizeLabel, stopPreciseDownload, usePrecise } from '../ml/precise/models'
 import { closePrecise } from '../ml/precise/precise'
 
@@ -80,5 +83,87 @@ export function PreciseSettings({ onStatus }: { onStatus: (message: string) => v
         )}
       </div>
     </section>
+  )
+}
+
+/** "No thanks" on the selection panel's offer: it is not offered there again (Settings and What's new still have it). */
+const offerDismissedStore = persistedStore<boolean>('settings.preciseOfferDismissed', false)
+
+/** The parts offered here and their size, once known; null where it isn't offered (partsHere: Linux). */
+function useOffer(): { bytes: number } | null | undefined {
+  const [offer, setOffer] = useState<{ bytes: number } | null | undefined>(undefined)
+  useEffect(() => {
+    if (!isNative()) return setOffer(null)
+    void checkPrecise()
+    void partsHere().then((parts) => setOffer(parts.length ? { bytes: bytesFor(parts) } : null))
+  }, [])
+  return offer
+}
+
+/** Download, or how far along it is, or that it's done: one button's worth (What's new). */
+export function PreciseDownloadButton() {
+  const state = usePrecise()
+  const offer = useOffer()
+  if (!offer) return null
+  if (state.kind === 'installed') return <span className="hint-line">Downloaded</span>
+  if (state.kind === 'downloading')
+    return (
+      <span className="hint-line">
+        Downloading… {Math.floor((100 * state.done) / Math.max(1, state.total))}%{' '}
+        <button className="link" onClick={() => stopPreciseDownload()}>
+          Stop
+        </button>
+      </span>
+    )
+  return (
+    <button
+      className="link"
+      title="Downloads in the background; Settings › Selection can remove it"
+      onClick={() => {
+        preciseWantedStore.set(true)
+        track('precise_offer', 'whats_new')
+        void downloadPrecise()
+      }}
+    >
+      {state.kind === 'failed' ? 'Try the download again' : `Download (${sizeLabel(offer.bytes)})`}
+    </button>
+  )
+}
+
+/**
+ * Offered where it matters: selecting a subject with the small model, a line
+ * under the selection panel with Download and Not now (Not now hides it for
+ * good; Settings › Selection still has it).
+ */
+export function PreciseOffer() {
+  const state = usePrecise()
+  const offer = useOffer()
+  const dismissed = useStore(offerDismissedStore)
+  if (!offer || dismissed || state.kind === 'installed' || state.kind === 'unknown') return null
+  if (state.kind === 'downloading')
+    return <p className="hint-line precise-offer">Downloading sharper selection… {Math.floor((100 * state.done) / Math.max(1, state.total))}%</p>
+  return (
+    <p className="hint-line precise-offer" title="Two larger models that select with a cleaner edge, run on this computer. Settings › Selection can remove them.">
+      Sharper selection ({sizeLabel(offer.bytes)}):{' '}
+      <button
+        className="link"
+        onClick={() => {
+          preciseWantedStore.set(true)
+          track('precise_offer', 'pick')
+          void downloadPrecise()
+        }}
+      >
+        Download
+      </button>{' '}
+      <button
+        className="link"
+        onClick={() => {
+          track('precise_offer', 'dismissed')
+          offerDismissedStore.set(true)
+        }}
+      >
+        Not now
+      </button>
+    </p>
   )
 }

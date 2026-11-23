@@ -1,3 +1,4 @@
+import { PreciseOffer } from './PreciseSettings'
 import { createContext, useContext } from 'react'
 import { keyWords } from '../platform/os'
 import { EditBox } from './EditBox'
@@ -122,6 +123,7 @@ export function PickPanel({ p, onPickReading }: { p: PickingState; onPickReading
             ))}
           </div>
         )}
+        <PreciseOffer />
       </div>
     </EditBox>
   )

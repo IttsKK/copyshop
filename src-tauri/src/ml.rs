@@ -152,9 +152,13 @@ mod imp {
 
     fn builder() -> Result<ort::session::builder::SessionBuilder, String> {
         let e = |e: ort::Error| e.to_string();
+        // Two cores left for the app on the CPU: BiRefNet takes seconds, and the window has to keep drawing.
+        let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
         Session::builder(environment()?)
             .map_err(e)?
             .with_optimization_level(GraphOptimizationLevel::Level3)
+            .map_err(|e| e.to_string())?
+            .with_intra_threads(cores.saturating_sub(2).max(2))
             .map_err(|e| e.to_string())?
             // Never an execution provider the runtime picks itself (Core ML, on a Mac).
             .with_auto_device(AutoDevicePolicy::PreferCPU)

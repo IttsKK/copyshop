@@ -46,6 +46,8 @@ interface Props {
   clip: EditClip | null
   onClipParts: (parts: ClipPart[]) => void
   onCopy: (f: PhotoFile) => void
+  /** Submit to Gallery…: the photo opened, then the form (App). */
+  onSubmitGallery?: (f: PhotoFile) => void
   onPaste: (files: PhotoFile[]) => void
   /** Show a photo in the Finder; and, for an export saved in its place, the original it was made from (in Originals/ beside it). */
   onReveal: (f: PhotoFile) => void
@@ -100,7 +102,7 @@ const demoThumb = (path: string) => {
  * or Edit. The photos are in the set's order, as in the filmstrip
  * (storage/setOrder.ts); drag one in the grid to put them in your own order.
  */
-export function LibraryView({ library: realLibrary, onLibrary, onAddFolder, onOpenPhotos, sidebar, openPath, openSha, onOpen, onExportPhotos, exporting, pictureFor, onClose, onRecipe, recipes, clip, onClipParts, onCopy, onPaste, onReveal, onRevealOriginal, onReplace, undoLabel, onUndo, demo }: Props) {
+export function LibraryView({ library: realLibrary, onLibrary, onAddFolder, onOpenPhotos, sidebar, openPath, openSha, onOpen, onExportPhotos, exporting, pictureFor, onClose, onRecipe, recipes, clip, onClipParts, onCopy, onPaste, onReveal, onRevealOriginal, onReplace, onSubmitGallery, undoLabel, onUndo, demo }: Props) {
   // Replace photo…: the better copy is chosen first (the click opens the picker), then the photo opens with its edit on it.
   const replaceInput = useRef<HTMLInputElement>(null)
   const replacing = useRef<PhotoFile | null>(null)
@@ -428,6 +430,7 @@ export function LibraryView({ library: realLibrary, onLibrary, onAddFolder, onOp
             {!many && ed && onReplace && item('Replace photo…', () => replace(f), REPLACE_HINT)}
             {(!many && ed) || clip ? <div className="menu-rule" /> : null}
             {!many && ed && item('Copy edit', () => onCopy(f), 'Choose what to paste in the sidebar')}
+            {!many && onSubmitGallery && item('Submit to Gallery…', () => onSubmitGallery(f), 'Send it with its edit for the gallery on getcopyshop.com, credited to you')}
             {clip && item(many ? `Paste onto ${sel.length} photos` : 'Paste', () => onPaste(sel), `The parts chosen of the edit of ${clip.from}`)}
             {recent && <div className="menu-rule" />}
             {recent && item(many ? `Take ${sel.length} out of Recent` : 'Take out of Recent', () => sel.forEach((x) => void removeRecent(x.path)), 'The photos and their edits stay')}

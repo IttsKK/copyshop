@@ -365,6 +365,8 @@ export interface PreciseOptions {
 }
 
 let generation = 0
+/** How long after a click the sharpening waits for another (each sharpening's edge takes seconds, and can't be stopped). */
+const SETTLE_MS = 400
 
 /** Precise selection for clicks (and a box), in fractions of the photo. */
 export async function preciseSegment(photo: ImageBitmap, picks: Pick[], box: PickBox | null, parts: PrecisePart[], opts: PreciseOptions = {}): Promise<Selection | null> {
@@ -425,6 +427,8 @@ async function sharpen(gen: number, r: Ready, photo: ImageBitmap, picks: Pick[],
     }
     rect.width = Math.min(photo.width, Math.ceil((x1 + 1 + mx) * k)) - rect.x
     rect.height = Math.min(photo.height, Math.ceil((y1 + 1 + my) * k)) - rect.y
+    // A moment for the next click: clicks in a row sharpen once, after the last.
+    await new Promise((resolve) => setTimeout(resolve, SETTLE_MS))
     if (gen !== generation) return
     opts.onStage?.('Sharpening the selection…')
     const part = await encode(r, photo, rect, CROP_SIDE, key)

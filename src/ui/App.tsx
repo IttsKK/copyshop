@@ -78,6 +78,8 @@ import {
   type Size,
 } from '../engine/types'
 import { photoSeed, renderFile } from '../pipeline/render'
+import { galleryJpeg, galleryTools } from './gallery'
+import { GalleryDialog } from './GalleryDialog'
 import { DEFAULT_PROCEDURAL_PARAMS } from '../sources/generateGrain'
 import type { GrainSource, GrainTexture, SerializedGrainSource } from '../sources/GrainSource'
 import type { ProceduralGrainParams } from '../sources/generateGrain'
@@ -2534,6 +2536,35 @@ export function App() {
    * (BlendParams.pixelScale, photoSeed). The edit is saved for the new copy
    * and the new copy opened; the old photo keeps its own.
    */
+  // Submit to Gallery (File menu, the Library's menu): the photo with its edit as the gallery takes it, made while the form is filled in.
+  const [gallery, setGallery] = useState<{ photo: Promise<Blob>; tools: string[] } | null>(null)
+  const openGallery = () => {
+    if (!image || !source) return setStatus('Open a photo first.')
+    flushEdit()
+    const photo = (async () => {
+      const engine = new GrainEngine()
+      try {
+        const crop = cropActive(blend.effects.crop) ? cropRect(image.size, blend.effects.crop) : image.size
+        const rendered = await renderFile(engine, image.file, image.name, source, blend, outputFor(output, crop, blend))
+        return await galleryJpeg(rendered.blob)
+      } finally {
+        engine.dispose()
+      }
+    })()
+    track('share_open', 'desktop')
+    setGallery({ photo, tools: galleryTools(blend, activeLook) })
+  }
+  // From the Library: the photo opens, and once it and its edit are in, the form.
+  const pendingGallery = useRef<string | null>(null)
+  const [galleryTick, setGalleryTick] = useState(0)
+  useEffect(() => {
+    const path = pendingGallery.current
+    if (!path || !image || !source || openingPhoto || openPath !== path) return
+    pendingGallery.current = null
+    openGallery()
+    // openGallery is this render's, with this photo's edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [image, source, openingPhoto, openPath, galleryTick])
   // Replace photo… from the Library: the photo opens, and once it and its edit are in, the edit moves onto the better copy.
   const pendingReplace = useRef<{ path: string; file: File } | null>(null)
   const [replaceTick, setReplaceTick] = useState(0)
@@ -2956,6 +2987,7 @@ export function App() {
     },
     'export-as': () => void exportAs(),
     'export-timelapse': () => timelapseOn && void exportTimelapse(),
+    'submit-gallery': () => openGallery(),
     undo: () => (inTextField(document.activeElement) ? document.execCommand('undo') : (trackOnce('undo'), stepHistoryRef.current(true))),
     redo: () => (inTextField(document.activeElement) ? document.execCommand('redo') : (trackOnce('redo'), stepHistoryRef.current(false))),
     snapshot: () => takeSnapshot(),
@@ -2987,6 +3019,7 @@ export function App() {
     setMenuEnabled('reset-all', !!image)
     setMenuEnabled('snapshot', !!image)
     setMenuEnabled('export-timelapse', !!image && timelapseOn)
+    setMenuEnabled('submit-gallery', !!image)
     setMenuEnabled('open-folder', libraryAvailable())
     setMenuEnabled('toggle-filmstrip', libraryHasPhotos)
     setMenuEnabled('library', hasLibrary)
@@ -6433,6 +6466,7 @@ export function App() {
           ...(libraryAvailable() ? [{ id: 'open-folder', label: 'Add folder to library', group: 'File', run: actions['open-folder'] }] : []),
           { id: 'export', label: exportPreset ? `Export · ${exportPreset.name}` : 'Export', group: 'File', run: actions.export },
           { id: 'export-as', label: 'Export as… (choose where)', group: 'File', run: actions['export-as'] },
+          { id: 'submit-gallery', label: 'Submit to Gallery…', group: 'File', run: actions['submit-gallery'] },
           ...(timelapseOn ? [{ id: 'export-timelapse', label: 'Export the timelapse video', group: 'File', run: actions['export-timelapse'] }] : []),
           { id: 'settings', label: 'Settings', group: 'File', run: actions.settings },
           { id: 'fresh', label: 'Start over', group: 'Edit', run: actions['reset-all'] },
@@ -7124,6 +7158,12 @@ export function App() {
               openPath={openPath}
               openSha={image?.sha ?? null}
               onOpen={(f) => {
+                setLibraryShown(false)
+                if (f.path !== openPath) void openFromStrip(f)
+              }}
+              onSubmitGallery={(f) => {
+                pendingGallery.current = f.path
+                setGalleryTick((n) => n + 1)
                 setLibraryShown(false)
                 if (f.path !== openPath) void openFromStrip(f)
               }}
@@ -7880,6 +7920,7 @@ export function App() {
             <ActivateDialog mode="change" onDone={() => setChangingLicense(false)} onClose={() => setChangingLicense(false)} />
           )}
           {getDesktopOpen && <GetDesktopDialog onClose={() => setGetDesktopOpen(false)} />}
+          {gallery && <GalleryDialog photo={gallery.photo} tools={gallery.tools} onClose={() => setGallery(null)} />}
           {whatsNewOpen && (
             <WhatsNewDialog
               releases={whatsNewOpen === 'since' ? releasesSince(updatedFromStore.get()) : undefined}

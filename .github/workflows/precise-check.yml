@@ -9,7 +9,7 @@ name: Precise selection check
 on:
   workflow_dispatch:
   push:
-    branches: ['precise-*']
+    branches: ['precise-*', 'release-*']
 
 permissions:
   contents: read
@@ -88,8 +88,26 @@ jobs:
           cat "$SMOKE/report.json" || { echo "No report after 15 minutes"; exit 1; }
           grep -q '"ok": true' "$SMOKE/report.json"
 
+      # The app's whole self-check too, on Windows: a full-size render with grain and streaks goes through
+      # Direct3D's shader compiler, the streak programs included (src/platform/smoke.ts).
+      - name: Whole self-check (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          WHOLE="$RUNNER_TEMP/whole"
+          mkdir -p "$WHOLE"
+          cp public/samples/sample-street.jpg "$WHOLE/photo.jpg"
+          export GRAIN_EMULATOR_DATA="$RUNNER_TEMP/data-whole" GRAIN_EMULATOR_SMOKE="$WHOLE"
+          "$APP" &
+          for i in $(seq 1 240); do [ -f "$WHOLE/report.json" ] && break; sleep 5; done
+          sleep 2
+          cat "$WHOLE/report.json" || { echo "No report after 20 minutes"; exit 1; }
+          node -e "const r=require(process.argv[1]).results; const bad=r.filter(x=>!x.ok&&/render|export|WebGL/.test(x.check)); for (const x of r) console.log((x.ok?'ok  ':'FAIL')+' '+x.check+(x.detail?' — '+x.detail:'')); process.exit(bad.length?1:0)" "$WHOLE/report.json"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: precise-check-${{ matrix.platform }}
-          path: ${{ runner.temp }}/smoke
+          path: |
+            ${{ runner.temp }}/smoke
+            ${{ runner.temp }}/whole

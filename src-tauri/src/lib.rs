@@ -739,6 +739,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<(Menu<Wry>, HashMap<String, Menu
             &item("export", "Export", Some("CmdOrCtrl+E"))?,
             &item("export-as", "Export As…", Some("Alt+CmdOrCtrl+E"))?,
             &item("export-timelapse", "Export Timelapse Video…", Some("Shift+CmdOrCtrl+E"))?,
+            &item("submit-gallery", "Submit to Gallery…", None)?,
             &sep()?,
             #[cfg(target_os = "macos")]
             &PredefinedMenuItem::close_window(app, None)?,

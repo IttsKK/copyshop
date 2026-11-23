@@ -17,6 +17,7 @@ export type MenuAction =
   | 'export'
   | 'export-as'
   | 'export-timelapse'
+  | 'submit-gallery'
   | 'undo'
   | 'redo'
   | 'snapshot'
