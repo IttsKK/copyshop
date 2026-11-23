@@ -2481,7 +2481,10 @@ export class GrainEngine {
     const maskFrame = fx.shapeSpace === 'print' ? { x: 0, y: 0, ...print } : photoAt
     const k = fx.kaleido
     const piece = k.source ? fx.masks.find((m) => m.id === k.source) : undefined
-    const key = JSON.stringify([size, k, piece, maskFrame, photoAt])
+    // Its Mask row: where the copies show.
+    const use = fx.maskUse?.kaleido
+    const held = fx.masks.filter((m) => use?.ids.includes(m.id))
+    const key = JSON.stringify([size, k, piece, use, held, maskFrame, photoAt])
     const kept = this.kaleidoCache
     if (kept && kept.base === base && kept.key === key) return kept.canvas
     const canvas = composeKaleido(base, size, fx, maskFrame, photoAt)

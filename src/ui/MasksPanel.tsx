@@ -35,6 +35,7 @@ const SECTION_NAMES: Record<MaskSection, string> = {
   dust: 'Dust & scratches',
   surge: 'Surge marks',
   repeat: 'Repeat',
+  kaleido: 'Kaleidoscope',
 }
 
 interface Props {

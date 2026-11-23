@@ -1178,9 +1178,10 @@ export type MaskSection =
   | 'dust'
   | 'surge'
   | 'repeat'
+  | 'kaleido'
 /** In the order the shader's uSectionMask holds them: new sections go on the end. */
 // Order matters: the shader reads them by index (streaks 5, glass 6, edges 7, solarize 8).
-export const MASK_SECTIONS: MaskSection[] = ['grain', 'colour', 'tone', 'light', 'leaks', 'streaks', 'glass', 'edges', 'solarize', 'lighting', 'mono', 'dither', 'pixel', 'halftone', 'dust', 'surge', 'repeat']
+export const MASK_SECTIONS: MaskSection[] = ['grain', 'colour', 'tone', 'light', 'leaks', 'streaks', 'glass', 'edges', 'solarize', 'lighting', 'mono', 'dither', 'pixel', 'halftone', 'dust', 'surge', 'repeat', 'kaleido']
 
 /**
  * Which masks a section uses. exclude: the section leaves the masked area

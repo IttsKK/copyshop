@@ -137,7 +137,7 @@ export const MODULE_BY_ID = Object.fromEntries(MODULES.map((m) => [m.id, m])) as
 export const MASKABLE: ReadonlySet<StackModuleId> = new Set<StackModuleId>([
   'tone', 'colour', 'light', 'edges', 'solarize', 'lighting', 'leaks',
   'mono', 'grain', 'dither', 'pixel',
-  'streaks', 'glass', 'repeat',
+  'streaks', 'glass', 'repeat', 'kaleido',
   'halftone', 'dust', 'surge',
 ])
 export const WITH_PRESETS: ReadonlySet<StackModuleId> = new Set<StackModuleId>([

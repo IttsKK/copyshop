@@ -118,11 +118,30 @@ export function composeKaleido(base: TextureSource, size: Size, fx: EffectParams
   const level = piece ? pieceRound(cutter, piece, C, n, step, k.mirror) : sliceRound(photo, W, H, C, n, step, k.angle * RAD, k.mirror)
   if (!level) return null
 
+  // Its Mask row, as any module's: the copies only inside the masks, or
+  // everywhere but them. Worked out where they are on the photo itself.
+  const use = fx.maskUse?.kaleido
+  const held = (use?.ids ?? []).map((id) => fx.masks.find((m) => m.id === id)).filter((m): m is MaskShape => !!m && maskOn(m))
+  const masked = !!use && held.length > 0
   const out = new OffscreenCanvas(W, H)
   const oc = out.getContext('2d')!
   oc.imageSmoothingEnabled = true
   oc.imageSmoothingQuality = 'high'
-  oc.drawImage(photo, 0, 0, W, H)
+  // Masked, it is composed on its own first, then laid over the photo where the masks let it (finish).
+  if (!masked) oc.drawImage(photo, 0, 0, W, H)
+  const finish = (): OffscreenCanvas => {
+    if (!masked || !use) return out
+    // The copies kept only where the masks let them, then laid over the photo.
+    const cover = new OffscreenCanvas(W, H)
+    const cc = cover.getContext('2d')!
+    for (const m of held) cc.drawImage(cutter.coverPicture(m), 0, 0)
+    oc.globalCompositeOperation = use.mode === 'only' ? 'destination-in' : 'destination-out'
+    oc.drawImage(cover, 0, 0)
+    oc.globalCompositeOperation = 'destination-over'
+    oc.drawImage(photo, 0, 0, W, H)
+    oc.globalCompositeOperation = 'source-over'
+    return out
+  }
   const rings = Math.max(KALEIDO_RINGS.min, Math.min(KALEIDO_RINGS.max, Math.round(k.rings)))
   const s = Math.max(0.05, Math.min(0.98, k.ringSize))
   const ringAt = (ctx: OffscreenCanvasRenderingContext2D, i: number) => {
@@ -141,7 +160,7 @@ export function composeKaleido(base: TextureSource, size: Size, fx: EffectParams
       oc.restore()
     }
     oc.drawImage(level, 0, 0)
-    return out
+    return finish()
   }
 
   // A slice all the way round covers everything: each ring inside is the
@@ -169,7 +188,7 @@ export function composeKaleido(base: TextureSource, size: Size, fx: EffectParams
     rc.fillRect(0, 0, W, H)
     oc.drawImage(ring, 0, 0)
   }
-  return out
+  return finish()
 }
 
 /**
