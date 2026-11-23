@@ -529,9 +529,6 @@ function SectionMaskMenu({ masks, use, onChange, making, canMake, onNew, pick, o
     onPeek?.(peek)
   }, [peek, onPeek])
   useEffect(() => () => onPeek?.(null), [onPeek])
-  // What it does now, in a few words: "Only inside Sky".
-  const usedNames = masks.filter((m) => ids.includes(m.id)).map((m) => m.name)
-  const where = !ids.length ? 'Whole photo' : `${mode === 'only' ? 'Only inside' : 'Everywhere but'} ${usedNames.length > 2 ? `${usedNames.length} masks` : usedNames.join(' and ')}`
   const add = (
     <div className="section-mask-new">
       {pick ? (
@@ -588,7 +585,8 @@ function SectionMaskMenu({ masks, use, onChange, making, canMake, onNew, pick, o
       </div>
       {masks.length ? (
         <>
-          <p className={`hint-line mask-applies-now${ids.length ? ' on' : ''}`}>{where}</p>
+          {/* Nothing ticked: said, as nothing else shows it. Ticked, the boxes and Inside it / Outside it say it (and the header's Mask button). */}
+          {!ids.length && <p className="hint-line mask-applies-now">Whole photo</p>}
           <div className="mask-applies-list" onPointerLeave={() => setPointed(null)}>
             {masks.map((m) => (
               <div key={m.id} className={`mask-applies-row${ids.includes(m.id) ? ' on' : ''}`} onPointerEnter={() => setPointed(m.id)}>

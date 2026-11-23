@@ -3188,7 +3188,6 @@ input[type="range"].tinted::-moz-range-progress { background: transparent; }
 .overlay-toggle.on { color: var(--text); border-color: rgba(255, 90, 90, 0.55); background: rgba(255, 60, 60, 0.12); }
 /* Where the module works now, and the masks it uses lit. */
 .mask-applies-now { margin: 0; }
-.mask-applies-now.on { color: var(--accent); }
 .mask-applies-row.on .mask-applies-item span { color: var(--text); font-weight: 500; }
 /* Module names whole at 1280 px: a little less space between the header's tools. */
 .section-head { column-gap: 3px; }

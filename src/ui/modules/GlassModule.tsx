@@ -24,9 +24,6 @@ export function GlassModule({ glass, blend, setEffects, maskDrawing, newTarget, 
       id="glass"
       title="Glass"
     >
-      {glassOn(glass) && blend.effects.maskUse.glass?.mode === 'only' && blend.effects.maskUse.glass.ids.length > 0 && (
-        <p className="hint-line">Only inside {blend.effects.maskUse.glass.ids.length === 1 ? 'its mask' : 'its masks'}</p>
-      )}
       <div className="field valued">
         <span>Type</span>
         <div className="segmented">
