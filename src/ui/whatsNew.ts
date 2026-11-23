@@ -36,6 +36,8 @@ export const RELEASES: Release[] = [
     things: [
       { module: 'recolour', line: 'Select parts of the photo and give each its own colour, keeping their light and shade, or keep a part as shot in a black and white photo.' },
       { module: 'kaleido', line: 'The photo, or a part of it, copied round a point: mirrored or turned, in rings toward the middle, and masked to where it shows.' },
+      { title: 'Masks can key on a colour', line: 'Besides brightness and blue, a mask can keep what is like a colour you pick or take from the photo: a green tree, a red car.', where: 'Masks › a mask’s Follow photo › Compare' },
+      { title: 'Move the photo while you work', line: 'Hold Space and drag to move the photo whatever tool is out. On a trackpad, two fingers move it and a pinch zooms.', where: 'Settings › General, for the trackpad' },
       { title: 'Updates install themselves', line: 'A new version downloads in the background and is ready the next time you open copyshop, with nothing to click. You can turn this off.', where: 'Settings › General' },
       { title: 'See the photo while you select', line: 'Selecting or drawing a part for a module (a streak’s subject, what Repeat or the Kaleidoscope copies, a part to recolour) hides that module, so you see the photo itself.' },
     ],
