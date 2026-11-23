@@ -10,14 +10,18 @@ export function PreciseSettings({ onStatus }: { onStatus: (message: string) => v
   const state = usePrecise()
   const [bytes, setBytes] = useState(() => bytesFor(['find', 'edge']))
   const [edgeHere, setEdgeHere] = useState(true)
+  const [offered, setOffered] = useState(true)
   useEffect(() => {
     void checkPrecise()
     void partsHere().then((parts) => {
       setBytes(bytesFor(parts))
       setEdgeHere(parts.includes('edge'))
+      setOffered(parts.length > 0)
     })
     void mlInfo()
   }, [])
+  // Not offered where it would be slower than the small model (no native runtime, no WebGPU: Linux).
+  if (!offered && state.kind !== 'installed') return null
   const note =
     state.kind === 'downloading'
       ? `Downloading… ${Math.floor((100 * state.done) / Math.max(1, state.total))}% of ${sizeLabel(state.total)}`

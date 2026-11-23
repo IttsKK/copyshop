@@ -39,7 +39,8 @@ export function IntroDialog({ app, hasImage, onOpen, onTour, onClose: close }: P
     void checkPrecise()
     void partsHere().then((parts) => setPreciseBytes(bytesFor(parts)))
   }, [app])
-  const offerPrecise = app && precise.kind === 'none'
+  // Not offered where it would be slower than the small model (models.ts partsHere: Linux).
+  const offerPrecise = app && precise.kind === 'none' && preciseBytes > 0
   const onClose = () => {
     if (offerPrecise && wantPrecise) {
       preciseWantedStore.set(true)

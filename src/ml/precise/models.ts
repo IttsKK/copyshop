@@ -72,9 +72,15 @@ let infoPromise: Promise<MlInfo> | null = null
 export const mlInfo = (): Promise<MlInfo> =>
   (infoPromise ??= isNative() ? invoke<MlInfo>('ml_info').catch(() => ({ native: false, gpu: null })) : Promise.resolve({ native: false, gpu: null }))
 
-/** The parts worth having here: the edge model needs the native runtime (an Intel Mac and Linux have none). */
+/**
+ * The parts worth having here: the edge model needs the native runtime (an
+ * Intel Mac and Linux have none), and the first, without it, a GPU in the page
+ * (WebGPU): on the CPU in the page it took 40 s a click (Linux, Nov 23), slower
+ * than the small model it would replace, so Linux is not offered it.
+ */
 export async function partsHere(): Promise<PrecisePart[]> {
-  return (await mlInfo()).native ? ['find', 'edge'] : ['find']
+  if ((await mlInfo()).native) return ['find', 'edge']
+  return typeof navigator !== 'undefined' && 'gpu' in navigator ? ['find'] : []
 }
 export const filesFor = (parts: PrecisePart[]) => PRECISE_FILES.filter((f) => parts.includes(f.part))
 export const bytesFor = (parts: PrecisePart[]) => filesFor(parts).reduce((a, f) => a + f.size, 0)
@@ -120,6 +126,7 @@ const CHUNK = 8 << 20
 export async function downloadPrecise(): Promise<boolean> {
   if (!isNative() || running) return false
   const parts = await partsHere()
+  if (!parts.length) return false
   const files = filesFor(parts)
   const total = bytesFor(parts)
   const dir = await preciseDir()
