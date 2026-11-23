@@ -830,10 +830,11 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
               </button>
             </div>
           </div>
-          {hasColourLine(shape.colourLine) && colourLine && (
+          {/* While it is edited, its box below has Cancel and Done. */}
+          {hasColourLine(shape.colourLine) && colourLine && !colourLine.editing && (
             <div className="row">
-              <button className={colourLine.editing ? 'on' : ''} title="Move its points on the photo, click the line to add one, double-click one to take it away" onClick={colourLine.onEdit}>
-                {colourLine.editing ? 'Done' : 'Edit the line on the photo'}
+              <button title="Move its points on the photo, click the line to add one, double-click one to take it away" onClick={colourLine.onEdit}>
+                Edit the line on the photo
               </button>
             </div>
           )}
@@ -854,10 +855,14 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
             onChange={(pull) => onChange({ pull })}
           />
           <label
-            className="check-row"
-            title="A bar whose colour would come from something a mask keeps in front of the streaks (or from inside a streak mask) takes the colour of a clear bar nearby instead, a different one for each bar"
+            className={`check-row${hasColourLine(shape.colourLine) ? ' is-idle' : ''}`}
+            title={
+              hasColourLine(shape.colourLine)
+                ? 'Your line reads exactly where it is drawn, masked or not'
+                : 'A bar whose colour would come from something a mask keeps in front of the streaks (or from inside a streak mask) takes the colour of a clear bar nearby instead, a different one for each bar'
+            }
           >
-            <input type="checkbox" checked={shape.skipMasked} onChange={(e) => onChange({ skipMasked: e.target.checked })} />
+            <input type="checkbox" disabled={hasColourLine(shape.colourLine)} checked={shape.skipMasked && !hasColourLine(shape.colourLine)} onChange={(e) => onChange({ skipMasked: e.target.checked })} />
             Skip masked colours
             {!fixes.holds && <span className="muted-note"> (no mask holds these streaks back)</span>}
           </label>

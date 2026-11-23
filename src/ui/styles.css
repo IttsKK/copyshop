@@ -2736,7 +2736,7 @@ html.reduce-motion .recipe-opened { animation: none; }
 .statusbar { z-index: 45; }
 
 /* A setting waiting on another (Slider idle): there, greyed, not in the way. */
-.field.is-idle { opacity: 0.38; }
+.field.is-idle, .check-row.is-idle { opacity: 0.38; }
 .field.is-idle > * { pointer-events: none; }
 .zoom-readout { min-width: 38px; text-align: center; }
 
