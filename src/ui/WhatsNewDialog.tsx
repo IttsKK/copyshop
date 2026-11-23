@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { ModuleGlyph } from './ModuleGlyph'
+import { PreciseDownloadButton } from './PreciseSettings'
 import { CATEGORY_BY_ID, MODULE_BY_ID } from './moduleCatalog'
 import { RELEASES, type Release, useIsNew, whereIs } from './whatsNew'
 import type { StackModuleId } from './moduleCatalog'
@@ -64,6 +65,11 @@ export function WhatsNewDialog({ releases = RELEASES, onClose, onShowModule }: P
                                 Show me
                               </button>
                             )}
+                          </p>
+                        )}
+                        {t.download === 'precise' && (
+                          <p className="whats-new-where">
+                            <PreciseDownloadButton />
                           </p>
                         )}
                       </div>

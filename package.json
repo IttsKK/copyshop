@@ -1,7 +1,7 @@
 {
   "name": "copyshop",
   "private": true,
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A photo editor for the step after correction: streaks, grain, colour, glow, print and collage.",
   "homepage": "https://getcopyshop.com",
   "license": "SEE LICENSE IN LICENSE",

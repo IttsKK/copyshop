@@ -20,6 +20,8 @@ export interface NewThing {
   line: string
   /** Where to find it, when it isn't a module ("Settings › General"). */
   where?: string
+  /** Something to get right here: precise selection's models (PreciseDownloadButton). */
+  download?: 'precise'
 }
 
 export interface Release {
@@ -31,15 +33,23 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    version: '1.3.1',
+    version: '1.4.0',
     date: '2026-11-23',
     things: [
       {
         title: 'Precise subject selection',
         line: 'An optional download of two larger models that select a building, a person or a car with a cleaner edge: the selection sharpens a moment after you click, and its edge a few seconds later.',
         where: 'Settings › Selection',
+        download: 'precise',
       },
       { title: 'Box it to keep the rest out', line: 'Dragging a box round a subject keeps out what is joined to it, like a wing off a tower; a streak’s subject can be boxed too.' },
+      {
+        title: 'Submit to Gallery',
+        line: 'Send a finished photo, credited to you, for the gallery on getcopyshop.com and copyshop’s Instagram. It is looked at first, and you get a link that takes it down.',
+        where: 'File › Submit to Gallery…, or a photo’s menu in the Library',
+      },
+      { title: 'Streak colours from a line', line: 'A streak can take its colours from a line you draw across the photo, instead of from its edge.', where: 'Streaks › a streak’s Carries › Sample line' },
+      { title: 'Streak masks like every module’s', line: 'A streak’s Mask tab has Where it applies, as every module does: its own masks and the Masks list’s, inside or outside them.' },
     ],
   },
   {
