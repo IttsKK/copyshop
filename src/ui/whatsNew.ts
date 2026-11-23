@@ -31,6 +31,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.3.1',
+    date: '2026-11-23',
+    things: [
+      {
+        title: 'Precise subject selection',
+        line: 'An optional download of two larger models that select a building, a person or a car with a cleaner edge: the selection sharpens a moment after you click, and its edge a few seconds later.',
+        where: 'Settings › Selection',
+      },
+      { title: 'Box it to keep the rest out', line: 'Dragging a box round a subject keeps out what is joined to it, like a wing off a tower; a streak’s subject can be boxed too.' },
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-11-23',
     things: [
