@@ -552,10 +552,30 @@ export function MasksPanel({
         </button>
       )
     }
+    const marks = [
+      ...sections.map((s) => ({ key: s, module: s as StackModuleId, name: SECTION_NAMES[s], title: `${SECTION_NAMES[s]}, ${maskUse[s]!.mode === 'only' ? 'inside' : 'outside'} it: go to ${SECTION_NAMES[s].toLowerCase()}` })),
+      ...(streaks.length ? [{ key: 'streaks', module: 'streaks' as StackModuleId, name: 'Streaks', title: `${streaks.join(', ')}: go to streaks` }] : []),
+    ]
+    // Two marks at most, the second … for the rest when there are more: the row keeps its name in view however many modules use the mask.
+    const shownMarks = marks.length > 2 ? marks.slice(0, 1) : marks
+    const rest = marks.slice(shownMarks.length)
     return (
       <span className="mask-users">
-        {sections.map((s) => mark(s, s as StackModuleId, `${SECTION_NAMES[s]}, ${maskUse[s]!.mode === 'only' ? 'inside' : 'outside'} it: go to ${SECTION_NAMES[s].toLowerCase()}`))}
-        {streaks.length > 0 && mark('streaks', 'streaks', `${streaks.join(', ')}: go to streaks`)}
+        {shownMarks.map((k) => mark(k.key, k.module, k.title))}
+        {rest.length > 0 && (
+          <button
+            className="mask-user more"
+            title={`Also ${rest.map((k) => k.name).join(', ')}: choose in Applies to`}
+            aria-label={`And ${rest.length} more`}
+            onClick={() => {
+              const at = masks.findIndex((m) => m.id === id)
+              if (at >= 0 && selected !== at) onSelect(at)
+              setUsesOpen(id)
+            }}
+          >
+            …
+          </button>
+        )}
       </span>
     )
   }
@@ -603,15 +623,26 @@ export function MasksPanel({
     const modes = new Set(used.map((sec) => useIn(m.id, sec)))
     const side: 'only' | 'exclude' = used.length ? (modes.has('only') ? 'only' : 'exclude') : sideWanted
     const names = used.map((sec) => SECTION_NAMES[sec])
-    const summary = !used.length
-      ? 'Choose effects'
-      : `${names.length > 2 ? `${names.length} modules` : names.join(', ')}, ${modes.size > 1 ? 'mixed' : side === 'only' ? 'inside' : 'outside'}`
+    // Which side first, so it is never what gets cut off; then the names that
+    // fit the line whole, and … for the rest (all of them are in its tooltip).
+    const sideWord = modes.size > 1 ? 'Mixed' : side === 'only' ? 'Inside' : 'Outside'
+    let fitted = names.slice(0, 1)
+    for (const n of names.slice(1)) {
+      if (`${sideWord}: ${[...fitted, n].join(', ')}`.length > 18) break
+      fitted = [...fitted, n]
+    }
+    const summary = !used.length ? 'Choose effects' : `${sideWord}: ${fitted.join(', ')}${fitted.length < names.length ? ' …' : ''}`
     const open = usesOpen === m.id
     return (
       <div className="field valued mask-applies">
         <span title="The modules this mask keeps to part of the photo">Applies to</span>
         <span className="menu-anchor" ref={open ? usesRef : undefined}>
-          <button className={`mask-applies-button${used.length ? '' : ' empty'}${open ? ' open' : ''}`} aria-expanded={open} onClick={() => setUsesOpen(open ? null : m.id)}>
+          <button
+            className={`mask-applies-button${used.length ? '' : ' empty'}${open ? ' open' : ''}`}
+            aria-expanded={open}
+            title={used.length ? `${side === 'only' && modes.size <= 1 ? 'Inside' : modes.size > 1 ? 'Inside or outside' : 'Outside'} it: ${names.join(', ')}` : undefined}
+            onClick={() => setUsesOpen(open ? null : m.id)}
+          >
             <span>{summary}</span>
             <span className="mask-applies-caret" aria-hidden />
           </button>
@@ -730,7 +761,8 @@ export function MasksPanel({
                 icon: <MaskGlyph kind={glyph} />,
                 // Used by nothing yet: its Applies to says so, open.
                 summary: !on ? 'Off' : undefined,
-                badges: on ? userMarks(m.id) : null,
+                // Open, its Applies to line says the same: the row keeps the room for its name.
+                badges: on && selected !== i ? userMarks(m.id) : null,
                 on,
                 onToggle: () => onToggle(i),
                 label: m.name || 'mask',
