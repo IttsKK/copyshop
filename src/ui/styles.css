@@ -3256,3 +3256,8 @@ input[type="range"].tinted::-moz-range-progress { background: transparent; }
 /* Space held over the photo: the hand, over every tool's own cursor (PreviewCanvas). */
 .preview.hand, .preview.hand * { cursor: grab !important; }
 .preview.hand-dragging, .preview.hand-dragging * { cursor: grabbing !important; }
+
+/* A mask's settings opened from its Edit in Where it applies (a streak's own masks). */
+.mask-applies-body { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px 22px; padding-left: 10px; border-left: 1px solid var(--line); }
+/* A streak masked: the module header's lit mask mark, on its row. */
+.streak-mask-mark { margin: 0 2px 0 0; padding: 1px 4px; }

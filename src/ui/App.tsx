@@ -4555,7 +4555,7 @@ export function App() {
     ...maskMaker((t) => t?.section === section, (mode) => ({ section, mode })),
   })
   /** What streak `i`'s Mask tab needs to make a mask of its own. */
-  const streakMaskFor = (i: number) => maskMaker((t) => t?.streak === i, (mode) => ({ streak: i, mode }))
+  const streakMaskFor = (i: number) => ({ ...maskMaker((t) => t?.streak === i, (mode) => ({ streak: i, mode })), onOpenMask: openMaskInList, onPeek: setPeekMask })
   const setStreakShape = (i: number, patch: Partial<StreakShape>) =>
     setStreaks(
       { shapes: blend.effects.streaks.shapes.map((s, j) => (j === i ? { ...s, ...patch } : s)) },

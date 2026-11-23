@@ -518,12 +518,70 @@ function SectionMaskMenu({ masks, use, onChange, making, canMake, onNew, pick, o
   const lower = title.toLowerCase()
   const ids = use?.ids.filter((id) => masks.some((m) => m.id === id)) ?? []
   const mode = use?.mode ?? 'only'
-  // Kept with no masks ticked too, so the side chosen stays when they are
-  // ticked again (an empty list is no mask to the engine).
-  const set = (next: string[], nextMode = mode) => onChange({ ids: next, mode: nextMode })
+  return (
+    <div className="section-mask" role="group" aria-label={`Where ${lower} applies`}>
+      <div className="section-mask-head">
+        <b>Where it applies</b>
+        {masks.length > 0 && <OverlayToggle />}
+        <button className="icon" title="Close (Esc)" aria-label="Close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <MaskUse
+        title={title}
+        masks={masks}
+        ids={ids}
+        mode={mode}
+        // Kept with no masks ticked too, so the side chosen stays when they are ticked again (an empty list is no mask to the engine).
+        onSet={(next, nextMode) => onChange({ ids: next, mode: nextMode })}
+        making={making}
+        canMake={canMake}
+        onNew={onNew}
+        pick={pick}
+        onOpenMask={onOpenMask}
+        onPeek={onPeek}
+        newMaskAt={`newmask:${section}`}
+      />
+    </div>
+  )
+}
+
+export interface MaskUseProps {
+  /** What it is, for its tooltips ("Grain", "Streak 2"). */
+  title: string
+  /** The masks to choose from: the Masks list's, and any of its own. */
+  masks: { id: string; name: string }[]
+  ids: string[]
+  mode: 'only' | 'exclude'
+  onSet: (ids: string[], mode: 'only' | 'exclude') => void
+  making: AddKind | null
+  canMake: boolean
+  onNew: (kind: AddKind, mode: 'only' | 'exclude') => void
+  pick?: MaskPick | null
+  /** A mask's Edit: open it (in the Masks list, or its own settings where it is kept). */
+  onOpenMask?: (id: string) => void
+  /** Which masks' Edit is open here (its settings shown under its row). */
+  openMask?: string | null
+  /** The settings of the mask whose Edit is open here, shown under its row. */
+  maskBody?: ReactNode
+  onPeek?: (id: string | null) => void
+  /** Where the edit box of a mask being made goes (EditBox at). */
+  newMaskAt: string
+  /** Side choices that can't be had now, and why (a streak's subject kept in front can't be Inside too). */
+  sideDisabled?: { only?: string; exclude?: string }
+}
+
+/**
+ * Where something applies, as every module and every streak has it: the
+ * masks ticked, Inside them or Outside them, and + New mask (selected,
+ * drawn, painted, a gradient, a radial), used here at once. One pattern
+ * for all of them.
+ */
+export function MaskUse({ title, masks, ids, mode, onSet, making, canMake, onNew, pick, onOpenMask, openMask, maskBody, onPeek, newMaskAt, sideDisabled }: MaskUseProps) {
+  const set = (next: string[], nextMode = mode) => onSet(next, nextMode)
   const [choosing, setChoosing] = useState(false)
   const making_ = making ? ADD_KINDS.find((k) => k.kind === making) : null
-  // While open, the photo shows the mask pointed at in the list, else the
+  // While shown, the photo shows the mask pointed at in the list, else the
   // one it uses last (the one just made): which mask is where, at a glance.
   const [pointed, setPointed] = useState<string | null>(null)
   const peek = making_ || pick ? null : (pointed ?? ids[ids.length - 1] ?? null)
@@ -537,9 +595,9 @@ function SectionMaskMenu({ masks, use, onChange, making, canMake, onNew, pick, o
         <PickPanel p={pick.view} onPickReading={pick.onReading} onPickDone={pick.onDone} />
       ) : making_ ? (
         // Its Cancel and Done, with what to do, in the edit's box (EditBox).
-        <EditBox at={`newmask:${section}`} />
+        <EditBox at={newMaskAt} />
       ) : (
-        <button className={`link${choosing ? ' on' : ''}`} disabled={!canMake} aria-expanded={choosing} title={canMake ? 'Make a new mask for this module' : 'No room for another mask'} onClick={() => setChoosing(!choosing)}>
+        <button className={`link${choosing ? ' on' : ''}`} disabled={!canMake} aria-expanded={choosing} title={canMake ? `Make a new mask for ${title.toLowerCase()}` : 'No room for another mask'} onClick={() => setChoosing(!choosing)}>
           + New mask
         </button>
       )}
@@ -566,67 +624,72 @@ function SectionMaskMenu({ masks, use, onChange, making, canMake, onNew, pick, o
       )}
     </div>
   )
+  const them = ids.length > 1 ? 'them' : 'it'
   const sideButtons = (
     <div className="segmented">
-      <button className={mode === 'only' ? 'on' : ''} title={`${title} only inside the ticked ${ids.length > 1 ? 'masks' : 'mask'}`} onClick={() => set(ids, 'only')}>
-        Inside {ids.length > 1 ? 'them' : 'it'}
+      <button
+        className={mode === 'only' ? 'on' : ''}
+        disabled={!!sideDisabled?.only}
+        title={sideDisabled?.only || `${title} only inside the ticked ${ids.length > 1 ? 'masks' : 'mask'}`}
+        onClick={() => set(ids, 'only')}
+      >
+        Inside {them}
       </button>
-      <button className={mode === 'exclude' ? 'on' : ''} title={`${title} everywhere but the ticked ${ids.length > 1 ? 'masks' : 'mask'}`} onClick={() => set(ids, 'exclude')}>
-        Outside {ids.length > 1 ? 'them' : 'it'}
+      <button
+        className={mode === 'exclude' ? 'on' : ''}
+        disabled={!!sideDisabled?.exclude}
+        title={sideDisabled?.exclude || `${title} everywhere but the ticked ${ids.length > 1 ? 'masks' : 'mask'}`}
+        onClick={() => set(ids, 'exclude')}
+      >
+        Outside {them}
       </button>
     </div>
   )
+  if (!masks.length)
+    return making_ || pick ? (
+      add
+    ) : (
+      <>
+        {/* Nothing to choose yet: the ways to make one, straight away. */}
+        <p className="hint-line">Whole photo</p>
+        <div className="mask-choices compact">
+          {ADD_KINDS.map((k) => (
+            <button key={k.kind} className="mask-choice" title={k.title} disabled={!canMake} onClick={() => onNew(k.kind, mode)}>
+              <MaskGlyph kind={k.kind} />
+              <span>
+                <b>{k.name}</b>
+                <small>{k.line}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      </>
+    )
   return (
-    <div className="section-mask" role="group" aria-label={`Where ${lower} applies`}>
-      <div className="section-mask-head">
-        <b>Where it applies</b>
-        {masks.length > 0 && <OverlayToggle />}
-        <button className="icon" title="Close (Esc)" aria-label="Close" onClick={onClose}>
-          ×
-        </button>
+    <>
+      {/* Nothing ticked: said, as nothing else shows it. Ticked, the boxes and Inside it / Outside it say it. */}
+      {!ids.length && <p className="hint-line mask-applies-now">Whole photo</p>}
+      <div className="mask-applies-list" onPointerLeave={() => setPointed(null)}>
+        {masks.map((m) => (
+          <div key={m.id}>
+            <div className={`mask-applies-row${ids.includes(m.id) ? ' on' : ''}`} onPointerEnter={() => setPointed(m.id)}>
+              <label className="mask-applies-item">
+                <input type="checkbox" checked={ids.includes(m.id)} onChange={(e) => set(e.target.checked ? [...ids, m.id] : ids.filter((id) => id !== m.id))} />
+                <span>{m.name}</span>
+              </label>
+              {onOpenMask && (
+                <button className={`link quiet mask-open${openMask === m.id ? ' on' : ''}`} title={`${openMask === m.id ? 'Close' : 'Open'} ${m.name}'s settings`} onClick={() => onOpenMask(m.id)}>
+                  {openMask === m.id ? 'Close' : 'Edit'}
+                </button>
+              )}
+            </div>
+            {openMask === m.id && maskBody && <div className="mask-applies-body">{maskBody}</div>}
+          </div>
+        ))}
       </div>
-      {masks.length ? (
-        <>
-          {/* Nothing ticked: said, as nothing else shows it. Ticked, the boxes and Inside it / Outside it say it (and the header's Mask button). */}
-          {!ids.length && <p className="hint-line mask-applies-now">Whole photo</p>}
-          <div className="mask-applies-list" onPointerLeave={() => setPointed(null)}>
-            {masks.map((m) => (
-              <div key={m.id} className={`mask-applies-row${ids.includes(m.id) ? ' on' : ''}`} onPointerEnter={() => setPointed(m.id)}>
-                <label className="mask-applies-item">
-                  <input type="checkbox" checked={ids.includes(m.id)} onChange={(e) => set(e.target.checked ? [...ids, m.id] : ids.filter((id) => id !== m.id))} />
-                  <span>{m.name}</span>
-                </label>
-                {onOpenMask && (
-                  <button className="link quiet mask-open" title={`Open ${m.name} in the Masks list`} onClick={() => onOpenMask(m.id)}>
-                    Edit
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          {ids.length > 0 && sideButtons}
-          {add}
-        </>
-      ) : making_ || pick ? (
-        add
-      ) : (
-        <>
-          {/* Nothing to choose yet: the ways to make one, straight away. */}
-          <p className="hint-line">Whole photo</p>
-          <div className="mask-choices compact">
-            {ADD_KINDS.map((k) => (
-              <button key={k.kind} className="mask-choice" title={k.title} disabled={!canMake} onClick={() => onNew(k.kind, mode)}>
-                <MaskGlyph kind={k.kind} />
-                <span>
-                  <b>{k.name}</b>
-                  <small>{k.line}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+      {ids.length > 0 && sideButtons}
+      {add}
+    </>
   )
 }
 
@@ -999,7 +1062,7 @@ export function Module({ id, title, summary, children }: ModuleProps) {
 }
 
 /** A module's mask button's mark: a frame with a soft-edged shape kept inside it. */
-function ModuleMaskGlyph() {
+export function ModuleMaskGlyph() {
   return (
     <svg className="mask-glyph" width="15" height="15" viewBox="0 0 16 16" aria-hidden>
       <rect x="1.75" y="1.75" width="12.5" height="12.5" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.4" />

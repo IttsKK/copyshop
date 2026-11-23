@@ -1,5 +1,6 @@
 import { keyWords } from '../../platform/os'
 import { EditBox } from '../EditBox'
+import { ModuleMaskGlyph } from '../controls'
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
 import { type BlendParams, type MaskShape, MAX_STREAKS, type StreakParams, type StreakShape } from '../../engine/types'
 import { ItemList } from '../ItemList'
@@ -192,6 +193,26 @@ export function StreaksModule({ previewStreak, moveStreak, copySettings, pasteSe
                 : 'Hard edge'
               : `${sh.subject ? 'From a subject' : sh.mode === 'trail' ? 'Drawn, trailing' : 'Drawn'}${sh.carry === 'repeat' ? ' · copies' : ''}${sh.path ? ' · curved' : ''}`,
           label: `streak ${i + 1}`,
+          // Masked (more than its subject kept in front): lit, as a module's Mask button is; a click opens its Mask tab.
+          badges: (() => {
+            const own = (sh.maskIds ?? []).filter((id) => id !== sh.subject?.mask && blend.effects.masks.some((m) => m.id === id))
+            if (sh.maskMode === 'off' || !own.length) return null
+            const side = sh.maskMode === 'only' ? 'Only inside' : 'Outside'
+            const names = own.map((id) => blend.effects.masks.find((m) => m.id === id)!.name).join(', ')
+            return (
+              <button
+                className="section-mask-button on streak-mask-mark"
+                title={`Streak ${i + 1}: ${side.toLowerCase()} ${names}. Click for its Mask tab`}
+                aria-label={`Streak ${i + 1} masked`}
+                onClick={() => {
+                  setSelectedStreak(i)
+                  setStreakTab('where')
+                }}
+              >
+                <ModuleMaskGlyph />
+              </button>
+            )
+          })(),
           on: sh.enabled !== false,
           onToggle: () => setStreakShape(i, { enabled: sh.enabled === false }),
           // The pencil: edit it on the photo (a session, Done or Cancel on the photo).
