@@ -823,10 +823,10 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
               </button>
               <button
                 className={hasColourLine(shape.colourLine) ? 'on' : ''}
-                title="A line you draw across the streak: each bar reads its colour where its line crosses it. It starts where the colours are read now"
+                title="A line across the streak that sets where colours are read: each bar takes its colour where it crosses the line. It starts where they are read now"
                 onClick={() => !hasColourLine(shape.colourLine) && colourLine?.onEdit()}
               >
-                Your line
+                Sample line
               </button>
             </div>
           </div>
@@ -834,13 +834,13 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
           {hasColourLine(shape.colourLine) && colourLine && !colourLine.editing && (
             <div className="row">
               <button title="Move its points on the photo, click the line to add one, double-click one to take it away" onClick={colourLine.onEdit}>
-                Edit the line on the photo
+                Edit the sample line
               </button>
             </div>
           )}
           <EditBox at={`streaks/${index}/colours`} />
           <Slider
-            idle={hasColourLine(shape.colourLine) ? 'Your line sets where colours are read' : false}
+            idle={hasColourLine(shape.colourLine) ? 'The sample line sets where colours are read' : false}
             label="Pull from"
             title={
               shape.mode === 'trail'
@@ -858,7 +858,7 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
             className={`check-row${hasColourLine(shape.colourLine) ? ' is-idle' : ''}`}
             title={
               hasColourLine(shape.colourLine)
-                ? 'Your line reads exactly where it is drawn, masked or not'
+                ? 'The sample line reads exactly where it is drawn, masked or not'
                 : 'A bar whose colour would come from something a mask keeps in front of the streaks (or from inside a streak mask) takes the colour of a clear bar nearby instead, a different one for each bar'
             }
           >

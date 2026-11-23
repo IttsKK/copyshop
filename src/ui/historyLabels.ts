@@ -326,7 +326,7 @@ function motion(k: string, a: unknown, b: unknown): 'moved' | 'reshaped' | 'resi
 /** A placed thing's fields whose own names read badly. */
 const ITEM_FIELDS: Record<string, string> = {
   maskIds: 'where it applies',
-  colourLine: 'colour line',
+  colourLine: 'sample line',
   maskMode: 'where it applies',
   radial: 'softness',
   mirrorAt: 'mirror middle',

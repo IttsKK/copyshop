@@ -4633,7 +4633,7 @@ export function App() {
         const toShort = (p: { x: number; y: number }) => ({ x: (frame.x + p.x * frame.width - measure.x) / measure.unit, y: (frame.y + p.y * frame.height - measure.y) / measure.unit })
         const line = defaultColourLine(sh.outline, streakCoordsOf(sh, toShort), sh.mode === 'trail')
         if (!line.length) return setStatus("Couldn't find the streak's edge to start the line from")
-        history.hint(`${WHOLE_STEP}streak ${i + 1}: colours from your line`)
+        history.hint(`${WHOLE_STEP}streak ${i + 1}: colours from a sample line`)
         setStreaks({ shapes: blend.effects.streaks.shapes.map((x, j) => (j === i ? { ...x, colourLine: line } : x)) }, null)
       }
       setEditingColourLine(i)
@@ -5276,7 +5276,7 @@ export function App() {
       return {
         at: `streaks/${editingColourLine}/colours`,
         home: 'streaks',
-        name: `Streak ${editingColourLine + 1}: colour line`,
+        name: `Streak ${editingColourLine + 1}: sample line`,
         hint: 'Drag the points',
         ...family('colourLine'),
       }
