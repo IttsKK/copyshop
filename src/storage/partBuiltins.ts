@@ -122,7 +122,7 @@ const TONE: Builtin[] = [
 
 const glow = (name: string, halation: number, bloom: number, glowThreshold: number, glowRadius: number, glowColour: ColourChoice = DEFAULT_EFFECTS.glowColour): Builtin => ({
   name,
-  data: fx({ halation, bloom, glowThreshold, glowRadius, glowColour }, 'light'),
+  data: fx({ halation, bloom, glowThreshold, glowFit: true, glowRadius, glowColour }, 'light'),
 })
 
 const LIGHT: Builtin[] = [

@@ -228,11 +228,16 @@ export function suggestedLooks(looks: Look[], palette: Palette, count = 3): Look
 /** No recipe: the photo as it is. What you place on it (crop, masks) stays, as with any recipe. */
 export const NONE_LOOK: Look = built('none', 'None', 'No look. Streaks, masks and collage stay', {}, { amount: 0 }, () => ({}))
 
+/** A built-in recipe's glow is fitted to each photo (glowFit.ts); the preset files predate it. */
+const fitted = (l: Look): Look => ({ ...l, doc: { ...l.doc, blend: { ...l.doc.blend, effects: { ...l.doc.blend.effects, glowFit: true } } } })
+
 /** Every built-in recipe, in the order the Recipes page lists them. */
 export const LOOKS: Look[] = (() => {
-  const all = [...STIPPLE_LOOKS, ...TIDE_COLOURS, ...MORE_LOOKS]
-  // The stippled colours together, then the coarser dithers, then film and print.
-  const order = ['stipple-tide', 'stipple-violet', 'stipple-silver', 'stipple', 'grit', 'pixel', 'pushed']
+  const all = [...STIPPLE_LOOKS, ...TIDE_COLOURS, ...MORE_LOOKS].map(fitted)
+  // Stippled and film looks taken in turn, so the top of the list isn't one
+  // look in four colours (a recipe's colours change in its Colours row);
+  // then the coarser dithers, then the rest of film and print.
+  const order = ['stipple-tide', 'pushed', 'stipple-violet', 'disposable', 'stipple-silver', 'expired', 'stipple', 'grit', 'pixel']
   // Dusk was too like Silver and Ember on most photos: kept, not listed.
   const retired = new Set(['stipple-dusk'])
   const listed = [...order.map((id) => all.find((l) => l.id === id)!), ...all.filter((l) => !order.includes(l.id) && !retired.has(l.id))]

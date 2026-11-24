@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react'
 import type { BlendParams } from '../engine/types'
 import { hasPlaced, keepOwn } from '../storage/parts'
-import type { PresetDoc, StoredPreset } from '../storage/presets'
+import { DEFAULT_OUTPUT, PRESET_SCHEMA_VERSION, type PresetDoc, type StoredPreset } from '../storage/presets'
 import type { GrainSource } from '../sources/GrainSource'
 import { Disclosure } from './controls'
 import { LookPicker } from './LookPicker'
@@ -9,6 +9,7 @@ import { LISTED_LOOKS, NONE_LOOK, suggestedLooks, type Look } from './looks'
 import type { Palette } from '../engine/palette'
 import { MODULES, inUse, type StackModuleId } from './moduleCatalog'
 import { RecipeContents } from './RecipeContents'
+import { RecipeColoursRow } from './RecipeColoursRow'
 import { usePanelPage } from './state/layout'
 
 type PickerProps = ComponentProps<typeof LookPicker>
@@ -53,6 +54,7 @@ export function RecipesPage({
   lookEdited,
   source,
   blend,
+  setBlend,
   image,
   palette,
   applyLook,
@@ -117,6 +119,25 @@ export function RecipesPage({
           )
         }
       >
+      {/* The recipe in use in other colours: only the gradient map changes. */}
+      {image && (
+        <RecipeColoursRow
+          blend={blend}
+          setBlend={setBlend}
+          palette={palette}
+          onPreview={(c) =>
+            setRecipeHover?.(
+              c && source
+                ? {
+                    key: `colours:${c.id}:${JSON.stringify(c.blend.effects.grade)}`,
+                    name: c.name,
+                    doc: { schemaVersion: PRESET_SCHEMA_VERSION, name: c.name, grainSource: source.serialize(), blend: c.blend, output: DEFAULT_OUTPUT },
+                  }
+                : null,
+            )
+          }
+        />
+      )}
       {/* An edit of your own: what is changed from the photo as it came. (A recipe's contents open under its row.) */}
       {!activeDoc && recipeParts > 0 && (
         <Disclosure id="edit-contents" defaultOpen title="What you changed" summary={`${recipeParts} module${recipeParts === 1 ? '' : 's'}`}>

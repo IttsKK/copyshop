@@ -1507,6 +1507,12 @@ export interface EffectParams {
   glass: GlassParams
   /** Luminance above which highlights start to glow. */
   glowThreshold: number
+  /**
+   * Halation and bloom turned down on a photo that is mostly highlight, so
+   * they don't wash it out (glowFit.ts). Missing on edits made before it
+   * existed, which glow as they always did.
+   */
+  glowFit?: boolean
   /** Glow radius as a fraction of the frame's longest side. */
   glowRadius: number
   /**
@@ -1578,6 +1584,7 @@ export const DEFAULT_EFFECTS: EffectParams = {
   collage: DEFAULT_COLLAGE,
   glass: DEFAULT_GLASS,
   glowThreshold: 0.72,
+  glowFit: true,
   glowRadius: 0.02,
   exposure: 0,
   shoulder: 0,

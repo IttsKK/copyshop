@@ -96,6 +96,7 @@ const EFFECT_KEYS: Record<string, StackModuleId> = {
   bloom: 'light',
   glowColour: 'light',
   glowThreshold: 'light',
+  glowFit: 'light',
   glowRadius: 'light',
   rim: 'edges',
   rimRadius: 'edges',
@@ -170,7 +171,7 @@ const FIELDS: Partial<Record<StackModuleId, Record<string, string>>> = {
   exposure: {},
   balance: {},
   tone: { exposure: 'film exposure', shoulder: 'soft highlights', structureRadius: 'detail size' },
-  light: { glowRadius: 'radius', glowThreshold: 'glow from', glowColour: 'colour' },
+  light: { glowRadius: 'radius', glowThreshold: 'glow from', glowFit: 'fit to the photo', glowColour: 'colour' },
   edges: { rim: 'edge glow', rimRadius: 'reach' },
   solarize: { solarize: 'reverse', solarizeFrom: 'from', halo: 'lines', haloRadius: 'line width' },
   colour: {

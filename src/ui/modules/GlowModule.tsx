@@ -51,6 +51,10 @@ export function GlowModule({ blend, setEffects, palette }: Props) {
         onChange={(glowColour) => setEffects({ glowColour })}
         sampleWithout={SAMPLE_FOR.light}
       />
+      <label className="check-row" title="Less glow on a photo that is mostly bright, like a white sky or snow, so it doesn't wash out. A few lights in the dark keep it all.">
+        <input type="checkbox" checked={blend.effects.glowFit === true} onChange={(e) => setEffects({ glowFit: e.target.checked })} />
+        Fit to the photo
+      </label>
       <Disclosure id="glow-shape" title="Fine-tune">
         <ToneGauge range={{ lo: blend.effects.glowThreshold + 0.09, hi: 1.5, soft: 0.09, space: 'linear', label: 'Glows' }} />
         <Slider

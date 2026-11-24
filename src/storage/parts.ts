@@ -68,7 +68,7 @@ export const OWNS: Record<PartKind, { blend: (keyof BlendParams)[]; effects: (ke
   colour: { blend: [], effects: ['stock', 'grade'], module: 'colour' },
   tone: { blend: [], effects: ['exposure', 'fade', 'shoulder', 'vignette', 'structure', 'structureRadius'], module: 'tone' },
   // The glow's colour is set in Glow now; older colour presets that carry it still set it.
-  light: { blend: [], effects: ['halation', 'bloom', 'glowThreshold', 'glowRadius', 'glowColour'], module: 'light' },
+  light: { blend: [], effects: ['halation', 'bloom', 'glowThreshold', 'glowFit', 'glowRadius', 'glowColour'], module: 'light' },
   edges: { blend: [], effects: ['rim', 'rimRadius', 'crunch'], module: 'edges' },
   solarize: { blend: [], effects: ['solarize', 'solarizeFrom', 'halo', 'haloRadius'], module: 'solarize' },
   leaks: { blend: [], effects: ['leaks'], module: 'leaks' },

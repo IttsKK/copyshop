@@ -62,6 +62,22 @@ export const STREAK_STYLES: StreakStyle[] = [
   }),
   style('fine', 'Fine', 'Thin lines, every detail of the edge its own line', { band: 0.004, lengthMin: 0.2, endSoftness: 0.02 }),
   style('blocks', 'Blocks', 'Wide uneven bars with slanted ends', { band: 0.03, barVary: 0.6, lengthMin: 0.3, tipRange: 25, endSoftness: 0 }),
+  // From the web playground, where Melt is the most picked style.
+  style('stripes', 'Stripes', 'Lines grouped into stripes a few wide, each keeping some of the edge', {
+    stripeMin: 0.008,
+    stripeMax: 0.024,
+    stripeTexture: 0.65,
+    lengthMin: 0.55,
+    endSoftness: 0.03,
+  }),
+  style('melt', 'Melt', 'Neighbouring bars follow one slow wave: a smooth, dripping edge', {
+    band: 0.006,
+    lengthMin: 0.25,
+    variation: 0.12,
+    endSoftness: 0.1,
+    endOpacity: 0.6,
+    changeAt: 0.5,
+  }),
   style('echo', 'Echo', "The subject's last stretch repeated along each bar, fading into its colour", {
     carry: 'repeat',
     lengthMin: 0.6,
@@ -73,6 +89,39 @@ export const STREAK_STYLES: StreakStyle[] = [
 /** Extend: the subject carried on as it is, set by App's extendSubject (it fits the copies to the subject). */
 export const EXTEND_STYLE = { id: 'extend', name: 'Extend', hint: 'The subject itself carried on, as if it kept going' }
 
+/**
+ * A new streak's bars, a little its own: the bars' width, how ragged their
+ * lengths are and how soft their ends, moved a little from the style's by
+ * the streak's seed, so two streaks in one style aren't twins. A style with
+ * even lengths or square ends keeps them. The style still counts as the
+ * streak's own (sameAs).
+ */
+export function variedBars(patch: Partial<StreakShape>, seed: number): Partial<StreakShape> {
+  let s = (seed * 2654435761) >>> 0
+  const next = () => {
+    s = (s * 1664525 + 1013904223) >>> 0
+    return s / 4294967296
+  }
+  const band = patch.band ?? (BASE.band as number)
+  const lengthMin = patch.lengthMin ?? (BASE.lengthMin as number)
+  const endSoftness = patch.endSoftness ?? (BASE.endSoftness as number)
+  const round = (v: number) => Math.round(v * 10000) / 10000
+  return {
+    ...patch,
+    band: round(band * (0.85 + next() * 0.3)),
+    ...(lengthMin < 1 ? { lengthMin: round(Math.min(0.95, Math.max(0.12, lengthMin * (0.86 + next() * 0.28)))) } : {}),
+    ...(endSoftness > 0 ? { endSoftness: round(Math.max(0.01, endSoftness + (next() - 0.4) * 0.05)) } : {}),
+  }
+}
+
+/** How far a varied streak's bars may be from its style's and still be in it (variedBars). */
+function sameAs(k: string, have: unknown, want: unknown): boolean {
+  if (typeof have !== 'number' || typeof want !== 'number') return have === want
+  if (k === 'band' || k === 'lengthMin') return Math.abs(have - want) <= Math.abs(want) * 0.2 + 1e-6
+  if (k === 'endSoftness') return want > 0 ? Math.abs(have - want) <= 0.031 : have === 0
+  return have === want
+}
+
 /** The style a streak is in, if it is exactly one of them. */
 export function styleOf(shape: StreakShape): string | null {
   if (shape.carry === 'repeat' && (shape.repeatHold ?? 0.5) >= 0.999 && shape.variation === 0 && shape.lengthMin === 1) return EXTEND_STYLE.id
@@ -82,7 +131,7 @@ export function styleOf(shape: StreakShape): string | null {
       if (k === 'carry') return (have ?? 'colour') === v
       if (k === 'repeatHold') return shape.carry !== 'repeat' || (have ?? 0.5) === v
       if (k === 'radialAround') return !shape.radial || (have ?? false) === v
-      return (have ?? (BASE as Record<string, unknown>)[k]) === v
+      return sameAs(k, have ?? (BASE as Record<string, unknown>)[k], v)
     }),
   )
   return found?.id ?? null
@@ -116,7 +165,7 @@ export function firstStreakPatch(count: number): Partial<StreakShape> | null {
  * streak at any time (its Bars tab). Echo and Burst are a streak's Carries
  * (Copies) and kind (Radial), chosen apart from its bars.
  */
-export const FINISHES = ['smear', 'even', 'fade', 'light', 'fine', 'blocks']
+export const FINISHES = ['smear', 'even', 'fade', 'light', 'fine', 'blocks', 'stripes', 'melt']
 
 /** What a finish leaves alone: what the bars carry and which way they run. */
 const NOT_FINISH = new Set(['carry', 'repeatHold', 'radial', 'radialAround'])
@@ -131,7 +180,7 @@ export function finishPatch(shape: StreakShape, patch: Partial<StreakShape>): Pa
 export function finishOf(shape: StreakShape): string | null {
   const have = shape as unknown as Record<string, unknown>
   const found = STREAK_STYLES.filter((s) => FINISHES.includes(s.id)).find((s) =>
-    Object.entries(s.patch).every(([k, v]) => NOT_FINISH.has(k) || (have[k] ?? (BASE as Record<string, unknown>)[k]) === v),
+    Object.entries(s.patch).every(([k, v]) => NOT_FINISH.has(k) || sameAs(k, have[k] ?? (BASE as Record<string, unknown>)[k], v)),
   )
   return found?.id ?? null
 }

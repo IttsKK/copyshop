@@ -1992,6 +1992,12 @@ button.link.danger { color: #e07b6f; }
 /* Your own recipe, picked: its description moves below, where it can be changed. A built-in keeps it in the row. */
 .recipe-item.on.describable > .recipe-row .recipe-pick small { display: none; }
 .recipe-detail:empty { display: none; }
+/* The recipe in use in other colours: three sets across (the photo's own first), each its three colours over its name. */
+.field.recipe-colours { grid-template-columns: minmax(0, 1fr); row-gap: 5px; align-items: start; }
+.field.recipe-colours > .recipe-colour-grid { grid-column: 1; }
+.recipe-colour-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.recipe-colour-grid button { grid-column: auto; display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-width: 0; padding: 4px 4px 3px; min-height: 0; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recipe-colour-swatch { display: block; height: 10px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15); }
 .recipe-item.on.describable > .recipe-row .recipe-thumb { grid-row: 1; height: 30px; }
 /* In All, a category header folds its modules away. */
 .stack-cat.folding { width: 100%; min-height: 0; border: none; border-bottom: 1px solid var(--edge); border-radius: 0; background: none; box-shadow: none; text-align: left; cursor: pointer; }
@@ -2413,8 +2419,9 @@ button.recipe-mix-add { width: 100%; min-height: 28px; border-radius: 7px; margi
 .segmented.full.streak-carries { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 /* A streak's bar styles: their label over them, the styles as chips across the tab, each as wide as its name. */
 .field.streak-finishes { grid-template-columns: minmax(0, 1fr); row-gap: 5px; align-items: start; }
-.field.streak-finishes > .chips { grid-column: 1; }
-.field.streak-finishes > .chips button { flex: 1 1 auto; width: auto; font-size: 11.5px; padding-inline: 8px; }
+/* Eight styles, four across: two even rows. */
+.field.streak-finishes > .chips { grid-column: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.field.streak-finishes > .chips button { grid-column: auto; width: auto; min-width: 0; font-size: 11.5px; padding-inline: 4px; overflow: hidden; text-overflow: ellipsis; }
 /* A streak's kind, over its tabs: five pictures of the way the bars run, one chosen. */
 .segmented.streak-kinds { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 2px 0 6px; }
 .segmented.streak-kinds button { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 0 3px; min-height: 0; font-size: 10.5px; }

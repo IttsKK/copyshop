@@ -272,7 +272,7 @@ import { PixelModule } from './modules/PixelModule'
 import { GlassModule } from './modules/GlassModule'
 import { StreaksModule } from './modules/StreaksModule'
 import { SUBJECT_INSET, guessFlow, subjectOutline } from './streakSubject'
-import { STREAK_STYLES, firstStreakPatch } from './streakStyles'
+import { STREAK_STYLES, firstStreakPatch, variedBars } from './streakStyles'
 import { LeaksModule } from './modules/LeaksModule'
 import { GlowModule } from './modules/GlowModule'
 import { ToneModule } from './modules/ToneModule'
@@ -1394,7 +1394,9 @@ export function App() {
   const lookEdited = useMemo(
     () =>
       !!activeDoc &&
-      (stableJson(keepOwn(activeDoc.blend, blend, activeDoc.placed)) !== stableJson(activeDoc.blend) ||
+      // An edit saved before glow was fitted to the photo has no say on it: not a change from the recipe.
+      (stableJson(keepOwn(activeDoc.blend, blend.effects.glowFit === undefined ? { ...blend, effects: { ...blend.effects, glowFit: activeDoc.blend.effects.glowFit } } : blend, activeDoc.placed)) !==
+        stableJson(activeDoc.blend) ||
         stableJson(withGrainDefaults(source?.serialize().params)) !== stableJson(withGrainDefaults(activeDoc.grainSource.params))),
     [activeDoc, blend, source],
   )
@@ -3712,16 +3714,19 @@ export function App() {
       pendingStreakStyle.current = null
       if (quick === 'extend') pendingExtend.current = shapes.length
       const flow = guessFlow(mask.raster!, streakSpace!)
+      const seed = Math.floor(Math.random() * 99991)
+      const style = quick && quick !== 'extend' ? quick : (firstStreakPatch(shapes.length) ?? STREAK_STYLES[0].patch)
       next = [
         ...shapes,
         {
           ...STREAK_DEFAULTS,
-          ...(quick && quick !== 'extend' ? quick : (firstStreakPatch(shapes.length) ?? STREAK_STYLES[0].patch)),
+          // Extend fits its copies to the subject: its bars stay as it sets them.
+          ...(quick === 'extend' ? style : variedBars(style, seed)),
           mode: 'trail',
           angle: flow.angle,
           length: flow.length,
           outline,
-          seed: Math.floor(Math.random() * 99991),
+          seed,
           ...own,
         },
       ]
@@ -6845,6 +6850,7 @@ export function App() {
                       onFinishDraw: (outline) => {
                         const shapes = blend.effects.streaks.shapes
                         if (shapes.length >= MAX_STREAKS) return
+                        const seed = Math.floor(Math.random() * 99991)
                         setStreaks({
                           enabled: true,
                           shapes: [
@@ -6852,11 +6858,12 @@ export function App() {
                             {
                               ...STREAK_DEFAULTS,
                               // Bars cut and softened as a streaked subject's are: the
-                              // style picked for the first streak, or the plain one.
-                              ...(firstStreakPatch(shapes.length) ?? STREAK_STYLES[0].patch),
+                              // style picked for the first streak, or the plain one,
+                              // a little the streak's own (variedBars).
+                              ...variedBars(firstStreakPatch(shapes.length) ?? STREAK_STYLES[0].patch, seed),
                               angle: NEW_STREAK_ANGLE,
                               outline,
-                              seed: Math.floor(Math.random() * 99991),
+                              seed,
                               mode: 'fill',
                             },
                           ],

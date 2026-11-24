@@ -32,6 +32,12 @@ export interface Palette {
    * photo still reaches its highlight colour.
    */
   range: [number, number]
+  /**
+   * The photo's brightness, linear luminance at 32 evenly spaced
+   * percentiles, darkest first: how much of it a glow would light
+   * (glowFit.ts). Missing on palettes made without pixels.
+   */
+  lumas?: number[]
 }
 
 export const NEUTRAL_PALETTE: Palette = {
@@ -43,6 +49,7 @@ export const NEUTRAL_PALETTE: Palette = {
 }
 
 const SAMPLE = 96
+const LUMA_STEPS = 32
 
 function normalise(c: Rgb): Rgb {
   const m = Math.max(c[0], c[1], c[2], 1e-6)
@@ -70,6 +77,13 @@ export function paletteFromPixels(data: Uint8ClampedArray): Palette {
   const rangeLo = sorted[Math.floor(n * 0.03)]
   const rangeHi = sorted[Math.min(n - 1, Math.floor(n * 0.97))]
   const lo = sorted[Math.floor(n * 0.25)]
+  // The glow reads linear light (glow.ts); its percentiles, for glowFit.
+  const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+  const linLuma = new Float32Array(n)
+  for (let i = 0; i < n; i++)
+    linLuma[i] = 0.2126 * lin(data[i * 4] / 255) + 0.7152 * lin(data[i * 4 + 1] / 255) + 0.0722 * lin(data[i * 4 + 2] / 255)
+  linLuma.sort()
+  const lumas = Array.from({ length: LUMA_STEPS }, (_, i) => linLuma[Math.min(n - 1, Math.floor(((i + 0.5) / LUMA_STEPS) * n))])
 
   const light = [0, 0, 0]
   const shadow = [0, 0, 0]
@@ -146,6 +160,7 @@ export function paletteFromPixels(data: Uint8ClampedArray): Palette {
     accent,
     vivid,
     range: rangeHi - rangeLo > 0.05 ? [rangeLo, rangeHi] : [0, 1],
+    lumas,
   }
 }
 

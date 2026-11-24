@@ -1,4 +1,5 @@
 import type { Palette } from './palette'
+import { glowFitGain } from './glowFit'
 import { ruleColours } from './recipe'
 import { activeBorder, type BlendParams, type ColourChoice, type Rgb } from './types'
 
@@ -26,6 +27,8 @@ export function resolveParams(params: BlendParams, palette: Palette): BlendParam
   const leaks = k.leaks * all * (on.leaks ? 1 : 0)
   const wash = k.wash * all * (on.tone ? 1 : 0)
   const fx = params.effects
+  // On a photo that is mostly highlight, less of it (glowFit.ts).
+  const fit = fx.glowFit === true ? glowFitGain(palette, fx.glowThreshold) : 1
   // The Colour key also sets how coloured the look's own light is. Below 100%
   // glow and leaks fade toward neutral light; above, they saturate further. A
   // look that adds no grade still has a Colour dial that does something.
@@ -62,8 +65,8 @@ export function resolveParams(params: BlendParams, palette: Palette): BlendParam
       shoulder: on.tone ? fx.shoulder : 0,
       defects: on.defects ? fx.defects : { ...fx.defects, strength: 0, scanLines: 0, scanStreaks: 0 },
       surge: on.surge ? fx.surge : { ...fx.surge, strength: 0 },
-      halation: fx.halation * glow,
-      bloom: fx.bloom * glow,
+      halation: fx.halation * glow * fit,
+      bloom: fx.bloom * glow * fit,
       rim: fx.rim * edges,
       crunch: Math.min(1.5, fx.crunch * edges),
       halo: Math.min(1, fx.halo * k.glow * all * solar),

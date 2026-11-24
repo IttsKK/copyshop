@@ -823,6 +823,8 @@ function parseEffectsAsSaved(value: unknown): EffectParams {
       }
     })(),
     glowThreshold: num(e.glowThreshold, DEFAULT_EFFECTS.glowThreshold, 0, 1),
+    // Saved before glow was fitted to the photo: left out, so it glows as it did.
+    ...(typeof e.glowFit === 'boolean' ? { glowFit: e.glowFit } : {}),
     glowRadius: num(e.glowRadius, DEFAULT_EFFECTS.glowRadius, 0.002, 0.15),
     exposure: num(e.exposure, DEFAULT_EFFECTS.exposure, -3, 3),
     shoulder: num(e.shoulder, DEFAULT_EFFECTS.shoulder, 0, 1),
