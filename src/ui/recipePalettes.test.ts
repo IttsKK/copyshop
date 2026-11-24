@@ -31,10 +31,20 @@ describe('recipe palettes', () => {
     expect(next.effects.dither).toEqual(stipple.effects.dither)
   })
 
-  it('a photo palette after a fixed one, and back, lets go of the photo rule', () => {
+  it("Grit's Its colour takes the photo's own colour on top, and Ice is fixed", () => {
     const grit = palettesFor('grit')
-    const photo = withPalette(DEFAULT_BLEND_PARAMS, grit.find((p) => p.map?.rule)!)
-    expect(withPalette(photo, grit[1]).effects.grade.recipe).toBeUndefined()
+    const own = withPalette(DEFAULT_BLEND_PARAMS, grit.find((p) => p.id === 'own-colour')!)
+    expect(own.effects.grade.mapHigh.source).toBe('accent')
+    expect(withPalette(own, grit[0]).effects.grade.mapHigh.source).toBe('manual')
+  })
+
+  it('no recipe borrows another recipe\'s palette', () => {
+    const seen = new Map<string, string>()
+    for (const [id, palettes] of Object.entries(PALETTES_FOR))
+      for (const p of palettes) {
+        expect(seen.get(p.id), `${p.id} in ${id} and ${seen.get(p.id)}`).toBeUndefined()
+        seen.set(p.id, id)
+      }
   })
 
   it('recipes without colours of their own have no palettes', () => {

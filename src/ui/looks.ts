@@ -206,10 +206,10 @@ const TIDE_COLOURS: Look[] = [
   fromTide('stipple-violet', 'Violet', 'Blue, violet and amber · stipple', (d) => {
     d.blend.effects.grade = { ...d.blend.effects.grade, mapShadow: manual([0.035, 0.161, 0.245]), mapMid: manual([0.238, 0.136, 0.544]), mapHigh: manual([1, 0.8, 0.2]), mapHarmony: 'free', mapAmount: 0.9 }
   }),
-  // A finished photo's look: Tide's navy and teal under the photo's own main
-  // colour, in five coarse steps of dither with rough grain.
+  // A finished photo's look: navy, teal and ice blue (its Ice palette), in
+  // five coarse steps of dither with rough grain.
   fromTide('grit', 'Grit', 'Coarse dither, rough grain', (d) => {
-    d.blend.effects.grade = { ...d.blend.effects.grade, mapHigh: { source: 'accent', colour: [1, 0.55, 0.2] }, mapHarmony: 'free', mapAmount: 0.9 }
+    d.blend.effects.grade = { ...d.blend.effects.grade, mapHigh: { source: 'manual', colour: [0.55, 0.8, 1] }, mapHarmony: 'free', mapAmount: 0.9 }
     d.blend.effects.dither = { ...d.blend.effects.dither, amount: 0.85, steps: 5, spread: 0.55 }
     d.blend.amount = 0.14
     // Its own grain at Scale 1, crisp: varied, rough specks are its look (not Tide's 1.5).

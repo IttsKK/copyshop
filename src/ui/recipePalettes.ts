@@ -22,8 +22,6 @@ export interface RecipePalette {
   inks?: Pick<HalftoneParams, 'inkA' | 'inkB' | 'paper'>
 }
 
-/** Built from the photo in Tide's build (shapedPalette.ts): its light on top, the shade across from it below. */
-const fromPhoto = (from: 'light'): ColourRule => ({ from, harmony: 'complementary', lead: 2, turn: 0, richness: 1, shape: 'tide' })
 const fixed = (id: string, name: string, hint: string, colours: Trio<Rgb>): RecipePalette => ({ id, name, hint, map: { fixed: colours } })
 const manual = (colour: Rgb): ColourChoice => ({ source: 'manual', colour })
 
@@ -36,7 +34,6 @@ const TIDE = fixed('tide', 'Tide', 'Navy, teal and orange', [[0.02, 0.05, 0.16],
 const GOLDEN = fixed('golden', 'Golden', 'Navy, slate blue and gold', shapedColours(212, 40, { midSat: 0.6, highSat: 0.8, highLuma: 0.62 }))
 const EMBER = fixed('ember', 'Ember', 'Navy, teal and red-orange', shapedColours(192, 10, { midSat: 0.72, highSat: 0.8, highLuma: 0.55 }))
 const PALE = fixed('pale', 'Pale', 'Black, steel blue and warm white', shapedColours(212, 38, { midSat: 0.45, highSat: 0.22, highLuma: 0.78 }))
-const OWN_LIGHT: RecipePalette = { id: 'own-light', name: 'Its light', hint: "The photo's own light colour on top, the shade across from it below", map: { rule: fromPhoto('light') } }
 /** Grit's own: Tide's navy and teal under the photo's own main colour. */
 const OWN_COLOUR: RecipePalette = {
   id: 'own-colour',
@@ -44,17 +41,26 @@ const OWN_COLOUR: RecipePalette = {
   hint: "Navy and teal under the photo's own main colour",
   map: { choices: [manual([0.02, 0.05, 0.16]), manual([0.08, 0.36, 0.48]), { source: 'accent', colour: [1, 0.55, 0.2] }] },
 }
-const INK = fixed('ink', 'Ink', 'Black, slate and paper white: no colour', [[0.03, 0.03, 0.035], [0.3, 0.31, 0.33], [0.95, 0.93, 0.88]])
+/*
+ * Grit's and Pixel's own: coarser textures carry bolder colours, so they
+ * aren't held to warm-over-cool the way Stipple's are.
+ */
+const ICE = fixed('ice', 'Ice', 'Navy, teal and ice blue', [[0.02, 0.05, 0.16], [0.08, 0.36, 0.48], [0.55, 0.8, 1]])
+const RUST = fixed('rust', 'Rust', 'Black-brown, brick and cream', [[0.07, 0.03, 0.03], [0.55, 0.18, 0.08], [1, 0.82, 0.55]])
+const SMOKE = fixed('smoke', 'Smoke', 'Black, warm grey and bone: no colour', [[0.04, 0.035, 0.03], [0.38, 0.35, 0.31], [0.95, 0.92, 0.85]])
 const DUSK = fixed('dusk', 'Dusk', 'Navy, rose and peach', [[0.08, 0.1, 0.32], [0.78, 0.3, 0.45], [1, 0.78, 0.45]])
+const LAGOON = fixed('lagoon', 'Lagoon', 'Navy, teal and pale yellow', [[0.03, 0.08, 0.22], [0.05, 0.55, 0.6], [1, 0.92, 0.6]])
+const FIRE = fixed('fire', 'Fire', 'Black-red, orange and yellow', [[0.1, 0.02, 0.05], [0.85, 0.3, 0.1], [1, 0.85, 0.35]])
+const GRAPE = fixed('grape', 'Grape', 'Deep purple, violet and peach', [[0.1, 0.04, 0.2], [0.55, 0.25, 0.6], [1, 0.75, 0.6]])
 
 const PAPER: Rgb = [0.96, 0.94, 0.88]
 const ink = (id: string, name: string, hint: string, inkA: Rgb, inkB: Rgb = [1, 0.36, 0.45]): RecipePalette => ({ id, name, hint, inks: { inkA, inkB, paper: PAPER } })
 
-/** Each recipe's palettes, by its id; the first is the one it comes with (its own settings). */
+/** Each recipe's palettes, by its id, its own and no other's; the first is the one it comes with (its own settings). */
 export const PALETTES_FOR: Record<string, RecipePalette[]> = {
   'stipple-tide': [TIDE, GOLDEN, EMBER, PALE],
-  grit: [OWN_COLOUR, TIDE, OWN_LIGHT, INK],
-  pixel: [DUSK, TIDE, GOLDEN],
+  grit: [ICE, OWN_COLOUR, RUST, SMOKE],
+  pixel: [DUSK, LAGOON, FIRE, GRAPE],
   copy: [
     ink('blue', 'Blue', 'Blue ink on paper', [0.12, 0.25, 0.62]),
     ink('black', 'Black', 'Black toner on paper', [0.08, 0.08, 0.09]),
