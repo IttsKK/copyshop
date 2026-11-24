@@ -156,6 +156,7 @@ function parseRule(value: unknown): ColourRule {
     lead,
     turn: num(r.turn, 0, -0.5, 0.5),
     richness: num(r.richness, 1, 0, MAX_RICHNESS),
+    ...(r.shape === 'tide' ? { shape: 'tide' as const } : {}),
   }
 }
 

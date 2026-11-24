@@ -10,6 +10,7 @@ import type { Palette } from '../engine/palette'
 import { MODULES, inUse, type StackModuleId } from './moduleCatalog'
 import { RecipeContents } from './RecipeContents'
 import { RecipeColoursRow } from './RecipeColoursRow'
+import { RECIPE_COLOURS, coloursOf, withColours } from './recipeColours'
 import { usePanelPage } from './state/layout'
 
 type PickerProps = ComponentProps<typeof LookPicker>
@@ -76,6 +77,9 @@ export function RecipesPage({
   const panelPage = usePanelPage()
   // The modules the recipe card lists.
   const recipeParts = MODULES.filter((m) => m.id !== 'border' && inUse(m.id, blend)).length
+  // The recipe as designed, in the Colours set the edit is in: picking colours isn't changing the recipe.
+  const set = RECIPE_COLOURS.find((c) => c.id === coloursOf(blend))
+  const inSet = (b: BlendParams) => (set ? withColours(b, set) : b)
   return (
     <section className="recipes-page" hidden={panelPage !== 'recipes'}>
       <div className="stack-title" style={{ ['--tint' as string]: 'var(--accent)' }}>
@@ -111,9 +115,10 @@ export function RecipesPage({
         mixed={mixed}
         changedParts={changedParts}
         suggested={image && palette ? suggestedLooks(LISTED_LOOKS, palette) : undefined}
+        colourName={set?.name ?? null}
         contents={(doc, active) =>
           active ? (
-            <RecipeContents blend={blend} recipe={keepOwn(blend, doc.blend, doc.placed)} designed={doc.blend} onGo={addModule} />
+            <RecipeContents blend={blend} recipe={keepOwn(blend, inSet(doc.blend), doc.placed)} designed={inSet(doc.blend)} onGo={addModule} />
           ) : (
             <RecipeContents blend={doc.blend} recipe={null} onGo={addModule} empty="Nothing in it: the photo as it is." />
           )

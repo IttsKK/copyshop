@@ -1,5 +1,6 @@
 import { guidedMove, toneColours, wheelPoint, type Harmony, type Trio, type WheelPoint } from './harmony'
 import type { Palette } from './palette'
+import { shapedColours } from './shapedPalette'
 import type { Rgb } from './types'
 
 /**
@@ -30,6 +31,11 @@ export interface ColourRule {
   turn: number
   /** How rich the colours are, 0..MAX_RICHNESS; 1 is the recipe's natural depth. */
   richness: number
+  /**
+   * 'tide': built as Tide is (shapedPalette.ts), the lead colour's hue on the
+   * highlight and its opposite in the middle, instead of the harmony layout.
+   */
+  shape?: 'tide'
 }
 
 export const RECIPE_FROM: { id: RecipeFrom; label: string; hint: string }[] = [
@@ -60,6 +66,13 @@ export function recipeLead(rule: ColourRule, palette: Palette): Rgb {
  * a recipe always reads as a palette, then scaled by richness.
  */
 export function ruleColours(rule: ColourRule, palette: Palette): Trio<Rgb> {
+  if (rule.shape === 'tide') {
+    // A nearly grey light has no hue to speak of: the colour that stands out leads instead.
+    const light = wheelPoint(recipeLead(rule, palette))
+    const lead = rule.from === 'light' && light.sat < 0.12 ? wheelPoint(palette.vivid) : light
+    const high = (lead.hue + rule.turn) * 360
+    return shapedColours(high + 180, high)
+  }
   const base = wheelPoint(recipeLead(rule, palette))
   const sat = clamp(naturalSat(base) * rule.richness, 0.04, 0.95)
   const lead = { hue: turnOf(base.hue + rule.turn), sat }
@@ -115,6 +128,7 @@ export const sameRule = (a: ColourRule | undefined, b: ColourRule | undefined): 
   a.from === b.from &&
   a.harmony === b.harmony &&
   a.lead === b.lead &&
+  a.shape === b.shape &&
   Math.abs(a.turn - b.turn) < 1e-4 &&
   Math.abs(a.richness - b.richness) < 1e-4 &&
   (a.from !== 'fixed' || (a.fixed ?? []).every((v, i) => Math.abs(v - (b.fixed ?? [])[i]) < 1e-4))

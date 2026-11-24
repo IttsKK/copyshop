@@ -32,12 +32,15 @@ function named(id: string, label: string, hint: string, file: unknown): Look {
  * fresh browser with nothing in IndexedDB.
  *
  * The stippled ones: a fine stipple dither, glow and fade with a strong
- * gradient map, each in its own colours. Named for the colours (their ids
- * keep the old Stipple names, which saved edits refer to). The rest of the
- * looks that used to ship are kept, unused, in presets/retired/.
+ * gradient map. Stipple is the recipe; its colours are chosen apart
+ * (recipeColours.ts) and come as Tide's. It keeps Tide's id, which saved
+ * edits refer to. Ember, Silver and the stippled looks in other colours
+ * were the same recipe in other colours: kept, retired, for edits made with
+ * them. The rest of the looks that used to ship are kept, unused, in
+ * presets/retired/.
  */
 export const STIPPLE_LOOKS: Look[] = [
-  named('stipple-tide', 'Tide', 'Navy, teal and orange · stipple', stippleTide),
+  named('stipple-tide', 'Stipple', 'Fine stipple, glow and fade', stippleTide),
   named('stipple', 'Ember', 'Mono, warm highlights · stipple', stipple),
   named('stipple-silver', 'Silver', 'Silver-blue mono · stipple', stippleSilver),
   named('stipple-dusk', 'Dusk', 'Own colours, deepened · stipple', stippleDusk),
@@ -234,12 +237,11 @@ const fitted = (l: Look): Look => ({ ...l, doc: { ...l.doc, blend: { ...l.doc.bl
 /** Every built-in recipe, in the order the Recipes page lists them. */
 export const LOOKS: Look[] = (() => {
   const all = [...STIPPLE_LOOKS, ...TIDE_COLOURS, ...MORE_LOOKS].map(fitted)
-  // Stippled and film looks taken in turn, so the top of the list isn't one
-  // look in four colours (a recipe's colours change in its Colours row);
-  // then the coarser dithers, then the rest of film and print.
-  const order = ['stipple-tide', 'pushed', 'stipple-violet', 'disposable', 'stipple-silver', 'expired', 'stipple', 'grit', 'pixel']
-  // Dusk was too like Silver and Ember on most photos: kept, not listed.
-  const retired = new Set(['stipple-dusk'])
+  // Each recipe a different process, dithered and film in turn; colours are
+  // chosen apart, in the Colours row.
+  const order = ['stipple-tide', 'pushed', 'grit', 'disposable', 'pixel', 'expired']
+  // The same recipe as Stipple in other colours (now the Colours row's): kept for edits made with them, not listed.
+  const retired = new Set(['stipple-dusk', 'stipple-violet', 'stipple-silver', 'stipple'])
   const listed = [...order.map((id) => all.find((l) => l.id === id)!), ...all.filter((l) => !order.includes(l.id) && !retired.has(l.id))]
   return [...listed, ...all.filter((l) => retired.has(l.id) && !listed.includes(l)).map((l) => ({ ...l, retired: true }))]
 })()

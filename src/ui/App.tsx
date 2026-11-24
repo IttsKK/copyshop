@@ -273,6 +273,7 @@ import { GlassModule } from './modules/GlassModule'
 import { StreaksModule } from './modules/StreaksModule'
 import { SUBJECT_INSET, guessFlow, subjectOutline } from './streakSubject'
 import { STREAK_STYLES, firstStreakPatch, variedBars } from './streakStyles'
+import { RECIPE_COLOURS, coloursOf, withColours } from './recipeColours'
 import { LeaksModule } from './modules/LeaksModule'
 import { GlowModule } from './modules/GlowModule'
 import { ToneModule } from './modules/ToneModule'
@@ -1391,15 +1392,18 @@ export function App() {
 
   /** The look or saved preset the settings came from, as it was designed or saved. */
   const activeDoc = activeLook?.doc ?? presets.find((p) => p.id === activePresetId)?.data ?? null
-  const lookEdited = useMemo(
-    () =>
-      !!activeDoc &&
+  const lookEdited = useMemo(() => {
+    if (!activeDoc) return false
+    // Colours are chosen apart from the recipe (the Colours row): the recipe in another set is still the recipe.
+    const set = RECIPE_COLOURS.find((c) => c.id === coloursOf(blend))
+    const designed = set ? withColours(activeDoc.blend, set) : activeDoc.blend
+    return (
       // An edit saved before glow was fitted to the photo has no say on it: not a change from the recipe.
-      (stableJson(keepOwn(activeDoc.blend, blend.effects.glowFit === undefined ? { ...blend, effects: { ...blend.effects, glowFit: activeDoc.blend.effects.glowFit } } : blend, activeDoc.placed)) !==
-        stableJson(activeDoc.blend) ||
-        stableJson(withGrainDefaults(source?.serialize().params)) !== stableJson(withGrainDefaults(activeDoc.grainSource.params))),
-    [activeDoc, blend, source],
-  )
+      stableJson(keepOwn(designed, blend.effects.glowFit === undefined ? { ...blend, effects: { ...blend.effects, glowFit: designed.effects.glowFit } } : blend, activeDoc.placed)) !==
+        stableJson(designed) ||
+        stableJson(withGrainDefaults(source?.serialize().params)) !== stableJson(withGrainDefaults(activeDoc.grainSource.params))
+    )
+  }, [activeDoc, blend, source])
 
   // Every source kind resolves to a texture through this one call.
   useEffect(() => {

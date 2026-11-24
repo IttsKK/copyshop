@@ -55,6 +55,8 @@ interface Props {
   contents?: (doc: PresetDoc, active: boolean) => ReactNode
   /** Built-in recipes that suit the open photo (suggestedLooks), shown first in a section of their own. */
   suggested?: Look[]
+  /** The Colours set the edit is in, named after the recipe in use ("Stipple · Tide"). */
+  colourName?: string | null
 }
 
 /** One recipe in the list, whichever kind. */
@@ -300,6 +302,7 @@ export function LookPicker(props: Props) {
             <RecipeThumb id={e.key} doc={e.doc} photo={props.photo} params={() => props.paramsFor(e.doc)} />
             <b>
               {e.name}
+              {e.on && props.colourName ? ` · ${props.colourName}` : null}
               {e.on && edited ? <em> · edited</em> : null}
             </b>
             <small>{e.hint}</small>
