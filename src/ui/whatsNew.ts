@@ -33,6 +33,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.0',
+    date: '2026-11-24',
+    things: [
+      {
+        title: 'Recipes come in palettes',
+        line: 'Each recipe has a few palettes of its own under it: Stipple in Tide, Golden, Ember or Pale, Grit in Ice, Its colour, Rust or Smoke. A palette changes only the colours.',
+        where: 'Recipes › the recipe in use',
+      },
+      { title: 'Stipple', line: 'Tide, Violet, Silver and Ember were one recipe in four colours. They are now Stipple, and Tide is its first palette.', where: 'Recipes' },
+      { title: 'Copy', line: 'A new recipe: one ink in a line screen on paper, with toner dust, in blue, black, red or green.', where: 'Recipes' },
+      { title: 'Glow fits the photo', line: 'Glow is turned down on a photo that is mostly bright, like a white sky or snow, so it doesn’t wash out. A few lights in the dark keep all of it.', where: 'Glow › Fit to the photo' },
+      { title: 'Melt and Stripes', line: 'Two new bar styles for streaks, and each new streak’s bars come out a little different from the last.', where: 'Streaks › a streak’s Bars' },
+    ],
+  },
+  {
     version: '1.4.1',
     date: '2026-11-23',
     things: [
