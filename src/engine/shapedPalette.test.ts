@@ -24,3 +24,14 @@ describe('shapedColours', () => {
     expect(mid[2]).toBeGreaterThan(mid[0])
   })
 })
+
+describe('Its light', () => {
+  const rule = { from: 'light' as const, harmony: 'complementary' as const, lead: 2 as const, turn: 0, richness: 1, shape: 'tide' as const }
+  it('keeps the highlight warm and the shade cool, even under blue light', () => {
+    for (const light of [[0.4, 0.6, 1], [1, 0.55, 0.2], [1, 0.4, 0.8], [0.5, 1, 0.5]] as [number, number, number][]) {
+      const [, mid, high] = ruleColours(rule, { ...NEUTRAL_PALETTE, light })
+      expect(high[0]).toBeGreaterThan(high[2])
+      expect(mid[2]).toBeGreaterThanOrEqual(mid[0])
+    }
+  })
+})

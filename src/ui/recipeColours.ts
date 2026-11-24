@@ -24,19 +24,21 @@ export interface RecipeColours {
 const fromPhoto = (from: 'light'): ColourRule => ({ from, harmony: 'complementary', lead: 2, turn: 0, richness: 1, shape: 'tide' })
 
 /**
- * Tide first, as it was. The rest are built as Tide is, in other pairs of
- * hues (shapedPalette.ts), so they hold up on as many photos; Silver is the
- * one without a colour.
+ * Tide first, as it was. Every set is built as Tide is (shapedPalette.ts)
+ * and keeps what makes it look natural: warm light over cool shade, as
+ * sunlight over shade lit by the sky, so skin and sunsets stay warm and
+ * water and shadow cool. They differ as film stocks do: how warm the light
+ * is, which blue or green the shade is, and how rich or soft the colours.
  */
 export const RECIPE_COLOURS: RecipeColours[] = [
   { id: 'tide', name: 'Tide', hint: 'Navy, teal and orange', fixed: [[0.02, 0.05, 0.16], [0.08, 0.36, 0.48], [1, 0.52, 0.18]] },
-  { id: 'own-light', name: 'Its light', hint: "The photo's own light colour on top, its opposite in the middle", rule: fromPhoto('light') },
-  { id: 'amber', name: 'Amber', hint: 'Indigo, blue and amber', fixed: shapedColours(218, 38) },
-  { id: 'coral', name: 'Coral', hint: 'Navy, steel blue and coral', fixed: shapedColours(205, 8) },
-  { id: 'rose', name: 'Rose', hint: 'Black-green, jade and rose', fixed: shapedColours(165, 330) },
-  { id: 'violet', name: 'Violet', hint: 'Plum, violet and gold', fixed: shapedColours(268, 40) },
-  { id: 'forest', name: 'Forest', hint: 'Black-green, green and salmon', fixed: shapedColours(135, 18) },
-  { id: 'silver', name: 'Silver', hint: 'Black, steel blue and white: no colour on top', fixed: [[0.02, 0.03, 0.07], [0.3, 0.5, 0.78], [0.96, 0.98, 1]] },
+  { id: 'own-light', name: 'Its light', hint: "The photo's own light colour on top, the shade across from it below", rule: fromPhoto('light') },
+  { id: 'golden', name: 'Golden', hint: 'Navy, slate blue and gold', fixed: shapedColours(212, 40, { midSat: 0.6, highSat: 0.8, highLuma: 0.62 }) },
+  { id: 'peach', name: 'Peach', hint: 'Indigo, dusty blue and peach', fixed: shapedColours(222, 16, { midSat: 0.5, highSat: 0.55, highLuma: 0.66 }) },
+  { id: 'pine', name: 'Pine', hint: 'Deep blue, pine green and cream', fixed: shapedColours(172, 42, { midSat: 0.6, highSat: 0.5, highLuma: 0.7, shadowHue: 200 }) },
+  { id: 'ember', name: 'Ember', hint: 'Navy, teal and red-orange', fixed: shapedColours(192, 10, { midSat: 0.72, highSat: 0.8, highLuma: 0.55 }) },
+  { id: 'soft', name: 'Soft', hint: 'Slate, grey-blue and warm beige, low colour', fixed: shapedColours(205, 28, { midSat: 0.35, highSat: 0.5, highLuma: 0.68 }) },
+  { id: 'pale', name: 'Pale', hint: 'Black, steel blue and warm white', fixed: shapedColours(212, 38, { midSat: 0.45, highSat: 0.22, highLuma: 0.78 }) },
 ]
 
 /** The colours a set gives on this photo, shadow first. */

@@ -54,6 +54,20 @@ const turnOf = (h: number) => ((h % 1) + 1) % 1
 /** How rich the lead colour comes out at richness 1, on this photo. */
 const naturalSat = (base: WheelPoint) => 0.22 + base.sat * 0.6
 
+/**
+ * The photo's light as a highlight colour that still reads as light: kept
+ * among the warm hues (red-orange to gold) that sunlight, lamps and skin
+ * have. A pink light goes to coral; a cool one (blue hour, overcast) takes
+ * Tide's orange, since a blue highlight over orange shade looks wrong.
+ */
+function warmLight(deg: number): number {
+  const h = ((deg % 360) + 360) % 360
+  if (h <= 50) return Math.max(10, h)
+  if (h >= 300) return 10
+  if (h <= 70) return 50
+  return 25
+}
+
 /** The lead colour of a rule on a photo, before the layout. */
 export function recipeLead(rule: ColourRule, palette: Palette): Rgb {
   if (rule.from === 'fixed') return rule.fixed ?? [1, 0.6, 0.35]
@@ -70,8 +84,9 @@ export function ruleColours(rule: ColourRule, palette: Palette): Trio<Rgb> {
     // A nearly grey light has no hue to speak of: the colour that stands out leads instead.
     const light = wheelPoint(recipeLead(rule, palette))
     const lead = rule.from === 'light' && light.sat < 0.12 ? wheelPoint(palette.vivid) : light
-    const high = (lead.hue + rule.turn) * 360
-    return shapedColours(high + 180, high)
+    const high = warmLight((lead.hue + rule.turn) * 360)
+    // The shade across from it, kept among the sky's blues and teals, as real shade is.
+    return shapedColours(Math.min(225, Math.max(180, high + 180)), high)
   }
   const base = wheelPoint(recipeLead(rule, palette))
   const sat = clamp(naturalSat(base) * rule.richness, 0.04, 0.95)

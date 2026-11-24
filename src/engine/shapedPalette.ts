@@ -59,7 +59,23 @@ function bright(hue: number): Rgb {
   return round(best.c)
 }
 
+/** How rich and how light a set is, where it differs from Tide. */
+export interface Shape {
+  /** The middle colour's saturation (Tide 0.83). */
+  midSat?: number
+  /** The highlight's saturation; set, the highlight is placed at `highLuma` instead of fully bright. */
+  highSat?: number
+  /** The highlight's luminance when `highSat` is set (Tide's is about 0.6). */
+  highLuma?: number
+  /** The shadow's hue, when not a little bluer than the middle's. */
+  shadowHue?: number
+}
+
 /** Shadow, middle and highlight in Tide's build: the middle in `midHue`, the highlight in `highHue` (degrees). */
-export function shapedColours(midHue: number, highHue: number): Trio<Rgb> {
-  return [at(midHue + 28, 0.87, 0.05), at(midHue, 0.83, 0.31), bright(highHue)]
+export function shapedColours(midHue: number, highHue: number, shape: Shape = {}): Trio<Rgb> {
+  return [
+    at(shape.shadowHue ?? midHue + 28, 0.87, 0.05),
+    at(midHue, shape.midSat ?? 0.83, 0.31),
+    shape.highSat !== undefined ? at(highHue, shape.highSat, shape.highLuma ?? 0.6) : bright(highHue),
+  ]
 }
