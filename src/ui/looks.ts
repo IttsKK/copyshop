@@ -33,7 +33,7 @@ function named(id: string, label: string, hint: string, file: unknown): Look {
  *
  * The stippled ones: a fine stipple dither, glow and fade with a strong
  * gradient map. Stipple is the recipe; its colours are chosen apart
- * (recipeColours.ts) and come as Tide's. It keeps Tide's id, which saved
+ * (its palettes, recipePalettes.ts) and come as Tide's. It keeps Tide's id, which saved
  * edits refer to. Ember, Silver and the stippled looks in other colours
  * were the same recipe in other colours: kept, retired, for edits made with
  * them. The rest of the looks that used to ship are kept, unused, in
@@ -133,8 +133,8 @@ export const MORE_LOOKS: Look[] = [
   ),
   built(
     'riso',
-    'Riso zine',
-    'Two-colour riso, pink and teal',
+    'Riso',
+    'Two inks in a dot screen, slightly off',
     { grainSize: 0.3, chroma: 0, seed: 31 },
     { amount: 0.15 },
     (e) => ({
@@ -155,6 +155,21 @@ export const MORE_LOOKS: Look[] = [
       shoulder: 0.55,
       vignette: 0.2,
       grade: { ...e.grade, ...palette('Highlight and opposite'), mapAmount: 0.45 },
+    }),
+  ),
+  // A photocopy: one ink in a line screen on paper, crunchy, with toner dust. Its ink is its palette.
+  built(
+    'copy',
+    'Copy',
+    'Photocopy: one ink in lines, toner dust',
+    { grainSize: 0.3, contrast: 0.4, chroma: 0, seed: 61 },
+    { amount: 0.05 },
+    (e) => ({
+      halftone: { ...e.halftone, enabled: true, amount: 1, style: 'lines', cell: 0.007, angle: -30, inkA: [0.12, 0.25, 0.62], inkB: [1, 0.36, 0.45], paper: [0.96, 0.94, 0.88] },
+      crunch: 0.3,
+      shoulder: 0.3,
+      exposure: 0.1,
+      defects: { ...e.defects, strength: 0.35 },
     }),
   ),
   built(
@@ -239,7 +254,7 @@ export const LOOKS: Look[] = (() => {
   const all = [...STIPPLE_LOOKS, ...TIDE_COLOURS, ...MORE_LOOKS].map(fitted)
   // Each recipe a different process, dithered and film in turn; colours are
   // chosen apart, in the Colours row.
-  const order = ['stipple-tide', 'pushed', 'grit', 'disposable', 'pixel', 'expired']
+  const order = ['stipple-tide', 'grit', 'pushed', 'copy', 'disposable', 'pixel', 'expired', 'riso']
   // The same recipe as Stipple in other colours (now the Colours row's): kept for edits made with them, not listed.
   const retired = new Set(['stipple-dusk', 'stipple-violet', 'stipple-silver', 'stipple'])
   const listed = [...order.map((id) => all.find((l) => l.id === id)!), ...all.filter((l) => !order.includes(l.id) && !retired.has(l.id))]

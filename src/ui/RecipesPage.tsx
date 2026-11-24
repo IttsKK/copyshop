@@ -9,8 +9,8 @@ import { LISTED_LOOKS, NONE_LOOK, suggestedLooks, type Look } from './looks'
 import type { Palette } from '../engine/palette'
 import { MODULES, inUse, type StackModuleId } from './moduleCatalog'
 import { RecipeContents } from './RecipeContents'
-import { RecipeColoursRow } from './RecipeColoursRow'
-import { RECIPE_COLOURS, coloursOf, withColours } from './recipeColours'
+import { RecipePalettesRow } from './RecipePalettesRow'
+import { designedIn, paletteOf, palettesFor } from './recipePalettes'
 import { usePanelPage } from './state/layout'
 
 type PickerProps = ComponentProps<typeof LookPicker>
@@ -77,9 +77,9 @@ export function RecipesPage({
   const panelPage = usePanelPage()
   // The modules the recipe card lists.
   const recipeParts = MODULES.filter((m) => m.id !== 'border' && inUse(m.id, blend)).length
-  // The recipe as designed, in the Colours set the edit is in: picking colours isn't changing the recipe.
-  const set = RECIPE_COLOURS.find((c) => c.id === coloursOf(blend))
-  const inSet = (b: BlendParams) => (set ? withColours(b, set) : b)
+  // The recipe in use's palettes; as designed, in the one the edit is in (picking one isn't changing the recipe).
+  const palettes = activePresetId ? [] : palettesFor(activeLook?.id)
+  const inSet = (b: BlendParams) => designedIn(b, blend, palettes)
   return (
     <section className="recipes-page" hidden={panelPage !== 'recipes'}>
       <div className="stack-title" style={{ ['--tint' as string]: 'var(--accent)' }}>
@@ -115,7 +115,7 @@ export function RecipesPage({
         mixed={mixed}
         changedParts={changedParts}
         suggested={image && palette ? suggestedLooks(LISTED_LOOKS, palette) : undefined}
-        colourName={set?.name ?? null}
+        colourName={paletteOf(blend, palettes)?.name ?? null}
         contents={(doc, active) =>
           active ? (
             <RecipeContents blend={blend} recipe={keepOwn(blend, inSet(doc.blend), doc.placed)} designed={inSet(doc.blend)} onGo={addModule} />
@@ -124,19 +124,21 @@ export function RecipesPage({
           )
         }
       >
-      {/* The recipe in use in other colours: only the gradient map changes. */}
-      {image && (
-        <RecipeColoursRow
+      {/* The recipe in use's palettes: only its colours change. */}
+      {image && activeLook && palettes.length > 0 && (
+        <RecipePalettesRow
+          lookId={activeLook.id}
+          palettes={palettes}
           blend={blend}
           setBlend={setBlend}
           palette={palette}
-          onPreview={(c) =>
+          onPreview={(p) =>
             setRecipeHover?.(
-              c && source
+              p && source
                 ? {
-                    key: `colours:${c.id}:${JSON.stringify(c.blend.effects.grade)}`,
-                    name: c.name,
-                    doc: { schemaVersion: PRESET_SCHEMA_VERSION, name: c.name, grainSource: source.serialize(), blend: c.blend, output: DEFAULT_OUTPUT },
+                    key: `palette:${p.id}:${JSON.stringify(p.blend.effects.grade)}:${JSON.stringify(p.blend.effects.halftone)}`,
+                    name: p.name,
+                    doc: { schemaVersion: PRESET_SCHEMA_VERSION, name: p.name, grainSource: source.serialize(), blend: p.blend, output: DEFAULT_OUTPUT },
                   }
                 : null,
             )

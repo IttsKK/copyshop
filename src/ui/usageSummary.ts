@@ -2,14 +2,13 @@ import type { BlendParams } from '../engine/types'
 import { borderStyleOf } from './borderStyles'
 import type { Look } from './looks'
 import { MODULES, inUse } from './moduleCatalog'
-import { coloursOf } from './recipeColours'
+import { paletteOf, palettesFor } from './recipePalettes'
 import { kindOf } from './streakKinds'
 import { styleOf } from './streakStyles'
 
 /**
  * What an exported edit has in it, as usage counts (platform/usage.ts): each
- * module in use, with the built-in style it uses where it has one (Colour:
- * the Colours set its gradient map is in), each kind
+ * module in use, with the built-in style it uses where it has one, each kind
  * of streak, listed masks, and the recipe it started from. Built-in names
  * only; a recipe or border someone saved themselves is "own".
  */
@@ -28,10 +27,12 @@ export function editUsage(blend: BlendParams, look: Look | null, presetId: strin
       }
       continue
     }
-    const detail = m.id === 'border' ? (borderStyleOf(blend.border) ?? 'custom') : m.id === 'stamp' ? fx.stamp.theme : m.id === 'crop' ? String(fx.crop.aspect) : m.id === 'colour' ? (coloursOf(blend) ?? 'custom') : null
+    const detail = m.id === 'border' ? (borderStyleOf(blend.border) ?? 'custom') : m.id === 'stamp' ? fx.stamp.theme : m.id === 'crop' ? String(fx.crop.aspect) : null
     out.push([m.id, detail])
   }
   if (fx.masks.some((m) => !m.owner)) out.push(['masks', String(fx.masks.filter((m) => !m.owner).length)])
   out.push(['recipe', look && look.id !== 'none' ? look.id : presetId ? 'own' : 'none'])
+  // The palette the recipe is in, of its own: which colours people keep.
+  if (look && !presetId && palettesFor(look.id).length) out.push(['palette', `${look.id}/${paletteOf(blend, palettesFor(look.id))?.id ?? 'custom'}`])
   return out
 }
