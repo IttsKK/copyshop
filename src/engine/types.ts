@@ -1,6 +1,7 @@
 import { DEFAULT_CROP, type CropParams } from './crop'
 import { DEFAULT_REPEAT_MODULE, type RepeatModule } from './repeatParams'
 import type { KaleidoParams } from './kaleido'
+import type { SurfaceParams } from './surface'
 import type { RecolourModule } from './recolour'
 import type { LightingParams } from './lighting'
 import type { ColourBlob } from './blobs'
@@ -1548,6 +1549,8 @@ export interface EffectParams {
   recolour?: RecolourModule
   /** Lights drawn on the photo (engine/lighting.ts). Missing: none. */
   lighting?: LightingParams
+  /** What the print is on: paper, canvas, an image of your own (engine/surface.ts). Missing in older edits: off. */
+  surface?: SurfaceParams
 }
 
 export const DEFAULT_EFFECTS: EffectParams = {
@@ -1863,6 +1866,8 @@ export interface RenderRequest {
   /** Standard deviation of the grain texture, 0..1. Defaults to
    *  REFERENCE_PLATE_SD, i.e. "already the right contrast". */
   grainSd?: number
+  /** Surface's uploaded image (engine/surface.ts kind 'image'); missing, the engine looks in its own store of them (surfaceImages). */
+  surfaceImage?: TextureSource
   params: BlendParams
   /**
    * Region of the base image to render. Defaults to the whole image.

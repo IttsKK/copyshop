@@ -20,6 +20,8 @@ import { COLLAGE_FRAGMENT, collageLayers, lookupCollageImage, type CollageLayer 
 import { defectKey, generateDefectLayer } from '../sources/defects'
 import { DEFAULT_GLASS, EDGE_KINDS, PAPER_KINDS, REFERENCE_PLATE_SD, glassAmount } from './types'
 import { FRAGMENT_SHADER, FRAGMENT_SHADER_LIGHT, TILING_MIRROR, TILING_REPEAT, TILING_STOCHASTIC, VERTEX_SHADER } from './shaders'
+import { SURFACE_FRAGMENT, surfaceKindIndex, surfaceOn } from './surface'
+import { sizeOf, surfaceImageOf } from './surfaceImages'
 import {
   MAX_BAND_GUIDES,
   MAX_LEAK_SPOTS,
@@ -3529,7 +3531,92 @@ export class GrainEngine {
     // render draws into it.
     gl.uniform1i(u.uStreakCacheOn, 0)
     this.bindMatte()
+    // What the print is on, over all of it (engine/surface.ts).
+    this.drawSurface(req, region, width, height)
     return this.canvas
+  }
+
+  private surfaceProgram: WebGLProgram | null = null
+  private surfaceCache: CachedTexture | null = null
+  /** Each surface image's mean brightness, worked out once. */
+  private surfaceMeans = new WeakMap<object, number>()
+
+  /**
+   * The surface (engine/surface.ts): its own small program after the look's
+   * pass, blended onto the picture as twice multiply, so it takes no room in
+   * the look's shader and an image of your own has a texture of its own.
+   * Drawn in print pixels from the same region as the look, so a preview
+   * crop and an export's bands line up with the whole.
+   */
+  private drawSurface(req: RenderRequest, region: Rect, width: number, height: number): void {
+    const s = req.params.effects.surface
+    if (!surfaceOn(s)) return
+    const image = s.kind === 'image' ? (req.surfaceImage ?? surfaceImageOf(s.image)) : null
+    if (s.kind === 'image' && !image) return
+    const gl = this.gl
+    if (!this.surfaceProgram) {
+      try {
+        this.surfaceProgram = this.buildProgram(VERTEX_SHADER, SURFACE_FRAGMENT)
+      } catch (err) {
+        engineReport?.('error', 'Surface program failed to build', { error: (err as Error).message, gpu: this.gpuName() })
+        return
+      }
+    }
+    const p = this.surfaceProgram
+    const loc = (n: string) => gl.getUniformLocation(p, n)
+    gl.useProgram(p)
+    gl.activeTexture(gl.TEXTURE0)
+    const was = gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null
+    let size = { width: 1, height: 1 }
+    let mean = 0.5
+    if (image) {
+      this.surfaceCache = this.upload(this.surfaceCache, image, 0, gl.REPEAT)
+      size = sizeOf(image)
+      mean = this.surfaceMeanOf(image, size)
+    } else {
+      gl.bindTexture(gl.TEXTURE_2D, this.blankTexture())
+    }
+    gl.uniform1i(loc('uImage'), 0)
+    gl.uniform2f(loc('uImageSize'), size.width, size.height)
+    gl.uniform1f(loc('uImageMean'), mean)
+    gl.uniform2f(loc('uRegionOrigin'), region.x, region.y)
+    gl.uniform2f(loc('uRegionSize'), region.width, region.height)
+    gl.uniform1f(loc('uPixelScale'), pixelScaleOf(req.params))
+    gl.uniform1f(loc('uUnitPx'), (width / Math.max(1, region.width)) * pixelScaleOf(req.params) * Math.max(0.05, s.scale))
+    gl.uniform1i(loc('uKind'), surfaceKindIndex(s.kind))
+    gl.uniform1f(loc('uAmount'), s.amount)
+    gl.uniform1f(loc('uScale'), Math.max(0.05, s.scale))
+    gl.uniform1f(loc('uRelief'), s.relief)
+    const a = (s.light * Math.PI) / 180
+    gl.uniform2f(loc('uLight'), Math.cos(a), Math.sin(a))
+    gl.uniform1f(loc('uTurn'), (s.turn * Math.PI) / 180)
+    gl.uniform1f(loc('uSeed'), (s.seed % 997) * 0.731)
+    gl.uniform1f(loc('uColour'), s.colour)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    gl.viewport(0, 0, width, height)
+    gl.enable(gl.BLEND)
+    // Twice multiply on colour (the picture times twice the surface), the picture's alpha kept.
+    gl.blendFuncSeparate(gl.DST_COLOR, gl.SRC_COLOR, gl.ZERO, gl.ONE)
+    gl.drawArrays(gl.TRIANGLES, 0, 3)
+    gl.disable(gl.BLEND)
+    gl.bindTexture(gl.TEXTURE_2D, was)
+    gl.useProgram(this.program)
+  }
+
+  /** An image's mean brightness, from a small copy of it. */
+  private surfaceMeanOf(image: TextureSource, size: { width: number; height: number }): number {
+    const key = image as unknown as object
+    const known = this.surfaceMeans.get(key)
+    if (known !== undefined) return known
+    let mean = 0.5
+    const px = samplePixels(image, size.width, size.height, 64)
+    if (px) {
+      let sum = 0
+      for (let i = 0; i < px.length; i += 4) sum += (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255
+      mean = sum / (px.length / 4)
+    }
+    this.surfaceMeans.set(key, mean)
+    return mean
   }
 
   /**

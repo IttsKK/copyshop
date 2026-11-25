@@ -1,4 +1,5 @@
 import { FLAT_CURVE } from '../engine/curve'
+import { DEFAULT_SURFACE, type SurfaceParams } from '../engine/surface'
 import { DEFAULT_HALFTONE, DEFAULT_LENS, DEFAULT_MONO, DEFAULT_PRISM, DEFAULT_STAMP, RISO_INKS, STAMP_THEMES, type HalftoneParams, type LensParams, type MonoParams, type PrismParams, type StampParams } from '../engine/extras'
 import { leakStyle } from '../engine/leakStyles'
 import {
@@ -308,6 +309,19 @@ const HALFTONE: Builtin[] = [
   halftone('Riso, teal and orange', { style: 'riso', cell: 0.007, angle: 15, inkA: RISO_INKS[1].a, inkB: RISO_INKS[1].b, slip: 0.004 }),
 ]
 
+/* --------------------------------------------------------------- surface */
+
+const surface = (name: string, patch: Partial<SurfaceParams>): Builtin => ({ name, data: fx({ surface: { ...DEFAULT_SURFACE, ...patch, enabled: true } }) })
+
+/** Ready-made surfaces, each a kind with its strength, size and relief set for it; all of it changes after. */
+const SURFACE: Builtin[] = [
+  surface('Fine art paper', { kind: 'watercolour', amount: 0.45, relief: 0.5 }),
+  surface('Canvas print', { kind: 'canvas', amount: 0.6, relief: 0.7, scale: 1.2 }),
+  surface('Crumpled flyer', { kind: 'crumpled', amount: 0.7, relief: 0.9 }),
+  surface('Cracked paint', { kind: 'cracked', amount: 0.6, relief: 0.6 }),
+  surface('Old wall', { kind: 'concrete', amount: 0.55, relief: 0.6, scale: 1.5 }),
+]
+
 /* ------------------------------------------------------ dust & scratches */
 
 const dust = (name: string, patch: Partial<DefectParams>): Builtin => ({
@@ -334,6 +348,7 @@ const SURGE: Builtin[] = [
 ]
 
 export const PART_BUILTINS: Record<PartKind, Builtin[]> = {
+  surface: SURFACE,
   grain: GRAIN,
   colour: COLOUR,
   tone: TONE,

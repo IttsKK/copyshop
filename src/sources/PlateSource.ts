@@ -111,7 +111,8 @@ export async function importPlateFile(file: File | Blob, name: string, fileName 
 
 export async function listPlates(): Promise<PlateSource[]> {
   const records = await getAll<PlateRecord>(PLATE_STORE)
-  return records.sort((a, b) => a.createdAt - b.createdAt).map(PlateSource.fromRecord)
+  // Surface's images share the store; they aren't grain.
+  return records.filter((r) => r.use !== 'surface').sort((a, b) => a.createdAt - b.createdAt).map(PlateSource.fromRecord)
 }
 
 export async function deletePlate(id: string): Promise<void> {

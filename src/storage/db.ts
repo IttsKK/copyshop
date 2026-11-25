@@ -29,6 +29,8 @@ export interface PlateRecord {
   width: number
   height: number
   createdAt: number
+  /** 'surface': an image for Surface (sources/surfaceTextures.ts), not a grain plate. */
+  use?: 'surface'
 }
 
 export interface PresetRecord {

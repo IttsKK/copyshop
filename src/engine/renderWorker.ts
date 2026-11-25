@@ -25,7 +25,7 @@ export type ToWorker =
       engine: string
       /** While the look's shader builds, the photo as a stand-in (GrainEngine.provisional) rather than nothing. */
       provisional?: boolean
-      req: Omit<RenderRequest, 'base' | 'grain'> & { base: number; grain: number }
+      req: Omit<RenderRequest, 'base' | 'grain' | 'surfaceImage'> & { base: number; grain: number; surfaceImage?: number }
     }
 
 export type FromWorker =
@@ -58,7 +58,9 @@ const render = (m: Extract<ToWorker, { type: 'render' }>): FromWorker => {
   const base = textures.get(m.req.base)
   const grain = textures.get(m.req.grain)
   if (!base || !grain) return { type: 'failed', n: m.n, error: 'The render lost its photo or grain.' }
-  const req: RenderRequest = { ...m.req, base, grain }
+  const { surfaceImage: surfaceId, ...rest } = m.req
+  const surfaceImage = surfaceId !== undefined ? textures.get(surfaceId) : undefined
+  const req: RenderRequest = { ...rest, base, grain, ...(surfaceImage ? { surfaceImage } : {}) }
   const started = performance.now()
   for (let attempt = 0; ; attempt++) {
     let engine = engineFor(m.engine)

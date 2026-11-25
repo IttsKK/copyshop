@@ -69,6 +69,7 @@ import { PRESET_STORE, getAll, newId, put, remove, type PresetRecord } from './d
 import { CROP_ASPECTS, type CropAspect } from '../engine/crop'
 import { DEFAULT_REPEAT, MAX_REPEATS, type RepeatModule, type RepeatParams } from '../engine/repeatParams'
 import { DEFAULT_KALEIDO, KALEIDO_COPIES, KALEIDO_RINGS, type KaleidoParams } from '../engine/kaleido'
+import { DEFAULT_SURFACE, SURFACE_KINDS, type SurfaceKind, type SurfaceParams } from '../engine/surface'
 import { MAX_RECOLOURS, RECOLOUR_STARTS, type RecolourItem, type RecolourModule } from '../engine/recolour'
 import { DEFAULT_LIGHT, MAX_LIGHTS } from '../engine/lighting'
 import type { ExportFormat, ExportSizing } from '../pipeline/exportSize'
@@ -869,6 +870,7 @@ function parseEffectsAsSaved(value: unknown): EffectParams {
     })(),
     repeat: parseRepeatModule(e.repeat),
     ...(e.kaleido ? { kaleido: parseKaleido(e.kaleido) } : {}),
+    ...(e.surface ? { surface: parseSurface(e.surface) } : {}),
     ...(e.recolour ? { recolour: parseRecolour(e.recolour) } : {}),
   }
 }
@@ -903,6 +905,25 @@ export function parseRecolour(value: unknown): RecolourModule {
 }
 
 /** Kaleidoscope's settings, each kept within what its controls reach. */
+export function parseSurface(value: unknown): SurfaceParams {
+  const s = (value ?? {}) as Record<string, unknown>
+  const d = DEFAULT_SURFACE
+  const kind = SURFACE_KINDS.some((k) => k.id === s.kind) ? (s.kind as SurfaceKind) : d.kind
+  return {
+    enabled: s.enabled === true,
+    kind,
+    amount: num(s.amount, d.amount, 0, 1),
+    scale: num(s.scale, d.scale, 0.25, 4),
+    relief: num(s.relief, d.relief, 0, 1),
+    light: num(s.light, d.light, 0, 360),
+    turn: num(s.turn, d.turn, -180, 180),
+    colour: num(s.colour, d.colour, 0, 1),
+    seed: Math.round(num(s.seed, d.seed, 0, 99999)),
+    ...(typeof s.image === 'string' && s.image ? { image: s.image } : {}),
+    ...(typeof s.imageName === 'string' && s.imageName ? { imageName: s.imageName.slice(0, 120) } : {}),
+  }
+}
+
 export function parseKaleido(value: unknown): KaleidoParams {
   const k = (value ?? {}) as Record<string, unknown>
   const d = DEFAULT_KALEIDO

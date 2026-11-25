@@ -1,4 +1,5 @@
 import { DEFAULT_LIGHTING } from '../engine/lighting'
+import { DEFAULT_SURFACE, surfaceOn } from '../engine/surface'
 import { DEFAULT_REPEAT, DEFAULT_REPEAT_MODULE } from '../engine/repeatParams'
 import { DEFAULT_KALEIDO } from '../engine/kaleido'
 import { DEFAULT_RECOLOUR, RECOLOUR_NATURAL } from '../engine/recolour'
@@ -44,7 +45,7 @@ export const CATEGORIES: Category[] = [
   { id: 'light', label: 'Glow', tint: '#f2a65e', hint: "Glow, edge light, solarizing, lights placed on the photo, light leaks and burns", brief: "Glow, edges, solarize, lighting, leaks", short: 'Glow' },
   { id: 'texture', label: 'Film & texture', tint: '#d6c6a2', hint: "Black and white, grain, dither and pixel art", brief: "B&W, grain, dither, pixel art", short: 'Film' },
   { id: 'shapes', label: 'Effects', tint: '#7fcdc4', hint: "Effects made on the photo from your selections: streaks, glass, collage, repeat and kaleidoscope", brief: "Streaks, glass, collage, repeat, kaleidoscope", short: 'Effects' },
-  { id: 'print', label: 'Print', tint: '#b9b2a6', hint: "Halftone, borders and print damage", brief: "Halftone, border, dust, surge", short: 'Print' },
+  { id: 'print', label: 'Print', tint: '#b9b2a6', hint: "Halftone, what the print is on, borders and print damage", brief: "Halftone, surface, border, dust, surge", short: 'Print' },
 ]
 
 export type StackModuleId =
@@ -62,6 +63,7 @@ export type StackModuleId =
   | 'stamp'
   | 'mono'
   | 'halftone'
+  | 'surface'
   | 'tone'
   | 'colour'
   | 'light'
@@ -116,6 +118,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'repeat', title: 'Repeat', category: 'shapes', blurb: 'Copies of a masked part of the photo, on a grid, along a path or placed', keywords: 'repeat copy clone stamp duplicate echo array grid pattern tile' },
   { id: 'kaleido', title: 'Kaleidoscope', category: 'shapes', blurb: 'The photo, or a part of it, copied round a point', keywords: 'kaleidoscope mirror symmetry symmetric radial rotate turn spin mandala twist tunnel reflect fold' },
   { id: 'halftone', title: 'Halftone & riso', category: 'print', blurb: 'Halftone dots or lines, or a two-colour riso print', keywords: 'halftone dots screen print riso risograph zine newspaper comic duotone' },
+  { id: 'surface', title: 'Surface', category: 'print', blurb: 'Paper, canvas or an image of your own under the print', keywords: 'surface texture paper canvas linen watercolour fibre crumpled cracked concrete mesh brushed metal overlay image emboss relief' },
   { id: 'border', title: 'Border', category: 'print', blurb: 'A paper border around the image', keywords: 'frame paper edge white' },
   { id: 'dust', title: 'Dust & scratches', category: 'print', blurb: 'Dust, hairs and scratches', keywords: 'defects dirt hair scratch scan' },
   { id: 'surge', title: 'Surge marks', category: 'print', blurb: 'Bands from uneven development', keywords: 'development bands marks' },
@@ -148,7 +151,7 @@ export const WITH_PRESETS: ReadonlySet<StackModuleId> = new Set<StackModuleId>([
   'tone', 'colour', 'light', 'edges', 'solarize', 'leaks',
   'mono', 'grain', 'dither', 'pixel',
   'glass',
-  'halftone', 'border', 'dust', 'surge',
+  'halftone', 'surface', 'border', 'dust', 'surge',
 ])
 export const presetKind = (id: StackModuleId): PartKind | null => (WITH_PRESETS.has(id) ? (id as PartKind) : null)
 
@@ -195,6 +198,8 @@ function clearModule(id: StackModuleId, b: BlendParams): BlendParams {
     case 'kaleido':
       // Its piece stays: it is made, not a setting. The point goes back to the middle.
       return fx({ kaleido: { ...DEFAULT_KALEIDO, enabled: !!e.kaleido?.enabled, source: e.kaleido?.source ?? null } })
+    case 'surface':
+      return fx({ surface: { ...DEFAULT_SURFACE, enabled: !!e.surface?.enabled } })
     case 'lighting':
       return fx({ lighting: { ...DEFAULT_LIGHTING, enabled: !!e.lighting?.enabled } })
     default:
@@ -282,6 +287,8 @@ export function inUse(id: StackModuleId, b: BlendParams): boolean {
       return !!e.repeat?.enabled
     case 'kaleido':
       return !!e.kaleido?.enabled
+    case 'surface':
+      return surfaceOn(e.surface)
     case 'recolour':
       // On as soon as it is switched on: its parts are made in the module.
       return !!e.recolour?.enabled
@@ -386,6 +393,8 @@ export function startModule(id: StackModuleId, b: BlendParams): BlendParams {
     case 'kaleido':
       // Straight away: a slice from the middle, copied round it.
       return fx({ kaleido: { ...(e.kaleido ?? DEFAULT_KALEIDO), enabled: true } })
+    case 'surface':
+      return fx({ surface: { ...(e.surface ?? DEFAULT_SURFACE), enabled: true } })
     case 'lighting':
       return fx({ lighting: { ...(e.lighting ?? DEFAULT_LIGHTING), enabled: true } })
     case 'border': {
@@ -430,6 +439,8 @@ export function switchOn(id: StackModuleId, b: BlendParams): BlendParams {
       return fx({ repeat: { ...(e.repeat ?? DEFAULT_REPEAT_MODULE), enabled: true } })
     case 'kaleido':
       return fx({ kaleido: { ...(e.kaleido ?? DEFAULT_KALEIDO), enabled: true } })
+    case 'surface':
+      return fx({ surface: { ...(e.surface ?? DEFAULT_SURFACE), enabled: true } })
     case 'recolour':
       return fx({ recolour: { ...(e.recolour ?? DEFAULT_RECOLOUR), enabled: true } })
     case 'lighting':
@@ -501,6 +512,8 @@ export function stopModule(id: StackModuleId, b: BlendParams): BlendParams {
       return fx({ repeat: { ...(e.repeat ?? DEFAULT_REPEAT_MODULE), enabled: false } })
     case 'kaleido':
       return fx({ kaleido: { ...(e.kaleido ?? DEFAULT_KALEIDO), enabled: false } })
+    case 'surface':
+      return e.surface ? fx({ surface: { ...e.surface, enabled: false } }) : b
     case 'recolour':
       return fx({ recolour: { ...(e.recolour ?? DEFAULT_RECOLOUR), enabled: false } })
     case 'lighting':

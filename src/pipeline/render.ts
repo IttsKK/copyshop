@@ -1,4 +1,5 @@
 import type { GrainEngine } from '../engine/GrainEngine'
+import { surfaceImageFor } from '../sources/surfaceTextures'
 import { developRaw, isRawName } from './raw'
 import { encodeTiff } from './tiff'
 import { encodeWebp } from './webp'
@@ -139,6 +140,8 @@ export async function renderFile(
   const photoCrop = own ? composeCrop({ ...cropFraction(decodedSize, own), ...(deg ? { angle: deg } : {}) }, inPhoto) : inPhoto
   try {
     const grain = await source.getTexture({ targetSize: { width: base.width, height: base.height } })
+    // Surface's own image, read before drawing: an export never goes out without it.
+    await surfaceImageFor(params)
     const full = printSizeOf({ width: base.width, height: base.height }, params)
     // Instagram's canvas, trimming the odd pixel of paper; otherwise the whole print.
     const print = exportCanvas(full, output)

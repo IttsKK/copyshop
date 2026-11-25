@@ -1,4 +1,5 @@
 import { GrainEngine, setEngineReporter } from './GrainEngine'
+import { surfaceImageFor } from '../sources/surfaceTextures'
 import { collageImageNow } from '../storage/collageImages'
 import type { RenderRequest, TextureSource } from './types'
 import type { FromWorker, ToWorker } from './renderWorker'
@@ -255,14 +256,16 @@ class RenderClient {
       return { bitmap: await createImageBitmap(out as ImageBitmapSource), ms: performance.now() - started }
     }
     const started = performance.now()
-    const [base, grain] = await Promise.all([this.textureId(job.req.base), this.textureId(job.req.grain)])
+    // Surface's own image, read from storage here and sent as the photo and grain are.
+    const surfaceImage = job.req.surfaceImage ?? (await surfaceImageFor(job.req.params))
+    const [base, grain, surface] = await Promise.all([this.textureId(job.req.base), this.textureId(job.req.grain), surfaceImage ? this.textureId(surfaceImage) : undefined])
     await this.sendCollage(job.req, base)
     if (!this.worker) return this.run(job)
     const n = ++this.n
-    const { base: _b, grain: _g, ...rest } = job.req
+    const { base: _b, grain: _g, surfaceImage: _s, ...rest } = job.req
     try {
       return await new Promise<Rendered | null>((resolve, reject) => {
-        const message: ToWorker = { type: 'render', n, engine: job.engine, req: { ...rest, base, grain }, ...(job.provisional ? { provisional: true } : {}) }
+        const message: ToWorker = { type: 'render', n, engine: job.engine, req: { ...rest, base, grain, ...(surface !== undefined ? { surfaceImage: surface } : {}) }, ...(job.provisional ? { provisional: true } : {}) }
         this.waiting.set(n, { resolve, reject, started, engine: job.engine, again: () => this.post(message) })
         this.post(message)
       })

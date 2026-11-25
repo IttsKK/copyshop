@@ -1,4 +1,5 @@
 import { MONO_TONES } from '../engine/extras'
+import { DEFAULT_SURFACE, SURFACE_KINDS } from '../engine/surface'
 import { STOCK_BY_ID } from '../engine/stocks'
 import { repeatCopyCount } from '../engine/repeatParams'
 import type { BlendParams } from '../engine/types'
@@ -60,6 +61,10 @@ export function moduleSummary(id: StackModuleId, b: BlendParams): string {
     }
     case 'halftone':
       return join([e.halftone.style === 'riso' ? 'Riso' : cap(e.halftone.style), `${pct(e.halftone.amount)}%`])
+    case 'surface': {
+      const s = e.surface ?? DEFAULT_SURFACE
+      return join([s.kind === 'image' ? (s.imageName ?? 'Image') : SURFACE_KINDS.find((k) => k.id === s.kind)?.label, `${pct(s.amount)}%`, s.relief > 0 && `Relief ${pct(s.relief)}`])
+    }
     case 'tone':
       return join([
         e.exposure !== 0 && `Film exposure ${signed(e.exposure, 1)}`,

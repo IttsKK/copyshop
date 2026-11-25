@@ -81,6 +81,7 @@ export const MODULE_HELP: Record<StackModuleId, string[]> = {
     'Move the point with Move centre. While you select or draw the part to copy, the copies are hidden so you see the photo itself.',
   ],
   halftone: ['Prints the finished picture as ink on paper: halftone dots or lines in one ink, or riso in two inks slightly out of line.'],
+  surface: ['What the print is on: paper, canvas, crumpled paper, cracked paint, or an image of your own, over the whole print. Relief lights it as a raised surface.'],
   border: ['Paper round the photo, as on a print, with its own colour and texture. A deeper bottom edge gives an instant-film frame.'],
   dust: ['Dust, hairs and scratches on the film and the scanner glass, over everything.'],
   surge: ['Uneven development: bands where the developer worked harder, coarsening the grain and lifting the density a little.'],

@@ -259,6 +259,8 @@ import { LightingModule } from './modules/LightingModule'
 import { SolarizeModule } from './modules/SolarizeModule'
 import { EdgesModule } from './modules/EdgesModule'
 import { HalftoneModule } from './modules/HalftoneModule'
+import { SurfaceModule } from './modules/SurfaceModule'
+import { DEFAULT_SURFACE } from '../engine/surface'
 import { MonoModule } from './modules/MonoModule'
 import { StampModule } from './modules/StampModule'
 import { DoubleModule } from './modules/DoubleModule'
@@ -7488,6 +7490,14 @@ export function App() {
                   <HalftoneModule
                     blend={blend}
                     setExtra={setExtra}
+                  />
+                )}
+
+                {showModule('surface') && (
+                  <SurfaceModule
+                    blend={blend}
+                    setSurface={(patch) => setEffects({ surface: { ...(blend.effects.surface ?? DEFAULT_SURFACE), ...patch } })}
+                    say={setStatus}
                   />
                 )}
 

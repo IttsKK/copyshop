@@ -31,6 +31,7 @@ export type PartKind =
   | 'pixel'
   | 'glass'
   | 'halftone'
+  | 'surface'
   | 'dust'
   | 'surge'
 
@@ -51,6 +52,7 @@ export const PART_LABELS: Record<PartKind, string> = {
   pixel: 'pixel art',
   glass: 'glass',
   halftone: 'halftone',
+  surface: 'surface',
   dust: 'dust & scratches',
   surge: 'surge marks',
 }
@@ -81,6 +83,7 @@ export const OWNS: Record<PartKind, { blend: (keyof BlendParams)[]; effects: (ke
   pixel: { blend: [], effects: ['pixelArt'] },
   glass: { blend: [], effects: ['glass'] },
   halftone: { blend: [], effects: ['halftone'] },
+  surface: { blend: [], effects: ['surface'] },
   dust: { blend: [], effects: ['defects'], module: 'defects' },
   surge: { blend: [], effects: ['surge'], module: 'surge' },
 }

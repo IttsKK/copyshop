@@ -88,6 +88,7 @@ const BLEND_KEYS: Record<string, StackModuleId> = {
 const EFFECT_KEYS: Record<string, StackModuleId> = {
   mono: 'mono',
   halftone: 'halftone',
+  surface: 'surface',
   lens: 'lens',
   prism: 'prism',
   double: 'double',

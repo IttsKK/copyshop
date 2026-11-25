@@ -196,6 +196,13 @@ const GLYPHS: Record<string, (c: string) => ReactNode> = {
       <path d="M8 8 L13.63 4.75 L13.63 11.25 Z M8 8 L8 14.5 L2.37 11.25 Z M8 8 L2.37 4.75 L8 1.5 Z" fill={c} opacity="0.4" />
     </>
   ),
+  // A sheet with a weave across it: what the print is on.
+  surface: (c) => (
+    <>
+      <rect x="1.5" y="1.5" width="13" height="13" rx="2" fill={c} opacity="0.35" />
+      <path d="M1.5 5.5 H14.5 M1.5 10.5 H14.5 M5.5 1.5 V14.5 M10.5 1.5 V14.5" stroke={c} strokeWidth="1.4" />
+    </>
+  ),
   border: (c) => <rect x="2" y="2" width="12" height="12" rx="2.5" fill="none" stroke={c} strokeWidth="2.6" />,
   dust: (c) => (
     <>
