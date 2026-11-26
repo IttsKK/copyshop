@@ -65,6 +65,8 @@ export function MaskGlyph({ kind }: { kind: AddKind }) {
 export interface PickingState {
   index: number | null
   clicks: number
+  /** Selecting a selection again: clicks add to it and take parts out of it. */
+  adding?: boolean
   /** The reading shown, smallest (0) to largest (2). */
   shown: number
   busy: boolean
@@ -92,7 +94,7 @@ export function PickPanel({ p, onPickReading }: { p: PickingState; onPickReading
     <EditBox at="pick">
       <div className="pick-panel">
         <p className="edit-box-hint">
-          {p.clicks === 0
+          {p.clicks === 0 && !p.adding
             ? 'Click the subject, or box it'
             : p.busy
               ? 'Finding it…'
@@ -106,8 +108,8 @@ export function PickPanel({ p, onPickReading }: { p: PickingState; onPickReading
           </button>
           <button
             className={p.leaveOut ? 'on' : ''}
-            disabled={p.clicks === 0}
-            title={p.clicks === 0 ? 'Select something first, then click what should not be in it' : keyWords('Clicks take parts out of the selection (or Option-click)')}
+            disabled={p.clicks === 0 && !p.adding}
+            title={p.clicks === 0 && !p.adding ? 'Select something first, then click what should not be in it' : keyWords('Clicks take parts out of the selection (or Option-click)')}
             onClick={() => p.onLeaveOut(true)}
           >
             Leave out

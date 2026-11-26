@@ -85,7 +85,8 @@ import type { GrainSource, GrainTexture, SerializedGrainSource } from '../source
 import type { ProceduralGrainParams } from '../sources/generateGrain'
 import { hydrateGrainSource } from '../sources/GrainSource'
 import { newId, onSaveFailed, onStorageBlocked, storageUnavailableReason } from '../storage/db'
-import { defaultReading, prepareSegmenter, segment, segmentingDone, type Selection } from '../ml/segment'
+import { defaultReading, prepareSegmenter, segment, segmentingDone, type Pick as SelectPick, type Selection } from '../ml/segment'
+import { boxKey, clickKey, combinePieces, type BaseGrid, type Piece } from './pickPieces'
 import { cleanSelection } from '../ml/trace'
 import {
   ARCHIVE_DIR,
@@ -230,7 +231,7 @@ import { RASTER_SIDE, encodeRaster, rasterBounds, shrinkGrid } from '../engine/m
 import { PRECISE_SIDE } from '../ml/precise/side'
 import { checkPrecise, downloadPrecise, preciseWantedStore } from '../ml/precise/models'
 import { findKey, KEY_BAND, type MaskView } from './maskKey'
-import { brushRange, cellColours, paintRaster, rasterOutline } from './maskBrush'
+import { brushRange, cellColours, paintRaster, rasterCover, rasterOutline } from './maskBrush'
 import { cropActive, cropAngle, cropBitmap, cropRatio, cropRect, fitRatio, keepInside, turnQuarter, type CropParams } from '../engine/crop'
 import { cropFraction, shapesOnCrop } from '../pipeline/instagram'
 import { grayOf } from '../engine/alignPhoto'
@@ -3439,8 +3440,36 @@ export function App() {
   // The pick as it is now, for precise selection's sharper answer arriving later.
   const pickingRef = useRef(picking)
   pickingRef.current = picking
+  /** What the model found for each click (and the box) of this pick, by clickKey / boxKey: each is a piece of the selection (pickPieces.ts). */
+  const pickPieces = useRef(new Map<string, Piece>())
+  /** The selection being selected again, as it was: clicks add to it and take from it. */
+  const pickBase = useRef<BaseGrid | null>(null)
+  /** A mask's selection (painting included) as a grid over the photo, for clicks to add to. */
+  const baseGridOf = (m: MaskShape | undefined): BaseGrid | null => {
+    const r = m?.raster
+    if (!r || !image) return null
+    const cover = rasterCover(r)
+    const pf = photoFrameOf(image.size, blend)
+    const sf = shapeFrame(image.size, blend)
+    const W = r.w
+    const H = Math.max(1, Math.round((r.w * image.size.height) / image.size.width))
+    const grid = new Uint8Array(W * H)
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        // Photo fraction to the frame masks are kept in, then to the raster's cell.
+        const sx = (pf.x + ((x + 0.5) / W) * pf.width - sf.x) / sf.width
+        const sy = (pf.y + ((y + 0.5) / H) * pf.height - sf.y) / sf.height
+        const cx = Math.floor(((sx - r.x) / r.width) * r.w)
+        const cy = Math.floor(((sy - r.y) / r.height) * r.h)
+        if (cx >= 0 && cy >= 0 && cx < r.w && cy < r.h) grid[y * W + x] = cover[cy * r.w + cx]
+      }
+    return { grid, width: W, height: H }
+  }
   const startPicking = (index: number | null, owner?: MaskOwner, target?: NewMaskTarget, streak?: number) => {
     if (!image) return
+    pickPieces.current = new Map()
+    // Selecting a selection again: clicks add to it and take parts out, it isn't started over.
+    pickBase.current = index !== null ? baseGridOf(blend.effects.masks[index]) : null
     // A pick already going is put back first, and the new one starts from the masks as they were before it.
     const earlier = picking
     if (earlier) finishPicking(false)
@@ -3564,44 +3593,66 @@ export function App() {
     setMasks(masks.map((m, i) => (i === p.index ? { ...m, kind: undefined, outline, raster, key: 'off' as const } : m)), null)
     return { ...p, shown: reading }
   }
+  /** The pick's pieces in order: the box, then each click (asked of the model as one click on what it found). */
+  const pickSteps = (p: NonNullable<typeof picking>) => [
+    ...(p.box ? [{ key: boxKey(p.box), on: true, picks: [] as SelectPick[], box: p.box }] : []),
+    ...p.picks.map((k) => ({ key: clickKey(k), on: k.on, picks: [{ x: k.x, y: k.y, on: true }], box: null })),
+  ]
+  /** The selection the pieces found so far make, put in the mask; the last piece's readings shown to choose from. */
+  const showPieces = (p: NonNullable<typeof picking>): NonNullable<typeof picking> => {
+    const steps = pickSteps(p)
+    const found = steps.filter((s) => pickPieces.current.has(s.key)).map((s) => ({ piece: pickPieces.current.get(s.key)!, on: s.on }))
+    const last = steps.length ? pickPieces.current.get(steps[steps.length - 1].key) : undefined
+    pickSelection.current = last?.sel ?? null
+    const sel = combinePieces(found, pickBase.current)
+    if (!sel) return p
+    return { ...applyLatest.current(p, sel, 0), shown: last?.reading ?? 0 }
+  }
   const runPicks = (p: NonNullable<typeof picking>) => {
     if (!image) return
     const run = ++pickRun.current
     if (!p.picks.length && !p.box) {
       pickSelection.current = null
-      // Nothing left to leave out of: clicks add again.
-      setPicking({ ...p, leaveOut: false })
+      // Nothing left to leave out of: clicks add again. A selection selected again is back as it was.
+      setPicking({ ...(pickBase.current ? showPieces(p) : p), leaveOut: pickBase.current ? p.leaveOut : false })
       return
     }
+    const missing = pickSteps(p).filter((s) => !pickPieces.current.has(s.key))
+    // Every piece found already (a click taken back or put back): no asking again.
+    if (!missing.length) return setPicking({ ...showPieces(p), busy: false })
     setPicking({ ...p, busy: true })
     const stages = ['Sharpening the selection…', 'Finding the edge…']
-    segment(image.bitmap, p.picks, p.box, {
-      // Precise selection's sharper answer, seconds later: the same reading, if it is still this pick.
-      onBetter: (sel) => {
-        const cur = pickingRef.current
-        if (run !== pickRun.current || !cur) return
-        pickSelection.current = sel
-        const reading = Math.min(cur.reading ?? sel.best, sel.masks.length - 1)
-        setPicking({ ...applyLatest.current(cur, sel, reading), busy: false })
-        setStatus('Selection sharpened')
-      },
-      onStage: (message) => {
+    const ask = async () => {
+      for (const step of missing) {
+        // Each click on its own: what it finds is added (or taken out), the rest stays as it is.
+        const sel = await segment(image.bitmap, step.picks, step.box, {
+          // Precise selection's sharper answer for this piece, seconds later: the same reading.
+          onBetter: (better) => {
+            const cur = pickingRef.current
+            const was = pickPieces.current.get(step.key)
+            if (!cur || !was) return
+            pickPieces.current.set(step.key, { sel: better, reading: Math.min(was.reading, better.masks.length - 1) })
+            setPicking({ ...showPieces(cur), busy: false })
+            setStatus('Selection sharpened')
+          },
+          onStage: (message) => {
+            if (run !== pickRun.current) return
+            setStatus((now) => message ?? (now && stages.includes(now) ? null : now))
+          },
+        })
         if (run !== pickRun.current) return
-        setStatus((now) => message ?? (now && stages.includes(now) ? null : now))
-      },
+        if (!sel) continue
+        // A box says what is meant, as does precise selection's own pick; a click alone, the largest reading not most of the photo.
+        const reading = Math.min(step.box || sel.precise ? sel.best : defaultReading(sel, 1), sel.masks.length - 1)
+        pickPieces.current.set(step.key, { sel, reading })
+      }
+      setPicking({ ...showPieces(p), busy: false })
+    }
+    ask().catch((err: Error) => {
+      if (run !== pickRun.current) return
+      setPicking({ ...p, busy: false })
+      setError(`Could not select: ${err.message}`)
     })
-      .then((sel) => {
-        if (run !== pickRun.current || !sel) return
-        pickSelection.current = sel
-        // A box says what is meant: the model's own best reading; precise selection's best is its own pick.
-        const reading = Math.min(p.reading ?? (p.box || sel.precise ? sel.best : defaultReading(sel, p.picks.length)), sel.masks.length - 1)
-        setPicking({ ...applyLatest.current(p, sel, reading), busy: false })
-      })
-      .catch((err: Error) => {
-        if (run !== pickRun.current) return
-        setPicking({ ...p, busy: false })
-        setError(`Could not select: ${err.message}`)
-      })
   }
   /** A change to the clicks or box, kept so Cmd+Z can take it back. */
   const editPicks = (p: NonNullable<typeof picking>, step: PickStep, reading = p.reading) =>
@@ -3623,12 +3674,14 @@ export function App() {
       future: back ? [...picking.future, now] : picking.future.slice(0, -1),
     })
   }
+  /** Small, Medium or Large for the last piece clicked; the rest of the selection stays. */
   const choosePickReading = (reading: number) => {
     if (!picking) return
-    const sel = pickSelection.current
-    const next = { ...picking, reading }
-    if (sel) setPicking(applySelection(next, sel, reading))
-    else setPicking(next)
+    const steps = pickSteps(picking)
+    const key = steps[steps.length - 1]?.key
+    const last = key ? pickPieces.current.get(key) : undefined
+    if (key && last) pickPieces.current.set(key, { ...last, reading: Math.min(reading, last.sel.masks.length - 1) })
+    setPicking(showPieces({ ...picking, reading }))
   }
   /** The History row the edit was at when the current pick (or its Start from) began. */
   const pickStartIndex = useRef<number | null>(null)
@@ -4654,6 +4707,8 @@ export function App() {
           owner: picking.owner,
           forTarget: !!picking.target,
           clicks: picking.picks.length + (picking.box ? 1 : 0),
+          // Selecting a selection again: there is something to leave parts out of from the start.
+          adding: !!pickBase.current,
           shown: picking.shown,
           busy: picking.busy,
           leaveOut: !!picking.leaveOut,
@@ -5384,12 +5439,12 @@ export function App() {
                   <div className="edit-box-row">
                     <button title="Paint more of the photo into the subject" onClick={() => brushStreakSubject(at, 'add')}>Brush in</button>
                     <button title="Paint part of the subject out" onClick={() => brushStreakSubject(at, 'remove')}>Brush out</button>
-                    <button title="Tap the subject again: the streak is re-made off it" onClick={() => pickStreakSubject(at)}>Select again</button>
+                    <button title="Click parts of the photo to add them to the subject, or Option-click to leave them out; the rest stays" onClick={() => pickStreakSubject(at)}>Select parts</button>
                   </div>
                 ) : (
                   <div className="edit-box-row">
                     <button title="Drag its points on the photo: the streak starts from its edge" onClick={() => editStreakSubjectShape(at)}>Reshape subject</button>
-                    <button title="Tap the subject again: the streak is re-made off it" onClick={() => pickStreakSubject(at)}>Select again</button>
+                    <button title="Click parts of the photo to add them to the subject, or Option-click to leave them out; the rest stays" onClick={() => pickStreakSubject(at)}>Select parts</button>
                   </div>
                 )
               })(),
