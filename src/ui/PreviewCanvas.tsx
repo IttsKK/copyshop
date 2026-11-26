@@ -204,10 +204,6 @@ interface Props {
   turnBy?: number
   /** The eyedropper is waiting: a click on the photo samples it. */
   sampling?: boolean
-  /** What the dropper reads, for its banner: the photo before the look, or as edited. */
-  samplingFrom?: 'edited' | 'original'
-  /** Switch what the dropper reads, from its banner. */
-  onSamplingFrom?: (from: 'edited' | 'original') => void
   /**
    * The dropper, in print fractions: 'preview' while the button is held (as
    * it moves), 'commit' on release.
@@ -291,8 +287,6 @@ export function PreviewCanvas({
   photoCrop = null,
   turnBy = 0,
   sampling = false,
-  samplingFrom = 'edited',
-  onSamplingFrom,
   onSample,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -1835,24 +1829,6 @@ export function PreviewCanvas({
           onPointerUp={() => (smallWipe.current = false)}
           onPointerCancel={() => (smallWipe.current = false)}
         />
-      )}
-      {sampling && base && (
-        <div className="dropper-banner" onPointerDown={(e) => e.stopPropagation()}>
-          <span>Take a colour from</span>
-          <span className="segmented" role="radiogroup" aria-label="Take a colour from">
-            {(
-              [
-                ['edited', 'The edit', 'The colour as you see it, with the look'],
-                ['original', 'The original', 'The colour in the photo itself, before the look'],
-              ] as const
-            ).map(([from, text, hint]) => (
-              <button key={from} role="radio" aria-checked={samplingFrom === from} className={samplingFrom === from ? 'on' : ''} title={hint} onClick={() => onSamplingFrom?.(from)}>
-                {text}
-              </button>
-            ))}
-          </span>
-          <span className="dropper-banner-hint">Click, or hold and drag to try colours · Esc cancels</span>
-        </div>
       )}
       {cover && (
         <div className="preview-cover" aria-hidden>

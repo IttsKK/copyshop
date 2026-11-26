@@ -98,7 +98,7 @@ export function streakEditParts({ shape, tool, onTool, drawing, fixEditing, guid
   // (Fix a part is the button over the box, in Fixes.)
   const showsExtras = ((tool === 'path' || tool === 'ends') && has(tool) && !drawing) || tool === 'guides'
   return {
-    tools: streakTools(shape).map((t) => ({ id: t, name: STREAK_TOOL_NAMES[t] })),
+    tools: streakTools(shape).map((t) => ({ id: t, name: shape.radial && t === 'direction' ? 'Middle' : STREAK_TOOL_NAMES[t] })),
     tool,
     onTool: (t) => onTool(t as StreakTool),
     hint,

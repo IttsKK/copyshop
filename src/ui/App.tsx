@@ -5104,18 +5104,35 @@ export function App() {
     setLightDrawing(false)
   }
   /** Streak i's subject on the photo, to brush in or out (or put away again); nothing else being edited. */
-  const brushStreakSubject = (i: number) => {
-                      const k = blend.effects.masks.findIndex((m) => m.id === blend.effects.streaks.shapes[i]?.subject?.mask)
-                      if (k < 0 || !blend.effects.masks[k].raster) return
-                      if (brushing?.index === k) return setBrushing(null)
-                      // Its subject on the photo, to brush in or out; nothing else being edited.
-                      if (streakSession) endStreakSession(true)
-                      if (picking) finishPicking(false)
-                      setSelectedStreak(i)
-                      setMaskDrawing(false)
-                      setMaskPlacing(null)
-                      setBrushing({ index: k, mode: 'add' })
-                    }
+  const brushStreakSubject = (i: number, mode: 'add' | 'remove' = 'add') => {
+    const k = blend.effects.masks.findIndex((m) => m.id === blend.effects.streaks.shapes[i]?.subject?.mask)
+    if (k < 0) return setStatus(`Streak ${i + 1}'s subject is missing: select it again in its Mask tab`)
+    if (!blend.effects.masks[k].raster) return editStreakSubjectShape(i)
+    // Its subject on the photo, to brush in or out; nothing else being edited.
+    if (streakSession) endStreakSession(true)
+    if (picking) finishPicking(false)
+    setSelectedStreak(i)
+    setMaskDrawing(false)
+    setMaskPlacing(null)
+    setBrushing({ index: k, mode })
+  }
+  /** Streak i's subject made of points (no selection to brush): its points on the photo, to drag. */
+  const editStreakSubjectShape = (i: number) => {
+    const k = blend.effects.masks.findIndex((m) => m.id === blend.effects.streaks.shapes[i]?.subject?.mask)
+    if (k < 0) return
+    if (streakSession) endStreakSession(true)
+    if (picking) finishPicking(false)
+    setSelectedStreak(i)
+    editMaskShape(k)
+  }
+  /** Streak i's subject selected again by tapping, the streak re-made off it. */
+  const pickStreakSubject = (i: number) => {
+    const k = blend.effects.masks.findIndex((m) => m.id === blend.effects.streaks.shapes[i]?.subject?.mask)
+    if (k < 0) return
+    if (streakSession) endStreakSession(true)
+    setSelectedStreak(i)
+    startPicking(k, 'streak', undefined, i)
+  }
   const startStreakSession = (index: number, tool: StreakTool, draw = false) => {
     if (!image) return
     setStreakSession((s) => (s && s.index === index && s.photo === (image?.sha ?? null) ? { ...s, tool } : { index, tool, row: history.view().current, photo: image?.sha ?? null }))
@@ -5286,7 +5303,30 @@ export function App() {
         doneTitle: 'Keep the selection (Enter)',
       }
     }
-    if (dropperTarget) return { at: `dropper:${dropperTarget.id}`, home: '', name: 'Picking a colour', hint: 'Click the colour on the photo', onCancel: () => pressKey('Escape'), cancelTitle: 'Stop picking (Esc)' }
+    if (dropperTarget)
+      return {
+        at: `dropper:${dropperTarget.id}`,
+        home: '',
+        name: 'Picking a colour',
+        hint: dropFrom === 'original' ? 'Click it on the original photo' : 'Click the colour on the photo',
+        // What it reads, here by the field: the edit, or the original (shown on the photo while picking).
+        extras: (
+          <span className="segmented edit-box-from" role="radiogroup" aria-label="Take a colour from">
+            {(
+              [
+                ['edited', 'The edit', 'The colour as you see it, with the look'],
+                ['original', 'The original', 'The colour in the photo itself, before the look: the photo shows it while you pick'],
+              ] as const
+            ).map(([from, text, title]) => (
+              <button key={from} role="radio" aria-checked={dropFrom === from} className={dropFrom === from ? 'on' : ''} title={title} onClick={() => setDropFrom(from)}>
+                {text}
+              </button>
+            ))}
+          </span>
+        ),
+        onCancel: () => pressKey('Escape'),
+        cancelTitle: 'Stop picking (Esc)',
+      }
     if (drawingStreak && !streakSession)
       return {
         at: 'streaks',
@@ -5309,7 +5349,7 @@ export function App() {
         name:
           streakSession.tool === 'all'
             ? `Editing ${sh.mode === 'mask' ? 'Mask' : 'Streak'} ${streakSession.index + 1}`
-            : `${sh.mode === 'mask' ? 'Mask' : 'Streak'} ${streakSession.index + 1}: ${STREAK_TOOL_NAMES[streakSession.tool].toLowerCase()}`,
+            : `${sh.mode === 'mask' ? 'Mask' : 'Streak'} ${streakSession.index + 1}: ${sh.radial && streakSession.tool === 'direction' ? 'its middle' : STREAK_TOOL_NAMES[streakSession.tool].toLowerCase()}`,
         ...streakEditParts({
           shape: sh,
           tool: streakSession.tool,
@@ -5324,14 +5364,27 @@ export function App() {
         }),
         // One tool to a box: each is begun from its own button.
         tools: undefined,
-        // The pencil on a streak off a subject: its subject, to brush, from here too.
+        // The pencil on a streak off a subject: its handles on the photo, and
+        // its subject (the streak's shape) changed from here, as buttons.
         ...(streakSession.tool === 'all' && sh.subject
           ? {
-              extras: (
-                <button className="link" title="Show the subject on the photo and brush it in or out: it is the streak's shape" onClick={() => brushStreakSubject(streakSession.index)}>
-                  Brush the subject
-                </button>
-              ),
+              hint: 'Drag the handles, or change its subject',
+              extras: (() => {
+                const m = blend.effects.masks.find((x) => x.id === sh.subject?.mask)
+                const at = streakSession.index
+                return m?.raster ? (
+                  <div className="edit-box-row">
+                    <button title="Paint more of the photo into the subject" onClick={() => brushStreakSubject(at, 'add')}>Brush in</button>
+                    <button title="Paint part of the subject out" onClick={() => brushStreakSubject(at, 'remove')}>Brush out</button>
+                    <button title="Tap the subject again: the streak is re-made off it" onClick={() => pickStreakSubject(at)}>Select again</button>
+                  </div>
+                ) : (
+                  <div className="edit-box-row">
+                    <button title="Drag its points on the photo: the streak starts from its edge" onClick={() => editStreakSubjectShape(at)}>Reshape subject</button>
+                    <button title="Tap the subject again: the streak is re-made off it" onClick={() => pickStreakSubject(at)}>Select again</button>
+                  </div>
+                )
+              })(),
             }
           : {}),
         onCancel: () => endStreakSession(false),
@@ -6793,10 +6846,9 @@ export function App() {
               exportQuality={exportCodec}
               exportSizing={isFullSize(output) ? null : output}
               sampling={!!dropperTarget}
-              samplingFrom={dropFrom}
-              onSamplingFrom={setDropFrom}
               onSample={sampleAt}
-              bypass={bypass}
+              // Picking from the original shows it.
+              bypass={bypass || (!!dropperTarget && dropFrom === 'original')}
               layoutVersion={layoutVersion}
               onError={setError}
               leakEditor={

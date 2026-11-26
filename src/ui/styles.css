@@ -841,6 +841,7 @@ section.module-off > :not(.section-head):not(.module-actions),
 .streak-overlay { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
 .streak-catcher { fill: transparent; pointer-events: all; cursor: crosshair; }
 .streak-body { fill: rgba(140, 200, 255, 0.06); stroke: rgba(140, 200, 255, 0.75); stroke-width: 1.2; stroke-dasharray: 5 4; pointer-events: all; cursor: move; }
+.streak-body.fixed { pointer-events: none; }
 .streak.on .streak-body { stroke-width: 1.8; stroke-dasharray: none; fill: rgba(140, 200, 255, 0.1); }
 .streak-arrow { stroke: rgba(255, 255, 255, 0.8); stroke-width: 1.5; }
 .streak-head { fill: #8cc8ff; stroke: #17181a; stroke-width: 2; pointer-events: all; cursor: grab; }
@@ -3089,6 +3090,10 @@ input[type="range"].tinted::-moz-range-progress { background: transparent; }
 .edit-box-hint { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
 .edit-box-extras { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .edit-box-extras .check-row { margin: 0; }
+.edit-box-extras .edit-box-from { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+/* A row of actions in the box, sharing its width. */
+.edit-box-extras .edit-box-row { display: flex; gap: 6px; width: 100%; }
+.edit-box-extras .edit-box-row button { flex: 1 1 0; min-width: 0; }
 .edit-box-actions { display: flex; justify-content: flex-end; gap: 6px; }
 .edit-box-actions button { min-width: 72px; }
 .edit-box .pick-panel { display: flex; flex-direction: column; gap: 8px; }

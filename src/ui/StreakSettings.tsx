@@ -506,16 +506,19 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
             format={pct}
             onChange={(lengthMax) => onChange({ lengthMax, lengthMin: Math.min(lengthMax, shape.lengthMin) })}
           />
-          <Slider
-            label="Variation"
-            title="Low: neighbouring bars end at similar lengths, in a smooth wave. High: every bar on its own."
-            value={shape.variation} def={STREAK_DEFAULTS.variation}
-            min={0}
-            max={1}
-            step={0.01}
-            format={pct}
-            onChange={(variation) => onChange({ variation })}
-          />
+          {/* A Circle's rings each take their own length: no wave to set. */}
+          {!(shape.radial && shape.radialAround) && (
+            <Slider
+              label="Variation"
+              title="Low: neighbouring bars end at similar lengths, in a smooth wave. High: every bar on its own."
+              value={shape.variation} def={STREAK_DEFAULTS.variation}
+              min={0}
+              max={1}
+              step={0.01}
+              format={pct}
+              onChange={(variation) => onChange({ variation })}
+            />
+          )}
           <Slider
             label="Soft ends"
             title="How far each bar's end fades out, apart from the outline's feather"
@@ -590,26 +593,31 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
             format={(v) => `${(v * 100).toFixed(1)}%`}
             onChange={(band) => onChange({ band })}
           />
-          <Slider
-            label="Tip angle"
-            title="The cut across each bar's end: 0° is straight across"
-            value={shape.tipAngle} def={STREAK_DEFAULTS.tipAngle}
-            min={-75}
-            max={75}
-            step={1}
-            format={(v) => `${Math.round(v)}°`}
-            onChange={(tipAngle) => onChange({ tipAngle })}
-          />
-          <Slider
-            label="Angle range"
-            title="Each bar's cut turns by up to this much either way"
-            value={shape.tipRange} def={STREAK_DEFAULTS.tipRange}
-            min={0}
-            max={75}
-            step={1}
-            format={(v) => `±${Math.round(v)}°`}
-            onChange={(tipRange) => onChange({ tipRange })}
-          />
+          {/* A Circle's bars are arcs round its middle: their ends have no cut to turn. */}
+          {!(shape.radial && shape.radialAround) && (
+            <>
+            <Slider
+              label="Tip angle"
+              title="The cut across each bar's end: 0° is straight across"
+              value={shape.tipAngle} def={STREAK_DEFAULTS.tipAngle}
+              min={-75}
+              max={75}
+              step={1}
+              format={(v) => `${Math.round(v)}°`}
+              onChange={(tipAngle) => onChange({ tipAngle })}
+            />
+            <Slider
+              label="Angle range"
+              title="Each bar's cut turns by up to this much either way"
+              value={shape.tipRange} def={STREAK_DEFAULTS.tipRange}
+              min={0}
+              max={75}
+              step={1}
+              format={(v) => `±${Math.round(v)}°`}
+              onChange={(tipRange) => onChange({ tipRange })}
+            />
+            </>
+          )}
           {!shape.radial && (
             <>
               <label

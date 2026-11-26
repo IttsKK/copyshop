@@ -967,7 +967,8 @@ export function StreakOverlay({ editor, frame, region: shown, css, measure }: Pr
         return (
           <g key={i} className={`streak ${s.mode === 'mask' ? 'mask' : ''} ${on ? 'on' : ''}${editor.fixesOnly ? ' fixes-only' : ''}`}>
             <path
-              className="streak-body"
+              // Off a subject it has no shape of its own to drag: no move cursor, and a press pans.
+              className={`streak-body${s.subject ? ' fixed' : ''}`}
               d={shapePath(i, s.outline)}
               onPointerDown={(e) => {
                 if (!(shapeH && !s.subject)) return
@@ -1074,6 +1075,8 @@ export function StreakOverlay({ editor, frame, region: shown, css, measure }: Pr
             {on &&
               dirH &&
               s.mode !== 'mask' &&
+              // Bars from a middle (Radial, Circle) run from it: no side lines to lay on the picture's own.
+              !s.radial &&
               !(s.path && s.path.length >= 2) &&
               (() => {
                 const { flow, sides, sMin, out } = sideLines(s)
@@ -1185,7 +1188,8 @@ export function StreakOverlay({ editor, frame, region: shown, css, measure }: Pr
                 </>
               )
             })()}
-            {dirH && s.mode !== 'mask' && !(s.path && s.path.length >= 2) && (
+            {/* No arrow on a Circle: its bars run round its middle, whichever way it points. */}
+            {dirH && s.mode !== 'mask' && !(s.path && s.path.length >= 2) && !(s.radial && s.radialAround) && (
               <>
                 <line className="streak-arrow" x1={cx} y1={cy} x2={hx} y2={hy} />
                 {/* Its middle bends it, as Photoshop's Path Blur does: the streak follows a curve from here on. */}
