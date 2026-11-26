@@ -42,11 +42,12 @@ export interface Dropper {
    * user holds on the photo (a live preview), with the final one on release,
    * and with null to put back the colour the field had when sampling began.
    */
-  start: (id: string, apply: (colour: Rgb | null) => void, without?: (blend: BlendParams) => BlendParams) => void
+  start: (id: string, apply: (colour: Rgb | null) => void, without?: (blend: BlendParams) => BlendParams, from?: DropFrom) => void
   cancel: () => void
   /**
    * What the dropper reads: the picture as edited (what you see), or the
    * original photo (the colour that is really there, before the look).
+   * A field may ask for one (start's from); otherwise the user chooses.
    */
   from: DropFrom
   setFrom: (from: DropFrom) => void

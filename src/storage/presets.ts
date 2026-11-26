@@ -1,5 +1,6 @@
 import { KEY_BAND, OLD_KEY_BAND } from '../engine/maskCover'
 import { MAX_BLOBS } from '../engine/blobs'
+import { parsePicks } from '../engine/colourPicks'
 import { parseBase } from '../engine/base'
 import { parseDouble, parseHalftone, parseLens, parseMono, parsePrism, parseStamp } from '../engine/extras'
 import { HARMONIES, type Harmony } from '../engine/harmony'
@@ -622,6 +623,7 @@ function parseEffectsAsSaved(value: unknown): EffectParams {
         popColour: parseColour(g.popColour, d.popColour),
         restColour: parseColour(g.restColour, d.restColour),
         ...(g.recipe ? { recipe: parseRule(g.recipe) } : {}),
+        ...(Array.isArray(g.picks) && g.picks.length ? { picks: parsePicks(g.picks) } : {}),
       }
     })(),
     glowColour: parseColour(e.glowColour, DEFAULT_EFFECTS.glowColour),

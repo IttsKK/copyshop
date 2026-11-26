@@ -716,8 +716,11 @@ export function App() {
     id: string
     apply: (c: Rgb | null) => void
     without?: (b: BlendParams) => BlendParams
+    /** What this field reads, when it asks for one (a colour picked to keep reads the original). */
+    from?: DropFrom
   } | null>(null)
-  const [dropFrom, setDropFrom] = useLocalStorage<DropFrom>('ui.dropFrom', 'edited')
+  const [chosenFrom, setDropFrom] = useLocalStorage<DropFrom>('ui.dropFrom', 'edited')
+  const dropFrom: DropFrom = dropperTarget?.from ?? chosenFrom
   // The edited picture the dropper reads, rendered once when sampling starts.
   // Frozen, so a held preview does not sample its own result.
   const dropFrame = useRef<ImageData | null>(null)
@@ -728,9 +731,9 @@ export function App() {
   const dropper = useMemo<Dropper>(
     () => ({
       activeId: dropperTarget?.id ?? null,
-      start: (id, apply, without) => {
+      start: (id, apply, without, from) => {
         previewing.current = false
-        setDropperTarget({ id, apply, without })
+        setDropperTarget({ id, apply, without, from })
       },
       cancel: () => {
         if (previewing.current) dropperTarget?.apply(null)
@@ -5312,7 +5315,7 @@ export function App() {
         name: 'Picking a colour',
         hint: dropFrom === 'original' ? 'Click it on the original photo' : 'Click the colour on the photo',
         // What it reads, here by the field: the edit, or the original (shown on the photo while picking).
-        extras: (
+        extras: dropperTarget.from ? undefined : (
           <span className="segmented edit-box-from" role="radiogroup" aria-label="Take a colour from">
             {(
               [

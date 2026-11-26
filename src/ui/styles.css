@@ -915,6 +915,15 @@ section.module-off > :not(.section-head):not(.module-actions),
 
 .colour-group { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; display: grid; gap: 4px; }
 .colour-group h3 { margin: 0; font-size: 11px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
+/* Picked colours: each a swatch (pick again), what it does, and remove; its sliders under it. */
+.colour-pick { display: grid; gap: 4px; padding: 4px 0; }
+.colour-pick + .colour-pick { border-top: 1px dashed var(--line); }
+.colour-pick-head { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.colour-pick-head .segmented { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.colour-pick-swatch { width: 26px; height: 22px; min-width: 0; padding: 0; border-radius: 4px; border: 1px solid var(--line); }
+.colour-pick-swatch.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+.colour-pick-add { width: 100%; }
+.colour-pick-add.on { color: var(--accent); border-color: var(--accent); }
 
 /* Section masks: a small button in each maskable section's header. */
 .section-mask-button { font-size: 10px; min-height: 18px; padding: 1px 7px; margin-left: auto; margin-right: 6px; color: var(--muted); }

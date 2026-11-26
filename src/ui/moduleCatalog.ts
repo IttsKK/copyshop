@@ -258,6 +258,7 @@ export function inUse(id: StackModuleId, b: BlendParams): boolean {
           g.isolateAmount > 0 ||
           g.popAmount > 0 ||
           g.blobs.length > 0 ||
+          (g.picks?.some((p) => p.amount > 0) ?? false) ||
           e.stock.id !== 'none')
       )
     case 'light':

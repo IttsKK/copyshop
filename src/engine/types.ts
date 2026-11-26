@@ -5,6 +5,7 @@ import type { SurfaceParams } from './surface'
 import type { RecolourModule } from './recolour'
 import type { LightingParams } from './lighting'
 import type { ColourBlob } from './blobs'
+import type { ColourPick } from './colourPicks'
 import type { Harmony } from './harmony'
 import type { ColourRule } from './recipe'
 import { FLAT_CURVE, type GrainCurve } from './curve'
@@ -321,6 +322,8 @@ export interface GradeParams {
    * stored map colours are only what they came to on the photo last edited.
    */
   recipe?: ColourRule
+  /** Colours picked from the photo, each kept, changed or greyed (colourPicks.ts); none when unset. */
+  picks?: ColourPick[]
 }
 
 export const DEFAULT_GRADE: GradeParams = {

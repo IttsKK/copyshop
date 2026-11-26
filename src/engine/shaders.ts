@@ -1,4 +1,5 @@
 import { MAX_BLOBS } from './blobs'
+import { MAX_PICKS } from './colourPicks'
 import { buildBlendDispatch } from './blendModes'
 import { MAX_HUE_MOVES } from './stocks'
 import { MASK_SECTIONS, MAX_BAND_GUIDES, MAX_FIX_COLOURS, MAX_LEAK_SPOTS, MAX_MASKS, MAX_PALETTE, MAX_STREAKS, MAX_STREAK_FIXES } from './types'
@@ -292,6 +293,10 @@ uniform float uPopAmount;      // recolour the kept hue toward uPopColour
 uniform float uPopKeep;        // shield the kept hue from the gradient map
 uniform vec3 uPopColour;
 uniform vec3 uRestColour;      // the tint the rest's greys take
+uniform int uPickCount;        // colours picked from the photo (colourPicks.ts)
+uniform vec3 uPickHsv[${MAX_PICKS}];  // each one's hue, saturation, value
+uniform vec3 uPickTo[${MAX_PICKS}];   // what it changes to, hsv
+uniform vec3 uPickSet[${MAX_PICKS}];  // action (0 keep, 1 change, 2 grey), range, strength
 
 ${buildBlendDispatch()}
 
@@ -3017,6 +3022,35 @@ vec3 applySolarize(vec3 c) {
  * by default and none of them moves brightness: vibrance and the tints are
  * chroma moves, and warmth and tint are rebalanced to keep luminance.
  */
+// Colours picked from the photo (colourPicks.ts): each reaches the photo's
+// colours like it (shot: the colour before Colour), then keeps that colour,
+// changes it, or greys it, over what the look made of it.
+vec3 applyPicks(vec3 c, vec3 shot, float k) {
+  const vec3 W = vec3(0.2126, 0.7152, 0.0722);
+  vec3 h = rgb2hsv(clamp(shot, 0.0, 1.0));
+  for (int i = 0; i < ${MAX_PICKS}; i++) {
+    if (i >= uPickCount) break;
+    vec3 p = uPickHsv[i];
+    vec3 set = uPickSet[i];
+    // Hue counts as far as both are coloured; then how coloured, and how light.
+    float dh = abs(fract(h.x - p.x + 0.5) - 0.5) * 2.0;
+    float d2 = dh * dh * min(h.y, p.y) * 6.0 + (h.y - p.y) * (h.y - p.y) + (h.z - p.z) * (h.z - p.z) * 0.6;
+    float r = mix(0.05, 0.55, set.y);
+    float w = exp(-d2 / (r * r)) * set.z * k;
+    if (w <= 0.001) continue;
+    vec3 to;
+    if (set.x < 0.5) to = shot;
+    else if (set.x < 1.5) {
+      // The new colour's hue; saturation and value scaled so the picked colour
+      // becomes it exactly, the colours round it in step.
+      vec3 t = uPickTo[i];
+      to = hsv2rgb(vec3(t.x, clamp(h.y * t.y / max(p.y, 0.05), 0.0, 1.0), clamp(h.z * t.z / max(p.z, 0.05), 0.0, 1.0)));
+    } else to = vec3(dot(c, W));
+    c = mix(c, to, w);
+  }
+  return c;
+}
+
 vec3 applyGrade(vec3 c) {
   const vec3 W = vec3(0.2126, 0.7152, 0.0722);
   float l = dot(c, W);
@@ -3654,7 +3688,7 @@ void main() {
   // --- light-transport stages, all in linear light -------------------------
   if (onPhoto > 0.0 && (uVignette > 0.0 || uHalation > 0.0 || uBloom > 0.0 || uShoulder > 0.0 || uFade > 0.0
       || uRim > 0.0 || uCrunch > 0.0 || uLeak > 0.0 || uStockStrength > 0.0 || uExposure != 0.0 || uHasGrade == 1
-      || uHaloAmount > 0.0 || uSolarize > 0.0 || uStructureAmount > 0.0 || uStreakGlowAmount > 0.0 || uMonoAmount > 0.0)) {
+      || uHaloAmount > 0.0 || uSolarize > 0.0 || uStructureAmount > 0.0 || uStreakGlowAmount > 0.0 || uMonoAmount > 0.0 || uPickCount > 0)) {
     vec3 detail = (uRim > 0.0 || uCrunch > 0.0) ? streakedBlur(uDetail, hereUv, baseUv, streakW) : vec3(0.0);
 
     // Crunch on encoded values, where "local contrast" means what it looks like.
@@ -3726,11 +3760,14 @@ void main() {
       base = clamp(base * (lifted + 1e-3) / (l + 1e-3), 0.0, 1.0);
     }
     if (uSolarize > 0.0) base = mix(base, applySolarize(base), kSolar);
+    vec3 shot = base;
     if (uStockStrength > 0.0) base = mix(base, applyStock(base), kColour);
     if (uHasGrade == 1) base = mix(base, applyGrade(base), kColour);
     // Black & white after the colour, so it is black and white whatever the
     // palette did; its own toner tints it as a print is toned.
     if (uMonoAmount > 0.0) base = mix(base, applyMono(base), uMonoAmount * kMono);
+    // Picked colours last, so one kept stays itself in black and white too.
+    if (uPickCount > 0) base = applyPicks(base, shot, kColour);
 
     // The toe: lift the shadows, fading to nothing by the highlights, so the
     // midtones barely move and white stays white. Done in encoded values so

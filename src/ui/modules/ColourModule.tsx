@@ -14,6 +14,7 @@ import type { LoadedImage } from '../loadedImage'
 import { FACTORY } from '../moduleCatalog'
 import type { PaletteFit } from '../paletteFit'
 import { SAMPLE_FOR, signed } from './shared'
+import { ColourPicks } from './ColourPicks'
 
 const POP_SWATCHES: { label: string; colour: Rgb }[] = [
   { label: 'Ember', colour: [1, 0.42, 0.12] },
@@ -162,6 +163,7 @@ export function ColourModule({ grade, palette, image, applyRecipe, setPreviewGra
           </>
         )}
       </div>
+      <ColourPicks picks={grade.picks ?? []} palette={palette} setBlend={setBlend} />
       <div className="colour-group">
         <h3 title="Palettes built from the photo's own colours: each one comes out differently on every photo. Point to preview, click to use.">Other palettes from the photo</h3>
         <RecipeGrid

@@ -50,6 +50,7 @@ import { FIXED_PALETTES, paletteSpacing, photoPalette } from './pixelPalettes'
 import { resolveParams, tintOf } from './resolve'
 import { MIN_OUTLINE_POINTS, PATH_SAMPLES, SDF_RANGE, isRounded, roundedOutline, samplesPerSpan, sampleOutline, shapeMetrics } from './leaks'
 import { MAX_BLOBS } from './blobs'
+import { ACTION_INDEX, hsvOf, livePicks, MAX_PICKS } from './colourPicks'
 import { END_SAMPLES, endTable, MAX_CONVERGE, radialCircle, PATH_LEVELS, pathFlow, signedDistance, streakCoords, streakMirrorAt, streakVanish, STREAK_LAYER_SIZE, STREAK_MARCH, STREAK_PATH_SAMPLES } from './streaks'
 import { MAX_HUE_MOVES, packHueMoves, stockById } from './stocks'
 
@@ -1055,6 +1056,10 @@ export class GrainEngine {
       'uMapRange',
       'uMapShape',
       'uBlobCount',
+      'uPickCount',
+      'uPickHsv',
+      'uPickTo',
+      'uPickSet',
       'uBlobA',
       'uBlobB',
       'uIsolateAmount',
@@ -3361,6 +3366,20 @@ export class GrainEngine {
       blobB.set([b.tone, b.toneWidth, 0, 0], i * 4)
     })
     gl.uniform1i(u.uBlobCount, blobs.length)
+    // Picked colours, with Colour (they are part of it).
+    const picks = req.params.modules.colour !== false ? livePicks(grade.picks) : []
+    const pickHsv = new Float32Array(MAX_PICKS * 3)
+    const pickTo = new Float32Array(MAX_PICKS * 3)
+    const pickSet = new Float32Array(MAX_PICKS * 3)
+    picks.forEach((p, i) => {
+      pickHsv.set(hsvOf(p.colour), i * 3)
+      pickTo.set(hsvOf(p.to), i * 3)
+      pickSet.set([ACTION_INDEX[p.action], p.range, p.amount], i * 3)
+    })
+    gl.uniform1i(u.uPickCount, picks.length)
+    gl.uniform3fv(u.uPickHsv, pickHsv)
+    gl.uniform3fv(u.uPickTo, pickTo)
+    gl.uniform3fv(u.uPickSet, pickSet)
     gl.uniform4fv(u.uBlobA, blobA)
     gl.uniform4fv(u.uBlobB, blobB)
     gl.uniform1f(u.uIsolateAmount, grade.isolateAmount)
