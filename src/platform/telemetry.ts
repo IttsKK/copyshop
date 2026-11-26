@@ -77,6 +77,11 @@ export function startTelemetry(opts: { tunnel?: string } = {}): void {
     tracesSampleRate: 0.1,
     // No tracing headers on requests: the app's own server and Polar don't accept them.
     tracePropagationTargets: [],
+    // A message is its own title. With a stack attached, Sentry titles it by
+    // the function that sent it (reportIssue's minified name: "n2", "withScope").
+    attachStacktrace: false,
+    // Thrown by browser extensions and in-app browsers into every page, not by copyshop.
+    ignoreErrors: [/window\.ethereum/, /__firefox__/, /Java object is gone/, /^Script error\.?$/],
     initialScope: { tags: { app: isNative() ? 'desktop' : 'browser' } },
     beforeSend(event) {
       // Automatic reports only when allowed; a report written by hand always goes.
@@ -111,37 +116,57 @@ export function startTelemetry(opts: { tunnel?: string } = {}): void {
 const lastIssue = new Map<string, number>()
 let issuesSent = 0
 
-/**
- * Something that went wrong without an error reaching the page: a worker that
- * crashed or stopped answering, a GPU reset, a fallback taken. Grouped by
- * fingerprint when the message carries numbers or names.
- */
 /** Something else to tell about each issue (the web editor's own reports, src/web/report.ts). */
 let issueHook: ((message: string, level: Sentry.SeverityLevel, extra?: Record<string, unknown>) => void) | null = null
 export function setIssueHook(hook: typeof issueHook): void {
   issueHook = hook
 }
 
+/** Numbers and sizes out of a grouping key: "pass (682 chars)" and "pass (2563 chars)" are one issue. */
+const groupKey = (s: string): string => s.replace(/\d+(\.\d+)?/g, '#').slice(0, 120)
+
+/**
+ * Something that went wrong without an error reaching the page: a worker that
+ * crashed or stopped answering, a GPU reset, a fallback taken. Grouped by
+ * fingerprint (numbers taken out), else by message.
+ *
+ * `info` is only a breadcrumb: it rides along with the next real report
+ * (a slow but finished shader build, a GPU's small limits) and is not an
+ * issue of its own.
+ */
 export function reportIssue(message: string, level: Sentry.SeverityLevel = 'error', extra?: Record<string, unknown>, fingerprint?: string[]): void {
-  Sentry.addBreadcrumb({ category: 'issue', level, message: scrub(message) })
+  Sentry.addBreadcrumb({ category: 'issue', level, message: scrub(message), data: extra ? plainExtra(extra) : undefined })
   try {
     issueHook?.(message, level, extra)
   } catch {
     /* a report must never break what reported it */
   }
-  if (!telemetryOn()) return
+  if (!telemetryOn() || level === 'info' || level === 'debug' || level === 'log') return
+  const groups = (fingerprint ?? [message]).map(groupKey)
   // The same thing at most once a minute, and a few dozen a visit: a repeat says nothing new.
-  const key = (fingerprint ?? [message]).join('|')
+  const key = groups.join('|')
   const now = Date.now()
   if (issuesSent >= 40 || now - (lastIssue.get(key) ?? -Infinity) < 60_000) return
   issuesSent++
   lastIssue.set(key, now)
   Sentry.withScope((scope) => {
-    scope.setLevel(level)
+    scope.setFingerprint(groups)
+    scope.setTag('issue', groups[0])
+    if (typeof extra?.gpu === 'string') scope.setTag('gpu', extra.gpu.slice(0, 200))
     if (extra) scope.setExtras(extra)
-    if (fingerprint) scope.setFingerprint(fingerprint)
-    Sentry.captureMessage(message)
+    // An event, not captureMessage: titled by its message, never by a stack.
+    Sentry.captureEvent({ message, level })
   })
+}
+
+/** An extra's plain values, for a breadcrumb. */
+function plainExtra(extra: Record<string, unknown>): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {}
+  for (const [k, v] of Object.entries(extra).slice(0, 8)) {
+    if (typeof v === 'number' || typeof v === 'boolean') out[k] = v
+    else if (typeof v === 'string') out[k] = scrub(v).slice(0, 200)
+  }
+  return out
 }
 
 /**
@@ -162,7 +187,7 @@ export function stepTimer(slowMs = 3000) {
     reportIfSlow(message: string, extra: Record<string, unknown> = {}) {
       const total = performance.now() - start
       Sentry.addBreadcrumb({ category: 'timing', message: `${message.replace(/^Slow /, '')}: ${Math.round(total)} ms`, data: steps })
-      if (total > slowMs) reportIssue(message, total > 15_000 ? 'error' : 'warning', { seconds: Math.round(total / 100) / 10, stepsMs: steps, ...extra }, [message])
+      if (total > slowMs) reportIssue(message, total > 15_000 ? 'error' : total > 2 * slowMs ? 'warning' : 'info', { seconds: Math.round(total / 100) / 10, stepsMs: steps, ...extra }, [message])
     },
   }
 }

@@ -35,7 +35,7 @@ export type FromWorker =
   | { type: 'pending'; n: number }
   | { type: 'ready'; engine: string; streaks: boolean; look: boolean }
   /** Something to report (the page sends it to Sentry): a lost GPU context, an error nothing caught. */
-  | { type: 'notice'; level: 'warning' | 'error'; message: string; extra?: Record<string, unknown> }
+  | { type: 'notice'; level: 'info' | 'warning' | 'error'; message: string; extra?: Record<string, unknown> }
 
 const scope = self as unknown as DedicatedWorkerGlobalScope
 const engines = new Map<string, GrainEngine>()

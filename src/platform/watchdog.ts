@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/react'
 /**
  * What a page's own error handlers can't see, reported through Sentry:
  *
- * - Freezes: the page's thread busy for over a second and a half (no clicks,
+ * - Freezes: the page's thread busy for over three seconds (no clicks,
  *   no drawing). Reported with what was running, where the browser says
  *   (Chrome's long-animation-frame entries), at most one every half minute.
  *
@@ -29,7 +29,7 @@ const STALE_MS = 15_000
 const CRUMBS = 40
 /** A freeze this long is a breadcrumb; this long, a report. */
 const NOTE_MS = 700
-const REPORT_MS = 1500
+const REPORT_MS = 3000
 const TICK_MS = 250
 
 interface Crumb {
@@ -149,10 +149,10 @@ function watchFreezes(scrub: (s: string) => string): void {
       const top = frame?.scripts[0]
       Sentry.withScope((scope) => {
         scope.setLevel(gap >= 5000 ? 'error' : 'warning')
-        scope.setTag('freeze', gap >= 10_000 ? '10s+' : gap >= 5000 ? '5-10s' : gap >= 3000 ? '3-5s' : '1.5-3s')
+        scope.setTag('freeze', gap >= 10_000 ? '10s+' : gap >= 5000 ? '5-10s' : '3-5s')
         scope.setFingerprint(['ui-freeze', top ? `${top.invoker} ${top.fn}`.trim() || top.source : 'unknown'])
         scope.setExtras({ seconds, frame: frame ?? null, ...machine() })
-        Sentry.captureMessage(`The page froze for ${seconds} s${top ? ` (${top.fn || top.invoker || 'script'})` : ''}`)
+        Sentry.captureEvent({ message: `The page froze for ${seconds} s${top ? ` (${top.fn || top.invoker || 'script'})` : ''}`, level: gap >= 5000 ? 'error' : 'warning' })
       })
     }, 300)
   }, TICK_MS)
