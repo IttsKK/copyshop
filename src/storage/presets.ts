@@ -556,6 +556,7 @@ function parseEffectsAsSaved(value: unknown): EffectParams {
         // Saved before Whole blocks was offered: as they were made, dots that can split.
         blocks: d.blocks === true,
         ...(typeof d.keepLines === 'number' && d.keepLines > 0 ? { keepLines: num(d.keepLines, 0, 0, 1) } : {}),
+        ...(d.blendOnly === true ? { blendOnly: true } : {}),
         ...(typeof d.clumps === 'number' && d.clumps > 1 ? { clumps: num(d.clumps, 1, 1, 4) } : {}),
         pattern: d.pattern === 'ordered' ? 'ordered' : 'grain',
         enabled: d.enabled !== false,

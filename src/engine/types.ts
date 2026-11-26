@@ -1331,6 +1331,11 @@ export interface DitherParams {
    */
   keepLines?: number
   /**
+   * With Pixel dots: the pattern only where it blends two bands; thin strips
+   * and areas that only just reach a band stay solid. Missing: everywhere.
+   */
+  blendOnly?: boolean
+  /**
    * With the grain as the pattern and 1 px dots: the dots follow the grain
    * read this many times larger and smoothly, so they gather into soft
    * clumps, as coarse film grain does, instead of single-pixel speckle or the
