@@ -502,6 +502,15 @@ function blockSize(fx: EffectParams): number {
 }
 
 /**
+ * Whether the dither reads the calm texture: Transitions only, or Pixel dots,
+ * whose pattern is kept to where it blends two bands (ditherBlendRoom in the
+ * shader).
+ */
+function calmWanted(fx: EffectParams): boolean {
+  return (fx.dither.transitionsOnly > 0 && (fx.dither.amount > 0 || fx.pixelArt.palette !== 'off')) || (fx.dither.amount > 0 && fx.dither.pixel > 1)
+}
+
+/**
  * Keep lines for the blocks the picture is read in: Pixel art's when it
  * makes them; else Dither's Keep detail (Whole blocks), negative, which keeps
  * a whole block with detail in it as pixels rather than one pixel at a time.
@@ -930,6 +939,7 @@ export class GrainEngine {
       'uLensK',
       'uGlassAxis',
       'uDitherTransitions',
+      'uDitherSpreadOnly',
       'uDitherSparePop',
       'uDitherTone',
       'uHaloAmount',
@@ -1718,8 +1728,7 @@ export class GrainEngine {
    * dither uses to stay off texture.
    */
   private buildCalm(req: RenderRequest): void {
-    const { dither, pixelArt } = req.params.effects
-    if (dither.transitionsOnly <= 0 || (dither.amount <= 0 && pixelArt.palette === 'off')) return
+    if (!calmWanted(req.params.effects)) return
     if (this.glowBaseSource !== this.passId) this.glowGeneration++
     this.glowBaseSource = this.passId
     const longSide = Math.min(DETAIL_SIZE, Math.max(req.baseSize.width, req.baseSize.height))
@@ -2732,6 +2741,7 @@ export class GrainEngine {
     gl.uniform1i(u.uDitherOrdered, fx.dither.pattern === 'ordered' ? 1 : 0)
     gl.uniform1f(u.uDitherClumps, fx.dither.pattern === 'grain' && fx.dither.pixel <= 1 ? Math.max(1, fx.dither.clumps ?? 1) : 1)
     gl.uniform1f(u.uDitherTransitions, this.calmResult ? fx.dither.transitionsOnly : 0)
+    gl.uniform1i(u.uDitherSpreadOnly, this.calmResult && calmWanted(fx) && fx.dither.pixel > 1 ? 1 : 0)
     gl.uniform1f(u.uDitherSparePop, fx.dither.sparePop)
     gl.uniform2f(u.uDitherTone, fx.dither.toneLo, fx.dither.toneHi)
     // Streaks: each shape drawn into its own texture layer (see
@@ -3516,6 +3526,7 @@ export class GrainEngine {
     gl.useProgram(this.program)
     gl.uniform1f(u.uStreakGlowAmount, this.streakGlowResult ? (fx.streaks.glow ?? 0) : 0)
     gl.uniform1f(u.uDitherTransitions, this.calmResult ? fx.dither.transitionsOnly : 0)
+    gl.uniform1i(u.uDitherSpreadOnly, this.calmResult && calmWanted(fx) && fx.dither.pixel > 1 ? 1 : 0)
     gl.activeTexture(gl.TEXTURE3)
     gl.bindTexture(gl.TEXTURE_2D, this.glowResult?.texture ?? this.blankTexture())
     gl.activeTexture(gl.TEXTURE5)
@@ -3981,7 +3992,7 @@ export class GrainEngine {
     const wanted =
       on &&
       ((fx.streaks.glow ?? 0) > 0 || fx.halation > 0 || fx.bloom > 0 || fx.rim > 0 || fx.crunch > 0 || fx.halo > 0 || fx.structure > 0 ||
-        (fx.dither.transitionsOnly > 0 && (fx.dither.amount > 0 || fx.pixelArt.palette !== 'off')))
+        calmWanted(fx))
     if (!wanted) {
       this.passSource = null
       this.passId = this.sourceId

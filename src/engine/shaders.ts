@@ -233,6 +233,7 @@ uniform float uLensK;                          // the lens's distortion at the c
 uniform vec4 uGlass;                           // amount, kind (0 reeded, 1 facets, 2 ripple), rib width (print px), dispersion
 uniform vec4 uGlassAxis;                       // across the ribs (unit xy), edge light, unused
 uniform float uDitherTransitions; // keep the pattern to where colours change
+uniform int uDitherSpreadOnly;    // 1: the pattern only where it spreads over a few dots (Pixel dots)
 uniform float uDitherSparePop;    // leave the standout colour smooth
 
 // How much the pixel is the standout colour (Colour → Pop), set by
@@ -1071,6 +1072,42 @@ float ditherMask(vec2 uv, float l, float steps) {
 float toneAllowed(float l) {
   if (uDitherTone.x <= 0.0 && uDitherTone.y >= 1.0) return 1.0;
   return smoothstep(uDitherTone.x - 0.06, uDitherTone.x + 0.06, l) * (1.0 - smoothstep(uDitherTone.y - 0.06, uDitherTone.y + 0.06, l));
+}
+
+/**
+ * How many of the dots go to the other band where the field is this, 0..0.5:
+ * none deep inside a band, half where two bands meet.
+ */
+float ditherShare(float field, float levels) {
+  float t = fract(field * levels + 0.5);
+  float d = min(t, 1.0 - t);
+  float sp = clamp(uDitherSpread, 0.0, 2.0);
+  // Ordered: its thresholds are spread evenly; grain: as a bell curve.
+  return uDitherOrdered == 1 ? max(0.5 - d / max(sp, 1e-3), 0.0) : 1.0 / (1.0 + exp(1.702 * d / max(0.25 * sp, 1e-3)));
+}
+
+/**
+ * Big dots (Pixel), 0..1: whether the pattern reads as a blend here. Where a
+ * band is only just reached, or the area is a dot or two across (a thin
+ * strip of cloud, an edge), a few dots line up into rows of lone dots; there
+ * the band stays solid. The field two dots away each side is estimated from
+ * the picture's brightness there (uCalm, before the look, scaled to this
+ * pixel's brightness after it) and along the bands' direction.
+ */
+float ditherBlendRoom(float field, float l, float levels, vec2 axis, vec2 uv) {
+  float c0 = max(texture(uCalm, uv).r, 1e-3);
+  vec2 step = 2.0 * vec2(uDitherPixel) / uBaseSize;
+  // How far along the direction two dots move the ramp, across x and y.
+  vec2 rampStep = 2.0 * uDitherPixel * axis / max(dot(axis, axis), 1.0);
+  float lit = (1.0 - uDitherFollow) * l / c0;
+  float fx = field + lit * (texture(uCalm, uv + vec2(step.x, 0.0)).r - c0) + uDitherFollow * rampStep.x;
+  float bx = field + lit * (texture(uCalm, uv - vec2(step.x, 0.0)).r - c0) - uDitherFollow * rampStep.x;
+  float fy = field + lit * (texture(uCalm, uv + vec2(0.0, step.y)).r - c0) + uDitherFollow * rampStep.y;
+  float by = field + lit * (texture(uCalm, uv - vec2(0.0, step.y)).r - c0) - uDitherFollow * rampStep.y;
+  float here = ditherShare(field, levels);
+  float across = (ditherShare(fx, levels) + here + ditherShare(bx, levels)) / 3.0;
+  float down = (ditherShare(fy, levels) + here + ditherShare(by, levels)) / 3.0;
+  return smoothstep(0.1, 0.2, min(across, down));
 }
 
 /**
@@ -3894,6 +3931,8 @@ void main() {
     // Outside transitions the pattern is withheld but the step still applies,
     // so a flat area becomes a solid band rather than going back to smooth.
     float allowed = ditherMask(baseUv, l, uDitherSteps);
+    // Big dots: the pattern only where it reads as a blend of two bands.
+    if (uDitherSpreadOnly == 1) allowed *= ditherBlendRoom(field, l, levels, axis, baseUv);
     float qf = floor(field * levels + mix(0.5, offset, allowed) + n * uDitherSpread * 0.25 * allowed) / levels;
     float ql = clamp(l + (qf - field), 0.0, 1.0);
     // Following a direction, the banding belongs to the line: it fades out

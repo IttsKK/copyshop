@@ -57,7 +57,7 @@ export function DitherModule({ blend, setEffects, setEditingGuides, editingGuide
             [
               ['fine', 'Fine', 'Single-pixel stipple, as fine as the photo'],
               ['clumps', 'Clumps', 'The dots gathered into soft clumps of the grain, as coarse film grain is'],
-              ['pixel', 'Pixel', 'Square dots several pixels across, as pixel art has'],
+              ['pixel', 'Pixel', 'Square dots several pixels across, as pixel art has. The pattern only goes where it blends two bands; thin strips and nearly flat areas stay solid'],
             ] as const
           ).map(([id, name, title]) => (
             <button
