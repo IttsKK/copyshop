@@ -1139,17 +1139,18 @@ export function Shuffle({ onShuffle, what }: { onShuffle: () => void; what: stri
 export const showModule = (id: string) => window.dispatchEvent(new CustomEvent('grain:show-module', { detail: id }))
 
 /**
- * Modules that make something like this one, at its foot: "Bigger squares:
- * Pixel art". Each goes to that module, open.
+ * Modules that make something like this one, at its foot: "Similar: Pixel
+ * art · Halftone", each going to that module, open; what each makes is its
+ * tooltip ("Bigger squares, fewer colours").
  */
 export function SeeAlso({ links }: { links: [string, string, string][] }) {
   return (
     <p className="see-also">
+      Similar:{' '}
       {links.map(([want, id, name], i) => (
         <span key={id}>
           {i > 0 && ' · '}
-          {want}:{' '}
-          <button className="link" onClick={() => showModule(id)}>
+          <button className="link" title={`${want}: opens ${name}`} onClick={() => showModule(id)}>
             {name}
           </button>
         </span>
