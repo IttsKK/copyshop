@@ -152,15 +152,13 @@ mod imp {
 
     fn builder() -> Result<ort::session::builder::SessionBuilder, String> {
         let e = |e: ort::Error| e.to_string();
-        // Half the cores, the rest for the app and everything else: BiRefNet takes seconds,
-        // and the window (and the user's other apps) have to keep going. All but two of
-        // them pinned the Mac while it ran.
+        // Two cores left for the app on the CPU: BiRefNet takes seconds, and the window has to keep drawing.
         let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
         Session::builder(environment()?)
             .map_err(e)?
             .with_optimization_level(GraphOptimizationLevel::Level3)
             .map_err(|e| e.to_string())?
-            .with_intra_threads((cores / 2).max(2))
+            .with_intra_threads(cores.saturating_sub(2).max(2))
             .map_err(|e| e.to_string())?
             // Never an execution provider the runtime picks itself (Core ML, on a Mac).
             .with_auto_device(AutoDevicePolicy::PreferCPU)
@@ -187,16 +185,7 @@ mod imp {
                 Err(err) => eprintln!("precise selection: DirectML could not run {}: {err}; on the CPU instead", path.display()),
             }
         }
-        // No arena and no memory pattern on the CPU: what a run takes (gigabytes, for
-        // BiRefNet at 1024 px) goes back to the system when it ends, instead of being
-        // kept for the next run for as long as the model is loaded.
-        let session = builder()?
-            .with_memory_pattern(false)
-            .map_err(|e| e.to_string())?
-            .with_execution_providers([ort::ep::CPU::default().with_arena_allocator(false).build()])
-            .map_err(|e| e.to_string())?
-            .commit_from_file(&path)
-            .map_err(|e| e.to_string())?;
+        let session = builder()?.commit_from_file(&path).map_err(|e| e.to_string())?;
         state.sessions.lock().unwrap().insert(name, Arc::new(Mutex::new(session)));
         Ok("cpu".into())
     }

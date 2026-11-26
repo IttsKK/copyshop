@@ -502,8 +502,8 @@ async function sharpen(gen: number, r: Ready, photo: ImageBitmap, picks: Pick[],
   }
 }
 
-/** How long the models stay loaded after picking ends: long enough to pick again soon, not to hold gigabytes all session. */
-const IDLE_MS = 120_000
+/** How long the models stay loaded after picking ends: ten minutes: long enough to pick again without waiting, not to hold gigabytes all session. */
+const IDLE_MS = 600_000
 let idleTimer: ReturnType<typeof setTimeout> | null = null
 const stayLoaded = () => {
   if (idleTimer) clearTimeout(idleTimer)
