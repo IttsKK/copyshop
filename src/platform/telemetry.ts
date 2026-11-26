@@ -116,8 +116,12 @@ export function startTelemetry(opts: { tunnel?: string } = {}): void {
 const lastIssue = new Map<string, number>()
 let issuesSent = 0
 
-/** Something else to tell about each issue (the web editor's own reports, src/web/report.ts). */
-let issueHook: ((message: string, level: Sentry.SeverityLevel, extra?: Record<string, unknown>) => void) | null = null
+/**
+ * Something else to tell about each issue (the web editor's own reports,
+ * src/web/report.ts). True when it sent the issue itself: then it isn't sent
+ * to Sentry a second time from here (the same problem was two issues).
+ */
+let issueHook: ((message: string, level: Sentry.SeverityLevel, extra?: Record<string, unknown>) => boolean | void) | null = null
 export function setIssueHook(hook: typeof issueHook): void {
   issueHook = hook
 }
@@ -136,12 +140,13 @@ const groupKey = (s: string): string => s.replace(/\d+(\.\d+)?/g, '#').slice(0, 
  */
 export function reportIssue(message: string, level: Sentry.SeverityLevel = 'error', extra?: Record<string, unknown>, fingerprint?: string[]): void {
   Sentry.addBreadcrumb({ category: 'issue', level, message: scrub(message), data: extra ? plainExtra(extra) : undefined })
+  let sent = false
   try {
-    issueHook?.(message, level, extra)
+    sent = issueHook?.(message, level, extra) === true
   } catch {
     /* a report must never break what reported it */
   }
-  if (!telemetryOn() || level === 'info' || level === 'debug' || level === 'log') return
+  if (sent || !telemetryOn() || level === 'info' || level === 'debug' || level === 'log') return
   const groups = (fingerprint ?? [message]).map(groupKey)
   // The same thing at most once a minute, and a few dozen a visit: a repeat says nothing new.
   const key = groups.join('|')
