@@ -160,6 +160,7 @@ uniform int uBandGuideCount;
 uniform float uDitherPixel;    // dither dot size, print px
 uniform float uDitherClumps;   // grain read this much larger, smoothly, for the dots (1 = as it is)
 uniform int uDitherOrdered;    // 1 = Bayer matrix instead of grain
+uniform vec4 uDitherOwn;       // x 1 = the dither's own dots (not the grain's), y their size in print px, z the photo's seed, w print px per drawn px
 uniform float uPixelate;       // block size in print px, 1 = off
 uniform float uPixelKeep;      // Pixel art's Keep lines, 0..1: pixels unlike their block keep their own colour; negative, Dither's Keep detail: a block with detail in it keeps its pixels
 uniform highp sampler2DArray uStreakShapes;  // a layer per shape: r its inside, g that blurred by its feather
@@ -332,6 +333,19 @@ vec3 plateAt(vec2 uvIn, vec2 ddx, vec2 ddy) {
     v -= (textureLod(uGrain, uv, uFlattenLod).rgb - vec3(uGrainCentre)) * uFlatten;
   }
   return v;
+}
+
+// The dither's own dots: a random value per dot, fixed for the photo
+// (pcg3d), about normal with a spread of 1, as the grain is once divided by
+// its spread. The grain's settings never reach it.
+float ditherDot(vec2 cell) {
+  uvec3 v = uvec3(ivec3(ivec2(floor(cell)), int(uDitherOwn.z)));
+  v = v * 1664525u + 1013904223u;
+  v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
+  v ^= v >> 16u;
+  v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
+  vec3 u = vec3(v >> 8u) / 16777216.0;
+  return (u.x + u.y + u.z - 1.5) * 2.0;
 }
 
 float hash21(vec2 p) {
@@ -3827,10 +3841,11 @@ void main() {
   // runs across the picture edge and onto the border.
   vec3 grain = sampleGrain(printPx);
 
-  // Dither: quantise to a few steps per channel, offsetting each pixel by the
-  // grain before rounding. Where a gradient crosses a step the grain decides
-  // which side each pixel falls, so the band edge dissolves into a stipple of
-  // grain-sized dots — the pattern is the grain, so its size is the grain's.
+  // Dither: quantise to a few steps per channel, offsetting each pixel by a
+  // random dot before rounding. Where a gradient crosses a step the dot
+  // decides which side each pixel falls, so the band edge dissolves into a
+  // stipple. The dots are the dither's own (uDitherOwn); an edit made before
+  // they were (Follow the grain) takes them from the grain, at its size.
   // Done before the grain is blended, so the grain still sits on top.
   if (uDitherAmount > 0.0 && onPhoto > 0.0) {
     // Brightness is stepped and the colour rescaled to match, so the bands are
@@ -3846,6 +3861,22 @@ void main() {
       // 4x4 Bayer: thresholds spread evenly over each 4x4 group of dots.
       offset = 0.5 + bayer4(cell) * clamp(uDitherSpread, 0.0, 2.0);
       n = 0.0;
+    } else if (uDitherOwn.x > 0.5) {
+      // Its own dots, whatever the grain is set to: one value per block, or
+      // per dot of uDitherOwn.y px; with clumps, read that many times larger
+      // and smoothly (bilinear, as the grain's clumps were read).
+      if (uDitherPixel > 1.0) n = ditherDot(cell);
+      else {
+        float size = uDitherOwn.y * uDitherClumps;
+        vec2 q = printPx / size - 0.5;
+        vec2 i = floor(q);
+        vec2 f = uDitherClumps > 1.0 ? q - i : vec2(0.0);
+        n = mix(mix(ditherDot(i), ditherDot(i + vec2(1.0, 0.0)), f.x), mix(ditherDot(i + vec2(0.0, 1.0)), ditherDot(i + vec2(1.0)), f.x), f.y);
+        // Drawn smaller than the print (a preview), several dots to a pixel
+        // average out, as the grain's smaller mip levels did.
+        n /= max(1.0, uDitherOwn.w / size);
+      }
+      offset = 0.5;
     } else {
       // One read of the grain (one copy of it in the compiled shader): at the
       // dot's block, or larger and smooth for clumps.

@@ -465,6 +465,12 @@ const CROSS_ROW = MAX_STREAKS * 2 * PATH_LEVELS
  */
 const FEW = { masks: 2, leaks: 1, leakPath: 4, endSamples: 4, streaks: 1 }
 
+/**
+ * The dither's own dots, in print px: 1.5, the size the stippled recipes
+ * had from their grain (Scale 1.5); one pixel is a speckle that reads harsh.
+ */
+const DITHER_DOT = 1.5
+
 /** A shader build this slow is noted (a breadcrumb for the next report)… */
 const SLOW_COMPILE_MS = 1500
 /** …and this slow, reported: on Windows a few seconds is usual (FXC), this is a wait someone sees. */
@@ -977,6 +983,7 @@ export class GrainEngine {
       'uDitherPixel',
       'uDitherClumps',
       'uDitherOrdered',
+      'uDitherOwn',
       'uPixelate',
       'uPixelKeep',
       'uStreakShapes',
@@ -2735,6 +2742,9 @@ export class GrainEngine {
     // Not rounded: drawn at an export's size (PreviewCanvas asExported) a dot can be 2.5 photo pixels.
     gl.uniform1f(u.uDitherPixel, Math.max(1, fx.dither.pixel))
     gl.uniform1i(u.uDitherOrdered, fx.dither.pattern === 'ordered' ? 1 : 0)
+    // The dither's own dots, unless the edit takes them from the grain (made before they were its own).
+    const ownSeed = req.imageSeed && req.params.varyPerPhoto ? Math.abs(req.imageSeed) % 65521 : 0
+    gl.uniform4f(u.uDitherOwn, fx.dither.followGrain ? 0 : 1, DITHER_DOT * pixelScaleOf(req.params), ownSeed, region.width / Math.max(1, out.width))
     gl.uniform1f(u.uDitherClumps, fx.dither.pattern === 'grain' && fx.dither.pixel <= 1 ? Math.max(1, fx.dither.clumps ?? 1) : 1)
     gl.uniform1f(u.uDitherTransitions, this.calmResult ? fx.dither.transitionsOnly : 0)
     gl.uniform1f(u.uDitherSparePop, fx.dither.sparePop)

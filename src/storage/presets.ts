@@ -558,6 +558,8 @@ function parseEffectsAsSaved(value: unknown): EffectParams {
         ...(typeof d.keepLines === 'number' && d.keepLines > 0 ? { keepLines: num(d.keepLines, 0, 0, 1) } : {}),
         ...(typeof d.clumps === 'number' && d.clumps > 1 ? { clumps: num(d.clumps, 1, 1, 4) } : {}),
         pattern: d.pattern === 'ordered' ? 'ordered' : 'grain',
+        // Saved before the dither had dots of its own: its dots from the grain, as they were made.
+        followGrain: d.followGrain !== false,
         enabled: d.enabled !== false,
         guidesOn: d.guidesOn !== false,
         transitionsOnly: num(d.transitionsOnly, DEFAULT_DITHER.transitionsOnly, 0, 1),
