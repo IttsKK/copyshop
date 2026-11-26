@@ -1090,24 +1090,27 @@ float ditherShare(float field, float levels) {
  * Big dots (Pixel), 0..1: whether the pattern reads as a blend here. Where a
  * band is only just reached, or the area is a dot or two across (a thin
  * strip of cloud, an edge), a few dots line up into rows of lone dots; there
- * the band stays solid. The field two dots away each side is estimated from
+ * the band stays solid. So does the step into black. The field two dots away each side is estimated from
  * the picture's brightness there (uCalm, before the look, scaled to this
  * pixel's brightness after it) and along the bands' direction.
  */
 float ditherBlendRoom(float field, float l, float levels, vec2 axis, vec2 uv) {
   float c0 = max(texture(uCalm, uv).r, 1e-3);
-  vec2 step = 2.0 * vec2(uDitherPixel) / uBaseSize;
+  vec2 reach = 2.0 * vec2(uDitherPixel) / uBaseSize;
   // How far along the direction two dots move the ramp, across x and y.
   vec2 rampStep = 2.0 * uDitherPixel * axis / max(dot(axis, axis), 1.0);
   float lit = (1.0 - uDitherFollow) * l / c0;
-  float fx = field + lit * (texture(uCalm, uv + vec2(step.x, 0.0)).r - c0) + uDitherFollow * rampStep.x;
-  float bx = field + lit * (texture(uCalm, uv - vec2(step.x, 0.0)).r - c0) - uDitherFollow * rampStep.x;
-  float fy = field + lit * (texture(uCalm, uv + vec2(0.0, step.y)).r - c0) + uDitherFollow * rampStep.y;
-  float by = field + lit * (texture(uCalm, uv - vec2(0.0, step.y)).r - c0) - uDitherFollow * rampStep.y;
+  float fx = field + lit * (texture(uCalm, uv + vec2(reach.x, 0.0)).r - c0) + uDitherFollow * rampStep.x;
+  float bx = field + lit * (texture(uCalm, uv - vec2(reach.x, 0.0)).r - c0) - uDitherFollow * rampStep.x;
+  float fy = field + lit * (texture(uCalm, uv + vec2(0.0, reach.y)).r - c0) + uDitherFollow * rampStep.y;
+  float by = field + lit * (texture(uCalm, uv - vec2(0.0, reach.y)).r - c0) - uDitherFollow * rampStep.y;
   float here = ditherShare(field, levels);
   float across = (ditherShare(fx, levels) + here + ditherShare(bx, levels)) / 3.0;
   float down = (ditherShare(fy, levels) + here + ditherShare(by, levels)) / 3.0;
-  return smoothstep(0.1, 0.2, min(across, down));
+  // Not into black: the darkest band has no colour left, so its dots read as
+  // black specks in a dark red or blue; there the band steps cleanly.
+  float black = 1.0 - step(floor(field * levels), 0.0);
+  return smoothstep(0.1, 0.2, min(across, down)) * black;
 }
 
 /**
