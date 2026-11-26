@@ -81,7 +81,7 @@ export function startTelemetry(opts: { tunnel?: string } = {}): void {
     // the function that sent it (reportIssue's minified name: "n2", "withScope").
     attachStacktrace: false,
     // Thrown by browser extensions and in-app browsers into every page, not by copyshop.
-    ignoreErrors: [/window\.ethereum/, /__firefox__/, /Java object is gone/, /^Script error\.?$/],
+    ignoreErrors: [/window\.ethereum/, /__firefox__/, /DarkReader/, /Java object is gone/, /^Script error\.?$/],
     initialScope: { tags: { app: isNative() ? 'desktop' : 'browser' } },
     beforeSend(event) {
       // Automatic reports only when allowed; a report written by hand always goes.
