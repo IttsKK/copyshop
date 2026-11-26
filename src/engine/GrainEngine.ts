@@ -2740,7 +2740,7 @@ export class GrainEngine {
     gl.uniform1i(u.uDitherOrdered, fx.dither.pattern === 'ordered' ? 1 : 0)
     gl.uniform1f(u.uDitherClumps, fx.dither.pattern === 'grain' && fx.dither.pixel <= 1 ? Math.max(1, fx.dither.clumps ?? 1) : 1)
     gl.uniform1f(u.uDitherTransitions, this.calmResult ? fx.dither.transitionsOnly : 0)
-    gl.uniform1i(u.uDitherSpreadOnly, fx.dither.pixel <= 1 ? 0 : fx.dither.blendOnly && this.calmResult && calmWanted(fx) ? 2 : 1)
+    gl.uniform1i(u.uDitherSpreadOnly, fx.dither.pixel <= 1 || !fx.dither.blendOnly ? 0 : this.calmResult && calmWanted(fx) ? 2 : 1)
     gl.uniform1f(u.uDitherSparePop, fx.dither.sparePop)
     gl.uniform2f(u.uDitherTone, fx.dither.toneLo, fx.dither.toneHi)
     // Streaks: each shape drawn into its own texture layer (see
@@ -3525,7 +3525,7 @@ export class GrainEngine {
     gl.useProgram(this.program)
     gl.uniform1f(u.uStreakGlowAmount, this.streakGlowResult ? (fx.streaks.glow ?? 0) : 0)
     gl.uniform1f(u.uDitherTransitions, this.calmResult ? fx.dither.transitionsOnly : 0)
-    gl.uniform1i(u.uDitherSpreadOnly, fx.dither.pixel <= 1 ? 0 : fx.dither.blendOnly && this.calmResult && calmWanted(fx) ? 2 : 1)
+    gl.uniform1i(u.uDitherSpreadOnly, fx.dither.pixel <= 1 || !fx.dither.blendOnly ? 0 : this.calmResult && calmWanted(fx) ? 2 : 1)
     gl.activeTexture(gl.TEXTURE3)
     gl.bindTexture(gl.TEXTURE_2D, this.glowResult?.texture ?? this.blankTexture())
     gl.activeTexture(gl.TEXTURE5)

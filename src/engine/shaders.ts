@@ -233,7 +233,7 @@ uniform float uLensK;                          // the lens's distortion at the c
 uniform vec4 uGlass;                           // amount, kind (0 reeded, 1 facets, 2 ripple), rib width (print px), dispersion
 uniform vec4 uGlassAxis;                       // across the ribs (unit xy), edge light, unused
 uniform float uDitherTransitions; // keep the pattern to where colours change
-uniform int uDitherSpreadOnly;    // Pixel dots: 1 no pattern into black, 2 also only where it blends two bands
+uniform int uDitherSpreadOnly;    // Pixel dots, Only where it blends: 1 no pattern into black, 2 that and only where it blends two bands
 uniform float uDitherSparePop;    // leave the standout colour smooth
 
 // How much the pixel is the standout colour (Colour → Pop), set by
@@ -3931,9 +3931,9 @@ void main() {
     // Outside transitions the pattern is withheld but the step still applies,
     // so a flat area becomes a solid band rather than going back to smooth.
     float allowed = ditherMask(baseUv, l, uDitherSteps);
-    // Big dots: not into black, whose dots have no colour left and read as
-    // black specks in a dark red or blue: there the band steps cleanly. With
-    // Only where it blends, the pattern only where it reads as a blend.
+    // Big dots, Only where it blends: not into black, whose dots have no
+    // colour left and read as black specks in a dark red or blue (there the
+    // band steps cleanly), and only where the pattern reads as a blend.
     if (uDitherSpreadOnly > 0) allowed *= 1.0 - step(floor(field * levels), 0.0);
     if (uDitherSpreadOnly == 2) allowed *= ditherBlendRoom(field, l, levels, axis, baseUv);
     float qf = floor(field * levels + mix(0.5, offset, allowed) + n * uDitherSpread * 0.25 * allowed) / levels;

@@ -1331,8 +1331,9 @@ export interface DitherParams {
    */
   keepLines?: number
   /**
-   * With Pixel dots: the pattern only where it blends two bands; thin strips
-   * and areas that only just reach a band stay solid. Missing: everywhere.
+   * With Pixel dots: the pattern only where it blends two bands, never into
+   * black; thin strips and areas that only just reach a band stay solid.
+   * Missing: everywhere.
    */
   blendOnly?: boolean
   /**

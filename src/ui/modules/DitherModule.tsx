@@ -57,7 +57,7 @@ export function DitherModule({ blend, setEffects, setEditingGuides, editingGuide
             [
               ['fine', 'Fine', 'Single-pixel stipple, as fine as the photo'],
               ['clumps', 'Clumps', 'The dots gathered into soft clumps of the grain, as coarse film grain is'],
-              ['pixel', 'Pixel', 'Square dots several pixels across, as pixel art has. Never dotted into black'],
+              ['pixel', 'Pixel', 'Square dots several pixels across, as pixel art has'],
             ] as const
           ).map(([id, name, title]) => (
             <button
@@ -119,7 +119,7 @@ export function DitherModule({ blend, setEffects, setEditingGuides, editingGuide
         </label>
       )}
       {dots === 'pixel' && (
-        <label className="check-row" title="The pattern only where it blends two colours; thin strips and areas that only just reach a colour stay solid. Off, it goes everywhere.">
+        <label className="check-row" title="The pattern only where it blends two colours, and never into black; thin strips and areas that only just reach a colour stay solid. Off, it goes everywhere.">
           <input type="checkbox" checked={!!dither.blendOnly} onChange={(e) => setEffects({ dither: { ...dither, blendOnly: e.target.checked } })} />
           Only where it blends
         </label>
