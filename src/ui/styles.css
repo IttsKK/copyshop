@@ -2422,10 +2422,9 @@ button.recipe-mix-add { width: 100%; min-height: 28px; border-radius: 7px; margi
 /* Eight styles, four across: two even rows. */
 .field.streak-finishes > .chips { grid-column: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .field.streak-finishes > .chips button { grid-column: auto; width: auto; min-width: 0; font-size: 11.5px; padding-inline: 4px; overflow: hidden; text-overflow: ellipsis; }
-/* Surface's kinds: three across; Your image takes two, so the last row is full too. */
+/* Surface's kinds: three across, three full rows. */
 .segmented.surface-kinds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .segmented.surface-kinds button { min-width: 0; padding-inline: 4px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.segmented.surface-kinds button.wide { grid-column: span 2; }
 /* A streak's kind, over its tabs: five pictures of the way the bars run, one chosen. */
 .segmented.streak-kinds { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 2px 0 6px; }
 .segmented.streak-kinds button { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 0 3px; min-height: 0; font-size: 10.5px; }

@@ -39,7 +39,7 @@ export function SurfaceModule({ blend, setSurface, say }: Props) {
           <button
             key={k.id}
             title={k.hint}
-            className={`${s.kind === k.id ? 'on' : ''}${k.id === 'image' ? ' wide' : ''}`}
+            className={s.kind === k.id ? 'on' : ''}
             // Image with none chosen yet asks for one.
             onClick={() => (k.id === 'image' && !s.image ? file.current?.click() : setSurface({ kind: k.id }))}
           >

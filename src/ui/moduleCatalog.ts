@@ -118,7 +118,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'repeat', title: 'Repeat', category: 'shapes', blurb: 'Copies of a masked part of the photo, on a grid, along a path or placed', keywords: 'repeat copy clone stamp duplicate echo array grid pattern tile' },
   { id: 'kaleido', title: 'Kaleidoscope', category: 'shapes', blurb: 'The photo, or a part of it, copied round a point', keywords: 'kaleidoscope mirror symmetry symmetric radial rotate turn spin mandala twist tunnel reflect fold' },
   { id: 'halftone', title: 'Halftone & riso', category: 'print', blurb: 'Halftone dots or lines, or a two-colour riso print', keywords: 'halftone dots screen print riso risograph zine newspaper comic duotone' },
-  { id: 'surface', title: 'Surface', category: 'print', blurb: 'Paper, canvas or an image of your own under the print', keywords: 'surface texture paper canvas linen watercolour fibre crumpled cracked concrete mesh brushed metal overlay image emboss relief' },
+  { id: 'surface', title: 'Surface', category: 'print', blurb: 'Paper, canvas or an image of your own under the print', keywords: 'surface texture paper canvas linen watercolour fibre crumpled mesh brushed metal overlay image emboss relief' },
   { id: 'border', title: 'Border', category: 'print', blurb: 'A paper border around the image', keywords: 'frame paper edge white' },
   { id: 'dust', title: 'Dust & scratches', category: 'print', blurb: 'Dust, hairs and scratches', keywords: 'defects dirt hair scratch scan' },
   { id: 'surge', title: 'Surge marks', category: 'print', blurb: 'Bands from uneven development', keywords: 'development bands marks' },

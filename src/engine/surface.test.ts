@@ -11,8 +11,8 @@ describe('Surface', () => {
   })
 
   it('reads back what it was saved with, kept in range', () => {
-    const s = parsePreset(doc({ surface: { ...DEFAULT_SURFACE, enabled: true, kind: 'cracked', amount: 2, scale: 9, light: 400, image: 'surface-x', imageName: 'wall' } })).blend.effects.surface!
-    expect(s.kind).toBe('cracked')
+    const s = parsePreset(doc({ surface: { ...DEFAULT_SURFACE, enabled: true, kind: 'mesh', amount: 2, scale: 9, light: 400, image: 'surface-x', imageName: 'wall' } })).blend.effects.surface!
+    expect(s.kind).toBe('mesh')
     expect(s.amount).toBe(1)
     expect(s.scale).toBe(4)
     expect(s.light).toBe(360)
@@ -33,6 +33,6 @@ describe('Surface', () => {
 
   it("numbers its kinds in the shader's order", () => {
     SURFACE_KINDS.forEach((k, i) => expect(surfaceKindIndex(k.id)).toBe(i))
-    expect(SURFACE_KINDS[10].id).toBe('image')
+    expect(SURFACE_KINDS.at(-1)!.id).toBe('image')
   })
 })

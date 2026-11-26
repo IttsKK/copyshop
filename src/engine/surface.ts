@@ -1,6 +1,6 @@
 /**
  * Surface: what the print is on. A paper's tooth, a canvas weave, crumpled
- * paper, cracked paint, an image of your own: a texture over the finished
+ * paper, a fine screen, an image of your own: a texture over the finished
  * picture, border and all, flat or lit as a raised surface.
  *
  * Drawn by a small program of its own after the look's pass (GrainEngine
@@ -12,7 +12,7 @@
  * its own here.
  */
 
-export type SurfaceKind = 'paper' | 'canvas' | 'linen' | 'watercolour' | 'fibre' | 'crumpled' | 'cracked' | 'concrete' | 'mesh' | 'brushed' | 'image'
+export type SurfaceKind = 'paper' | 'canvas' | 'linen' | 'watercolour' | 'fibre' | 'crumpled' | 'mesh' | 'brushed' | 'image'
 
 export interface SurfaceParams {
   enabled: boolean
@@ -55,8 +55,6 @@ export const SURFACE_KINDS: { id: SurfaceKind; label: string; hint: string }[] =
   { id: 'watercolour', label: 'Watercolour', hint: 'Cold-press paper: soft hills and hollows' },
   { id: 'fibre', label: 'Fibre', hint: 'Card with short fibres and specks' },
   { id: 'crumpled', label: 'Crumpled', hint: 'Paper crushed and flattened out' },
-  { id: 'cracked', label: 'Cracked', hint: 'Old paint, cracked into plates' },
-  { id: 'concrete', label: 'Concrete', hint: 'Cast concrete, pitted' },
   { id: 'mesh', label: 'Mesh', hint: 'A fine screen, like a screen door' },
   { id: 'brushed', label: 'Brushed', hint: 'Brushed metal, streaked one way' },
   { id: 'image', label: 'Image', hint: 'An image of your own, repeated' },
@@ -77,8 +75,6 @@ export const SURFACE_GAINS: Record<SurfaceKind, [flat: number, lit: number]> = {
   watercolour: [4.8, 13.5],
   fibre: [5.3, 4.1],
   crumpled: [2.2, 45],
-  cracked: [3.6, 4.4],
-  concrete: [2.4, 5.6],
   mesh: [2.8, 2.2],
   brushed: [4.8, 4.8],
   image: [1, 5.6],
@@ -98,7 +94,7 @@ uniform vec2 uRegionOrigin;   // the part of the print drawn, print px
 uniform vec2 uRegionSize;
 uniform float uUnit;          // print px per surface unit at scale 1: a share of the print's long side, so it looks the same at any size
 uniform float uUnitPx;        // output px per surface unit: the relief is measured over one output pixel
-uniform int uKind;            // SURFACE_KINDS order
+uniform int uKind;            // SURFACE_KINDS order (KIND_INDEX)
 uniform float uAmount;
 uniform float uScale;
 uniform float uRelief;
@@ -141,31 +137,11 @@ float ridged(vec2 p) {
   }
   return h;
 }
-/** Nearest and second-nearest cell points: (distance to the edge between them, this cell's own value). */
-vec2 cells(vec2 p) {
-  vec2 i = floor(p);
-  float f1 = 8.0;
-  float f2 = 8.0;
-  float own = 0.0;
-  for (int y = -1; y <= 1; y++)
-    for (int x = -1; x <= 1; x++) {
-      vec2 c = i + vec2(float(x), float(y));
-      vec2 at = c + vec2(hash21(c + uSeed), hash21(c + uSeed + 17.0)) * 0.8 + 0.1;
-      float d = length(p - at);
-      if (d < f1) {
-        f2 = f1;
-        f1 = d;
-        own = hash21(c + uSeed * 3.0);
-      } else if (d < f2) f2 = d;
-    }
-  return vec2(f2 - f1, own);
-}
-
 /** The surface's height at q (surface units), about -0.5..0.5. Shared by every kind, so relief lights them all alike. */
 float heightAt(vec2 q) {
   float s = uSeed;
   float mottle = noise(q * 0.035 + s * 1.7) - 0.5;
-  if (uKind == 1) {
+  if (uKind == ${KIND_INDEX.canvas}) {
     // Canvas: threads over and under each other, each a little uneven.
     vec2 w = q * 0.3 + s;
     float wob = noise(q * 0.06 + s * 3.1) - 0.5;
@@ -175,17 +151,17 @@ float heightAt(vec2 q) {
     float thread = mix(abs(down), abs(across), over);
     return (thread - 0.6) * 0.6 + mottle * 0.25;
   }
-  if (uKind == 2) {
+  if (uKind == ${KIND_INDEX.linen}) {
     float h = noise(vec2(q.x * 0.04, q.y * 1.1) + s) - 0.5;
     float v = noise(vec2(q.x * 1.1, q.y * 0.04) + s * 2.3) - 0.5;
     return (h + v) * 0.4 + mottle * 0.35;
   }
-  if (uKind == 3) {
+  if (uKind == ${KIND_INDEX.watercolour}) {
     float hill = noise(q * 0.12 + s) - 0.5;
     float small = noise(q * 0.38 + s * 1.3) - 0.5;
     return hill * 0.7 + small * 0.4 + mottle * 0.5;
   }
-  if (uKind == 4) {
+  if (uKind == ${KIND_INDEX.fibre}) {
     float f1 = noise(vec2(q.x * 0.9, q.y * 0.08) + s) - 0.5;
     float f2 = noise(vec2(q.x * 0.08, q.y * 0.9) + s * 1.9) - 0.5;
     float fibre = max(abs(f1), abs(f2));
@@ -194,33 +170,22 @@ float heightAt(vec2 q) {
     float speck = smoothstep(0.8, 0.9, noise(r * 0.5 + s * 5.3)) * smoothstep(0.62, 0.8, noise(r2 * 1.7 + s * 2.9));
     return (fibre - 0.2) * 1.0 + mottle * 0.4 - speck * 1.5;
   }
-  if (uKind == 5) {
+  if (uKind == ${KIND_INDEX.crumpled}) {
     // Crumpled: big creased folds, and the fine wrinkles between them.
     return (ridged(q * 0.008 + s) - 0.55) * 2.4 + (noise(q * 0.2 + s) - 0.5) * 0.1;
   }
-  if (uKind == 6) {
-    // Cracked: plates of paint, each tilted its own way, dark cracks between them.
-    vec2 c = cells(q * 0.025 + s);
-    float crack = 1.0 - smoothstep(0.0, 0.06, c.x);
-    return (c.y - 0.5) * 0.25 + mottle * 0.3 - crack * 1.2;
-  }
-  if (uKind == 7) {
-    // Concrete: mottled, with small pits.
-    float pit = smoothstep(0.8, 0.88, noise(q * 0.1 + s * 4.1));
-    return mottle * 1.2 + (noise(q * 0.7 + s) - 0.5) * 0.4 - pit * 1.4;
-  }
-  if (uKind == 8) {
+  if (uKind == ${KIND_INDEX.mesh}) {
     // Mesh: a fine woven screen.
     vec2 g = abs(sin(q * 0.9 + s));
     return (min(g.x, g.y) - 0.35) * 1.2 + mottle * 0.15;
   }
-  if (uKind == 9) {
+  if (uKind == ${KIND_INDEX.brushed}) {
     // Brushed: fine streaks one way.
     float streak = noise(vec2(q.x * 0.015, q.y * 1.4) + s) - 0.5;
     float fine = noise(vec2(q.x * 0.05, q.y * 4.0) + s * 2.0) - 0.5;
     return streak * 0.9 + fine * 0.5;
   }
-  if (uKind == 10) {
+  if (uKind == ${KIND_INDEX.image}) {
     vec3 c = texture(uImage, q / uImageSize).rgb;
     return (dot(c, vec3(0.2126, 0.7152, 0.0722)) - uImageMean) / max(uImageSd, 0.02);
   }
@@ -245,7 +210,7 @@ void main() {
   // A slight texture, not an overlay: about 6% either way at full strength, its peaks (cracks, pits) eased off.
   float t = uAmount * SPREAD * s / sqrt(1.0 + s * s * 0.25);
   vec3 tone = vec3(t);
-  if (uKind == 10 && uColour > 0.0) {
+  if (uKind == ${KIND_INDEX.image} && uColour > 0.0) {
     // Its colour too: how far each channel is from its grey.
     vec3 img = texture(uImage, q / uImageSize).rgb;
     tone += (img - dot(img, vec3(0.2126, 0.7152, 0.0722))) * uColour * uAmount * 0.25;

@@ -318,8 +318,7 @@ const SURFACE: Builtin[] = [
   surface('Fine art paper', { kind: 'watercolour', amount: 0.45, relief: 0.5 }),
   surface('Canvas print', { kind: 'canvas', amount: 0.6, relief: 0.7, scale: 1.2 }),
   surface('Crumpled flyer', { kind: 'crumpled', amount: 0.7, relief: 0.9 }),
-  surface('Cracked paint', { kind: 'cracked', amount: 0.6, relief: 0.6 }),
-  surface('Old wall', { kind: 'concrete', amount: 0.55, relief: 0.6, scale: 1.5 }),
+  surface('Card stock', { kind: 'fibre', amount: 0.5, relief: 0.5 }),
 ]
 
 /* ------------------------------------------------------ dust & scratches */
