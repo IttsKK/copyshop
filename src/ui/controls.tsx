@@ -1138,27 +1138,6 @@ export function Shuffle({ onShuffle, what }: { onShuffle: () => void; what: stri
 /** Show another module where it lives, open (App: showModuleNow). */
 export const showModule = (id: string) => window.dispatchEvent(new CustomEvent('grain:show-module', { detail: id }))
 
-/**
- * Modules that make something like this one, at its foot: "Similar: Pixel
- * art · Halftone", each going to that module, open; what each makes is its
- * tooltip ("Bigger squares, fewer colours").
- */
-export function SeeAlso({ links }: { links: [string, string, string][] }) {
-  return (
-    <p className="see-also">
-      Similar:{' '}
-      {links.map(([want, id, name], i) => (
-        <span key={id}>
-          {i > 0 && ' · '}
-          <button className="link" title={`${want}: opens ${name}`} onClick={() => showModule(id)}>
-            {name}
-          </button>
-        </span>
-      ))}
-    </p>
-  )
-}
-
 export function ModuleActions({ children }: { children: ReactNode }) {
   return <div className="module-actions-row">{children}</div>
 }

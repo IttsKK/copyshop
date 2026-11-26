@@ -5633,7 +5633,7 @@ export function App() {
     if (!rightOpen) setRightOpen(true)
     showModuleNow(id, 'grain:open-module-mask')
   }
-  // Another module from a module's own link (SeeAlso): shown where it lives, open.
+  // Another module asked for by name (showModule): shown where it lives, open.
   const showModuleRef = useRef<(id: StackModuleId) => void>(() => undefined)
   showModuleRef.current = (id) => {
     if (!rightOpen) setRightOpen(true)

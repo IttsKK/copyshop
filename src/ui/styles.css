@@ -285,9 +285,9 @@ button.icon:hover { color: var(--text); background: none; }
 
 .field > span:first-child {
   color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* A long name takes a second line rather than being cut off. */
+  line-height: 1.25;
+  overflow-wrap: break-word;
 }
 
 /* Controls with no readout span the value column rather than needing a spacer. */
@@ -3262,10 +3262,6 @@ input[type="range"].tinted::-moz-range-progress { background: transparent; }
 .fill-head:hover .fill-grip { opacity: 0.9; }
 .fill-window > .fill-done { order: 99; justify-content: flex-end; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--sheet-line, #33363d); }
 .fill-marked { margin: -2px 0 0; color: var(--muted); font-size: 11.5px; }
-
-/* A module's look-alikes, at its foot (SeeAlso): where to go for something like it. */
-.see-also { margin: 10px 0 2px; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
-.see-also .link { font-size: 11.5px; }
 
 /* New in this version (whatsNew.ts): a small tag by a module's name, until it is opened. */
 .new-tag { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 3px; font-size: 9.5px; font-weight: 600; line-height: 15px; letter-spacing: 0.02em; text-transform: uppercase; color: #1b1c1f; background: var(--accent); vertical-align: 1px; }
