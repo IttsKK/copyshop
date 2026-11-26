@@ -351,6 +351,19 @@ function bySize(masks: Uint8Array[], scores: number[], areas: number[], pick: nu
   return { masks: order.map((i) => masks[i]), scores: order.map((i) => scores[i]), best: order.indexOf(pick) }
 }
 
+/** How much two selections are the same thing, intersection over union, 0..1. */
+function overlap(a: Uint8Array, b: Uint8Array): number {
+  let both = 0
+  let either = 0
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] && b[i]) both++
+    if (a[i] || b[i]) either++
+  }
+  return either ? both / either : 1
+}
+/** The closer look is kept when it overlaps the first answer at least this much. */
+const SAME_THING = 0.6
+
 /** A grid scaled to another size, nearest cell. */
 function scaleGrid(src: Uint8Array, w: number, h: number, W: number, H: number): Uint8Array {
   const out = new Uint8Array(W * H)
@@ -465,12 +478,22 @@ async function sharpen(gen: number, r: Ready, photo: ImageBitmap, picks: Pick[],
         }
       }
       const masks = sel1.masks.map((m, i) => (i === sel1.best ? full : scaleGrid(m, W, H, FW, FH)))
+      // Only a closer look at the same thing: the box round a thin, spread-out
+      // subject (clouds) takes in most of the sky, and the second answer was the
+      // sky, so Part came back as the whole of it. Kept only if it is mostly
+      // what was found first.
+      if (overlap(full, scaleGrid(sel1.masks[sel1.best], W, H, FW, FH)) < SAME_THING) return false
       opts.onBetter?.({ width: FW, height: FH, masks, scores: sel1.scores, best: sel1.best, precise: true, sharp: true })
+      return true
     }
     let found = second.masks[choose(second.scores, second.areas, true)]
     if (gen !== generation) return
     // The closer look first (a second after the click); the traced edge replaces it when it is ready.
-    send(found)
+    // Something else entirely (most of the sky for a cloud): the first answer stays, and isn't traced either.
+    if (!send(found)) {
+      opts.onStage?.(null)
+      return
+    }
     track('perf', 'precise_zoom', r.devices.slice(0, 60), Math.round(performance.now() - t0))
     // The edge traced by BiRefNet, where it runs.
     const edgeModel = await r.edge
