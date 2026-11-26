@@ -842,7 +842,8 @@ export class GrainEngine {
     if (!gl.getProgramParameter(b.program, gl.LINK_STATUS)) {
       const log = (gl.getShaderInfoLog(b.fs) || gl.getProgramInfoLog(b.program) || '').slice(0, 500)
       this.mainFailed[key] = log || 'no reason given'
-      engineReport?.('error', `Shader failed to build: ${what}`, { seconds: Math.round(ms / 100) / 10, log, lost: gl.isContextLost(), gpu: this.gpuName() })
+      // On a lost context every build fails: that is the lost GPU (reported on its own), not this shader.
+      engineReport?.(gl.isContextLost() ? 'info' : 'error', `Shader failed to build: ${what}`, { seconds: Math.round(ms / 100) / 10, log, lost: gl.isContextLost(), gpu: this.gpuName() })
       gl.deleteProgram(b.program)
       gl.deleteShader(b.vs)
       gl.deleteShader(b.fs)
@@ -1207,7 +1208,7 @@ export class GrainEngine {
     if (!gl.getProgramParameter(b.program, gl.LINK_STATUS)) {
       const log = (gl.getShaderInfoLog(b.fs) || gl.getProgramInfoLog(b.program) || '').slice(0, 500)
       this.leanFailed[name] = log || 'no reason given'
-      engineReport?.('error', `Shader failed to build: streaks (${name})`, { log, lost: gl.isContextLost(), gpu: this.gpuName() })
+      engineReport?.(gl.isContextLost() ? 'info' : 'error', `Shader failed to build: streaks (${name})`, { log, lost: gl.isContextLost(), gpu: this.gpuName() })
       gl.deleteProgram(b.program)
       gl.deleteShader(b.vs)
       gl.deleteShader(b.fs)
