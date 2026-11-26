@@ -1120,10 +1120,11 @@ export function PreviewCanvas({
       }
 
       // Dragging something on a slow look: a draft now, the full render on release.
-      const draft =
-        pointerHeld.current && fullCost.current > DRAFT_ABOVE_MS
-          ? clamp(Math.sqrt(DRAFT_TARGET_MS / fullCost.current), 0.5, 1)
-          : 1
+      // In three steps, not any size: each new size makes the engine let go
+      // of its streak and layer textures (hundreds of MB) and make new ones,
+      // and a size worked out from each render's time changed every render.
+      const fit = clamp(Math.sqrt(DRAFT_TARGET_MS / fullCost.current), 0.5, 1)
+      const draft = pointerHeld.current && fullCost.current > DRAFT_ABOVE_MS ? (fit < 0.6 ? 0.5 : fit < 0.85 ? 0.71 : 1) : 1
       drewDraft.current = draft < 1
       // Every layer's picture, or the ones not here yet asked for: until they
       // are, the last picture stays up (moved to this view if it changed),

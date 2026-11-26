@@ -288,6 +288,7 @@ async function encode(r: Ready, photo: ImageBitmap, rect: Rect | null, side: num
 
 /** The whole photo worked out ahead of the first click. */
 export async function preparePrecise(photo: ImageBitmap, parts: PrecisePart[]): Promise<void> {
+  stayLoaded()
   const r = await load(parts)
   let job = encoded.get(photo)
   if (!job) {
@@ -371,6 +372,7 @@ const SETTLE_MS = 400
 /** Precise selection for clicks (and a box), in fractions of the photo. */
 export async function preciseSegment(photo: ImageBitmap, picks: Pick[], box: PickBox | null, parts: PrecisePart[], opts: PreciseOptions = {}): Promise<Selection | null> {
   if (!picks.length && !box) return null
+  stayLoaded()
   const gen = ++generation
   const r = await load(parts)
   await preparePrecise(photo, parts)
@@ -498,6 +500,28 @@ async function sharpen(gen: number, r: Ready, photo: ImageBitmap, picks: Pick[],
     ensureWorker().postMessage({ type: 'drop', job: `${key}e` } satisfies ToPrecise)
     void r.find.forget(`${key}/`).catch(() => undefined)
   }
+}
+
+/** How long the models stay loaded after picking ends: long enough to pick again soon, not to hold gigabytes all session. */
+const IDLE_MS = 120_000
+let idleTimer: ReturnType<typeof setTimeout> | null = null
+const stayLoaded = () => {
+  if (idleTimer) clearTimeout(idleTimer)
+  idleTimer = null
+}
+
+/**
+ * Picking is over (Done or Cancel): a sharper selection still on its way is
+ * dropped at its next step, and the models are let go of once unused for a
+ * while (loaded, they hold the photo's work and the edge model's memory).
+ */
+export function precisePickingDone(): void {
+  generation++
+  stayLoaded()
+  idleTimer = setTimeout(() => {
+    idleTimer = null
+    closePrecise()
+  }, IDLE_MS)
 }
 
 /** Lets go of the models (precise selection removed, or switched off). */

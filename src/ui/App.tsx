@@ -85,7 +85,7 @@ import type { GrainSource, GrainTexture, SerializedGrainSource } from '../source
 import type { ProceduralGrainParams } from '../sources/generateGrain'
 import { hydrateGrainSource } from '../sources/GrainSource'
 import { newId, onSaveFailed, onStorageBlocked, storageUnavailableReason } from '../storage/db'
-import { defaultReading, prepareSegmenter, segment, type Selection } from '../ml/segment'
+import { defaultReading, prepareSegmenter, segment, segmentingDone, type Selection } from '../ml/segment'
 import { cleanSelection } from '../ml/trace'
 import {
   ARCHIVE_DIR,
@@ -3629,6 +3629,8 @@ export function App() {
   const finishPicking = (keep: boolean) => {
     if (!picking) return
     pickRun.current++
+    // No sharper selection after Done or Cancel; the models let go when unused.
+    segmentingDone()
     const from = pickStartIndex.current
     pickStartIndex.current = null
     if (!keep && from !== null && history.view().current > from) {

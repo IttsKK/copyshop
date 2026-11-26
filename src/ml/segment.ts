@@ -49,13 +49,15 @@ export interface Selection {
  * failed to start in a browser, the small model from then on.
  */
 let preciseBroken = false
+/** Precise selection's module, once a pick has used it. */
+let preciseUsed: typeof import('./precise/precise') | null = null
 async function precise() {
   if (preciseBroken) return null
   const { preciseStore, webPreciseHere } = await import('./precise/models')
   const s = preciseStore.get()
-  if (s.kind === 'installed') return { parts: s.parts, mod: await import('./precise/precise') }
+  if (s.kind === 'installed') return { parts: s.parts, mod: (preciseUsed = await import('./precise/precise')) }
   if (!webPreciseHere()) return null
-  const mod = await import('./precise/precise')
+  const mod = (preciseUsed = await import('./precise/precise'))
   mod.preciseFromSite()
   return { parts: ['find'] as ('find' | 'edge')[], mod }
 }
@@ -144,6 +146,11 @@ function lose(why: string, extra: Record<string, unknown> = {}): void {
  * worker, freeing their memory for drawing (a phone runs out with both). The
  * next selection loads the model again. Not while a selection is running.
  */
+/** Picking is over: precise selection stops sharpening and lets its models go after a while (see precisePickingDone). */
+export function segmentingDone(): void {
+  preciseUsed?.precisePickingDone()
+}
+
 export function releaseSegmenter(): void {
   const was = worker
   if (!was || waiting.size) return
