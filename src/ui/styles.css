@@ -422,6 +422,8 @@ progress { width: 100%; accent-color: var(--accent); }
   padding: 6px 8px;
 }
 .menu-item:hover:not(:disabled) { background: #33363d; }
+/* A menu taller than its cap scrolls; its rows keep their height rather than squeezing into each other. */
+.menu > * { flex-shrink: 0; }
 
 button.icon.wide { padding: 4px 8px; font-size: 13px; }
 button.icon.wide.on { color: var(--accent); }
