@@ -67,8 +67,6 @@ export interface PickingState {
   clicks: number
   /** Selecting a selection again: clicks add to it and take parts out of it. */
   adding?: boolean
-  /** Leave the selection there out: the clicks alone make it. */
-  onStartOver?: () => void
   /** The reading shown, smallest (0) to largest (2). */
   shown: number
   busy: boolean
@@ -126,11 +124,6 @@ export function PickPanel({ p, onPickReading }: { p: PickingState; onPickReading
               </button>
             ))}
           </div>
-        )}
-        {p.adding && p.onStartOver && (
-          <button title="Leave the selection that was there out: only what you click is selected" onClick={p.onStartOver}>
-            Start over
-          </button>
         )}
         <PreciseOffer />
       </div>

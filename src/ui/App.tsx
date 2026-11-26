@@ -4709,12 +4709,6 @@ export function App() {
           clicks: picking.picks.length + (picking.box ? 1 : 0),
           // Selecting a selection again: there is something to leave parts out of from the start.
           adding: !!pickBase.current,
-          // Not adding to it after all: the clicks alone make the selection, from the next.
-          onStartOver: () => {
-            pickBase.current = null
-            runPicks(picking)
-            setStatus('Starting over: click the subject, or box it')
-          },
           shown: picking.shown,
           busy: picking.busy,
           leaveOut: !!picking.leaveOut,
