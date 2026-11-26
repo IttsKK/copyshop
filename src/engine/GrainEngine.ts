@@ -20,7 +20,7 @@ import { COLLAGE_FRAGMENT, collageLayers, lookupCollageImage, type CollageLayer 
 import { defectKey, generateDefectLayer } from '../sources/defects'
 import { DEFAULT_GLASS, EDGE_KINDS, PAPER_KINDS, REFERENCE_PLATE_SD, glassAmount } from './types'
 import { FRAGMENT_SHADER, FRAGMENT_SHADER_LIGHT, TILING_MIRROR, TILING_REPEAT, TILING_STOCHASTIC, VERTEX_SHADER } from './shaders'
-import { SURFACE_FRAGMENT, surfaceKindIndex, surfaceOn } from './surface'
+import { SURFACE_FRAGMENT, SURFACE_GAINS, SURFACE_UNITS, surfaceKindIndex, surfaceOn } from './surface'
 import { sizeOf, surfaceImageOf } from './surfaceImages'
 import {
   MAX_BAND_GUIDES,
@@ -3538,8 +3538,8 @@ export class GrainEngine {
 
   private surfaceProgram: WebGLProgram | null = null
   private surfaceCache: CachedTexture | null = null
-  /** Each surface image's mean brightness, worked out once. */
-  private surfaceMeans = new WeakMap<object, number>()
+  /** Each surface image's mean brightness and spread, worked out once. */
+  private surfaceTones = new WeakMap<object, { mean: number; sd: number }>()
 
   /**
    * The surface (engine/surface.ts): its own small program after the look's
@@ -3568,21 +3568,27 @@ export class GrainEngine {
     gl.activeTexture(gl.TEXTURE0)
     const was = gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null
     let size = { width: 1, height: 1 }
-    let mean = 0.5
+    let tone = { mean: 0.5, sd: 0.2 }
     if (image) {
       this.surfaceCache = this.upload(this.surfaceCache, image, 0, gl.REPEAT)
       size = sizeOf(image)
-      mean = this.surfaceMeanOf(image, size)
+      tone = this.surfaceToneOf(image, size)
     } else {
       gl.bindTexture(gl.TEXTURE_2D, this.blankTexture())
     }
     gl.uniform1i(loc('uImage'), 0)
     gl.uniform2f(loc('uImageSize'), size.width, size.height)
-    gl.uniform1f(loc('uImageMean'), mean)
+    gl.uniform1f(loc('uImageMean'), tone.mean)
+    gl.uniform1f(loc('uImageSd'), tone.sd)
     gl.uniform2f(loc('uRegionOrigin'), region.x, region.y)
     gl.uniform2f(loc('uRegionSize'), region.width, region.height)
-    gl.uniform1f(loc('uPixelScale'), pixelScaleOf(req.params))
-    gl.uniform1f(loc('uUnitPx'), (width / Math.max(1, region.width)) * pixelScaleOf(req.params) * Math.max(0.05, s.scale))
+    const print = printSizeOf(req.baseSize, req.params)
+    const unit = Math.max(print.width, print.height) / SURFACE_UNITS
+    gl.uniform1f(loc('uUnit'), unit)
+    gl.uniform1f(loc('uUnitPx'), (width / Math.max(1, region.width)) * unit * Math.max(0.05, s.scale))
+    const [flat, lit] = SURFACE_GAINS[s.kind] ?? [1, 1]
+    gl.uniform1f(loc('uFlatGain'), flat)
+    gl.uniform1f(loc('uLitGain'), lit)
     gl.uniform1i(loc('uKind'), surfaceKindIndex(s.kind))
     gl.uniform1f(loc('uAmount'), s.amount)
     gl.uniform1f(loc('uScale'), Math.max(0.05, s.scale))
@@ -3603,20 +3609,27 @@ export class GrainEngine {
     gl.useProgram(this.program)
   }
 
-  /** An image's mean brightness, from a small copy of it. */
-  private surfaceMeanOf(image: TextureSource, size: { width: number; height: number }): number {
+  /** An image's mean brightness and its spread, from a small copy of it. */
+  private surfaceToneOf(image: TextureSource, size: { width: number; height: number }): { mean: number; sd: number } {
     const key = image as unknown as object
-    const known = this.surfaceMeans.get(key)
-    if (known !== undefined) return known
-    let mean = 0.5
+    const known = this.surfaceTones.get(key)
+    if (known) return known
+    const tone = { mean: 0.5, sd: 0.2 }
     const px = samplePixels(image, size.width, size.height, 64)
     if (px) {
       let sum = 0
-      for (let i = 0; i < px.length; i += 4) sum += (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255
-      mean = sum / (px.length / 4)
+      let sq = 0
+      const n = px.length / 4
+      for (let i = 0; i < px.length; i += 4) {
+        const y = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255
+        sum += y
+        sq += y * y
+      }
+      tone.mean = sum / n
+      tone.sd = Math.sqrt(Math.max(0, sq / n - tone.mean * tone.mean))
     }
-    this.surfaceMeans.set(key, mean)
-    return mean
+    this.surfaceTones.set(key, tone)
+    return tone
   }
 
   /**

@@ -62,6 +62,28 @@ export const SURFACE_KINDS: { id: SurfaceKind; label: string; hint: string }[] =
   { id: 'image', label: 'Image', hint: 'An image of your own, repeated' },
 ]
 
+/** Surface units across the print's long side at Size 1: its features a share of the print, so a preview and an export look alike. */
+export const SURFACE_UNITS = 1200
+
+/**
+ * Each kind's gains, flat and lit, that bring its texture to the same
+ * spread (about 1), so a strength looks alike on all of them. Measured on
+ * flat grey (the spread of each, Strength 1, Relief 0 and 1).
+ */
+export const SURFACE_GAINS: Record<SurfaceKind, [flat: number, lit: number]> = {
+  paper: [6.9, 17],
+  canvas: [5.1, 4.3],
+  linen: [6.8, 8.5],
+  watercolour: [4.8, 13.5],
+  fibre: [5.3, 4.1],
+  crumpled: [2.2, 45],
+  cracked: [3.6, 4.4],
+  concrete: [2.4, 5.6],
+  mesh: [2.8, 2.2],
+  brushed: [4.8, 4.8],
+  image: [1, 5.6],
+}
+
 const KIND_INDEX: Record<SurfaceKind, number> = Object.fromEntries(SURFACE_KINDS.map((k, i) => [k.id, i])) as Record<SurfaceKind, number>
 export const surfaceKindIndex = (k: SurfaceKind) => KIND_INDEX[k] ?? 0
 
@@ -74,7 +96,7 @@ in vec2 vUv;
 out vec4 outColor;
 uniform vec2 uRegionOrigin;   // the part of the print drawn, print px
 uniform vec2 uRegionSize;
-uniform float uPixelScale;    // print px per surface unit at scale 1 (the look's, so it sits the same at any size)
+uniform float uUnit;          // print px per surface unit at scale 1: a share of the print's long side, so it looks the same at any size
 uniform float uUnitPx;        // output px per surface unit: the relief is measured over one output pixel
 uniform int uKind;            // SURFACE_KINDS order
 uniform float uAmount;
@@ -86,7 +108,11 @@ uniform float uSeed;
 uniform sampler2D uImage;     // kind image
 uniform vec2 uImageSize;      // its size, px
 uniform float uImageMean;     // its mean brightness
+uniform float uImageSd;       // and how far it strays from it
 uniform float uColour;        // kind image: how much of its colour
+uniform float uFlatGain;      // this kind's SURFACE_GAINS
+uniform float uLitGain;
+const float SPREAD = 0.03;
 
 float hash21(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
@@ -196,7 +222,7 @@ float heightAt(vec2 q) {
   }
   if (uKind == 10) {
     vec3 c = texture(uImage, q / uImageSize).rgb;
-    return dot(c, vec3(0.2126, 0.7152, 0.0722)) - uImageMean;
+    return (dot(c, vec3(0.2126, 0.7152, 0.0722)) - uImageMean) / max(uImageSd, 0.02);
   }
   // Paper: tooth and mottle.
   float tooth = noise(q * 0.5 + s) - 0.5;
@@ -205,23 +231,24 @@ float heightAt(vec2 q) {
 
 void main() {
   vec2 printPx = uRegionOrigin + vUv * uRegionSize;
-  // Surface units: the look's pixel scale and the chosen size, turned about the print's corner.
+  // Surface units: a share of the print and the chosen size, turned about the print's corner.
   float c = cos(uTurn);
   float sn = sin(uTurn);
-  vec2 q = mat2(c, sn, -sn, c) * (printPx / (uPixelScale * uScale));
+  vec2 q = mat2(c, sn, -sn, c) * (printPx / (uUnit * uScale));
   float h = heightAt(q);
-  // Lit as a raised surface: its slope toward the light.
+  // Lit as a raised surface: its slope toward the light, per surface unit.
   // (Forward differences: three heights a pixel, not five; small programs build quickly on Windows too.)
   float e = max(0.75, 1.0 / max(uUnitPx, 1e-3));
-  float dx = (heightAt(q + vec2(e, 0.0)) - h) * 2.0;
-  float dy = (heightAt(q + vec2(0.0, e)) - h) * 2.0;
-  float lit = dot(vec2(dx, dy), -uLight) * 1.5;
-  float t = mix(h * 0.35, lit, uRelief) * uAmount;
+  vec2 slope = vec2(heightAt(q + vec2(e, 0.0)) - h, heightAt(q + vec2(0.0, e)) - h) / e;
+  // Each kind brought to the same spread, flat or lit (SURFACE_GAINS), so Strength means the same on all of them.
+  float s = mix(h * uFlatGain, dot(slope, -uLight) * uLitGain, uRelief);
+  // A slight texture, not an overlay: about 6% either way at full strength, its peaks (cracks, pits) eased off.
+  float t = uAmount * SPREAD * s / sqrt(1.0 + s * s * 0.25);
   vec3 tone = vec3(t);
   if (uKind == 10 && uColour > 0.0) {
     // Its colour too: how far each channel is from its grey.
     vec3 img = texture(uImage, q / uImageSize).rgb;
-    tone += (img - dot(img, vec3(0.2126, 0.7152, 0.0722))) * uColour * uAmount;
+    tone += (img - dot(img, vec3(0.2126, 0.7152, 0.0722))) * uColour * uAmount * 0.25;
   }
   // Twice multiply: 0.5 leaves the picture, below darkens, above lightens.
   outColor = vec4(clamp(0.5 + tone, 0.02, 1.0), 1.0);
