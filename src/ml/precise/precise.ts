@@ -226,8 +226,11 @@ function loadApp(parts: PrecisePart[]): Promise<Ready> {
     const dec = await precisePath('sam', 'prompt_encoder_mask_decoder_fp16.onnx')
     const d1 = await findHere.load('sam_enc', enc, `${enc}_data`)
     const d2 = await findHere.load('sam_dec', dec, `${dec}_data`)
+    // The edge model only where it has a GPU (Windows, DirectML: about 3 s). On the CPU (a
+    // Mac, Linux) it took 45 s a click and most of the machine, for an edge the closer look
+    // already makes clean; and not loaded, its 490 MB stays on the disk.
     const edge: Promise<Runner | null> =
-      parts.includes('edge') && info.native
+      parts.includes('edge') && info.native && info.gpu !== null
         ? precisePath('edge', 'model_fp16.onnx')
             .then((path) => native.load('biref', path))
             .then((d3) => {
