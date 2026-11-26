@@ -553,8 +553,11 @@ export function App() {
   /** The mask being painted as it was when the stroke began. */
   const strokeBase = useRef<MaskShape | null>(null)
   const strokeCount = useRef(0)
+  /** A brush stroke under way: a subject streak follows its subject when the stroke ends, not at every step (tracing it takes a tenth of a second). */
+  const stroking = useRef(false)
   const paintStroke = (points: { x: number; y: number }[], done: boolean) => {
     if (!brushing || !image) return
+    stroking.current = !done
     const i = brushing.index
     const now = blend.effects.masks[i]
     if (!now?.raster) return
@@ -3140,7 +3143,7 @@ export function App() {
    * same change.
    */
   const followSubjects = (was: EffectParams, next: EffectParams): EffectParams => {
-    if (next.masks === was.masks || !streakSpace) return next
+    if (next.masks === was.masks || !streakSpace || stroking.current) return next
     let changed = false
     const shapes = next.streaks.shapes.map((sh) => {
       if (!sh.subject) return sh

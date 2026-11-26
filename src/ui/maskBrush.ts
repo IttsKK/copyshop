@@ -135,7 +135,8 @@ export function paintRaster(
     const steps = Math.max(1, Math.ceil(Math.hypot(c.x - prev.x, c.y - prev.y) / Math.max(0.5, radius / 2)))
     for (let k = 1; k <= steps; k++) stamp(prev.x + ((c.x - prev.x) * k) / steps, prev.y + ((c.y - prev.y) * k) / steps)
   })
-  const any = (g: Uint8Array) => g.some((v) => v === 1)
+  // indexOf, not some(): a callback per cell took 18 ms for each of 2400 px selection's layers, every brush step.
+  const any = (g: Uint8Array) => g.indexOf(1) !== -1
   const raster: MaskRaster = { ...r }
   delete raster.paintIn
   delete raster.paintSure

@@ -17,6 +17,29 @@ export const SUBJECT_INSET = 0.008
 /** Points in a subject streak's outline: enough to follow the edge, few enough to move by hand. */
 const SUBJECT_POINTS = 140
 
+/** The longest side a subject is traced at. */
+const TRACE_SIDE = 800
+
+/** A selection f times smaller each way: a cell is in where at least half of what it covers is. */
+function coarse(grid: Uint8Array, w: number, h: number, f: number): { grid: Uint8Array; w: number; h: number } {
+  if (f <= 1) return { grid, w, h }
+  const cw = Math.ceil(w / f)
+  const ch = Math.ceil(h / f)
+  const sum = new Uint16Array(cw * ch)
+  const count = new Uint16Array(cw * ch)
+  for (let y = 0; y < h; y++) {
+    const row = Math.floor(y / f) * cw
+    for (let x = 0; x < w; x++) {
+      const k = row + Math.floor(x / f)
+      count[k]++
+      if (grid[y * w + x]) sum[k]++
+    }
+  }
+  const out = new Uint8Array(cw * ch)
+  for (let k = 0; k < out.length; k++) out[k] = sum[k] * 2 >= count[k] ? 1 : 0
+  return { grid: out, w: cw, h: ch }
+}
+
 /** A raster cell's size in print px, across and down. */
 function cellSize(raster: MaskRaster, space: StreakSpace) {
   return { x: (raster.width * space.frame.width) / raster.w, y: (raster.height * space.frame.height) / raster.h }
@@ -28,11 +51,15 @@ function cellSize(raster: MaskRaster, space: StreakSpace) {
  * shapes are kept in. Null when the subject is too thin to take in that far.
  */
 export function subjectOutline(raster: MaskRaster, inset: number, space: StreakSpace): Point[] | null {
-  const grid = rasterCover(raster)
+  // Traced on a grid no more than TRACE_SIDE across: SUBJECT_POINTS points
+  // need no more, and taking a 2400 px selection in took over half a second
+  // (each brush stroke on a subject waits for it).
+  const f = Math.max(1, Math.ceil(Math.max(raster.w, raster.h) / TRACE_SIDE))
+  const { grid, w, h } = coarse(rasterCover(raster), raster.w, raster.h, f)
   const cell = cellSize(raster, space)
-  const cells = (inset * space.measure.unit) / Math.max(1e-6, (cell.x + cell.y) / 2)
-  const inner = insetSelection(grid, raster.w, raster.h, cells)
-  const traced = traceSelection(inner, raster.w, raster.h, SUBJECT_POINTS, false)
+  const cells = (inset * space.measure.unit) / Math.max(1e-6, (cell.x + cell.y) / 2) / f
+  const inner = insetSelection(grid, w, h, cells)
+  const traced = traceSelection(inner, w, h, SUBJECT_POINTS, false)
   return traced?.map((p) => ({ x: raster.x + p.x * raster.width, y: raster.y + p.y * raster.height })) ?? null
 }
 

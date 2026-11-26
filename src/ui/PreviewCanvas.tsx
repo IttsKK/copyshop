@@ -313,6 +313,8 @@ export function PreviewCanvas({
   // The stroke as it goes, and when it was last painted into the mask.
   const strokeRef = useRef<{ x: number; y: number }[]>([])
   const paintedAt = useRef(0)
+  /** How long the last step of a brush stroke took to paint in. */
+  const paintCost = useRef(0)
   /** The photo whose first full picture was last reported (onFresh). */
   const freshFor = useRef<CanvasImageSource | null>(null)
   /**
@@ -1551,10 +1553,13 @@ export function PreviewCanvas({
       setStroke(strokeRef.current)
       // Into the mask as it goes, a few times a second: the effect follows the brush.
       const now = performance.now()
-      if (maskBrush?.onPaint && now - paintedAt.current > 70) {
-        paintedAt.current = now
+      // Never more than a third of the time on it, so a big selection (each
+      // step re-made, and the render after it) leaves the pointer moving.
+      if (maskBrush?.onPaint && now - paintedAt.current > Math.max(70, paintCost.current * 3)) {
         const pts = strokeOnPhoto(strokeRef.current)
         if (pts.length) maskBrush.onPaint(pts)
+        paintedAt.current = performance.now()
+        paintCost.current = paintedAt.current - now
       }
       return
     }
