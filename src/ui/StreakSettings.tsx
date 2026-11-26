@@ -927,8 +927,8 @@ export function StreakSettings({ index, shape, aspect, onPreview, editBox, toolB
                 </>
               ) : (
                 <div className="row">
-                  <button className={subject.reselecting ? 'on' : ''} title="Click parts of the photo to add them to the subject, or Option-click to leave them out; the rest stays" onClick={subject.onReselect}>
-                    Select parts
+                  <button className={subject.reselecting ? 'on' : ''} title="Click the subject again, or add and take away parts of it" onClick={subject.onReselect}>
+                    Select the subject again
                   </button>
                 </div>
               )}

@@ -227,8 +227,8 @@ export function MaskSettings({ mask: m, index: i, hasImage, picking, brushing, o
                         </button>
                       </div>
                       {glyph !== 'paint' && (
-                        <button disabled={!hasImage || picking} title="Click parts of the photo to add them, or Option-click to leave them out; the rest of the selection stays" onClick={() => onPick(i)}>
-                          Select parts
+                        <button disabled={!hasImage || picking} title="Select the subject again, from nothing" onClick={() => onPick(i)}>
+                          Select again
                         </button>
                       )}
                     </div>
@@ -956,8 +956,8 @@ export function BrushBox({
         />
       )}
       {onSelectAgain && (
-        <button className="link" title={`Click parts of the photo to add them to the ${what}, or Option-click to leave them out; the rest stays`} onClick={onSelectAgain}>
-          Select parts instead
+        <button className="link" title={`Select the ${what} again from nothing: click it or drag a box round it`} onClick={onSelectAgain}>
+          Select it again instead
         </button>
       )}
     </div>
