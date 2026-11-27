@@ -437,7 +437,7 @@ const leakCode = (spot: LeakSpot) => (spot.kind === 'burn' ? 1 : spot.lightMode 
 /** Whether a light is held behind the streaks (its edge then follows their bars' ends). */
 const lightBehind = (spots: LeakSpot[]) => spots.some((s) => s.hold?.behindStreaks)
 
-export type EngineReport = (level: 'warning' | 'error', message: string, extra?: Record<string, unknown>) => void
+export type EngineReport = (level: 'info' | 'warning' | 'error', message: string, extra?: Record<string, unknown>) => void
 let engineReport: EngineReport | null = null
 
 /**
@@ -465,8 +465,31 @@ const CROSS_ROW = MAX_STREAKS * 2 * PATH_LEVELS
  */
 const FEW = { masks: 2, leaks: 1, leakPath: 4, endSamples: 4, streaks: 1 }
 
-/** A shader build this slow is reported. */
+/**
+ * The dither's own dots, in print px: 1.5, the size the stippled recipes
+ * had from their grain (Scale 1.5); one pixel is a speckle that reads harsh.
+ */
+const DITHER_DOT = 1.5
+
+/** A shader build this slow is noted (a breadcrumb for the next report)… */
 const SLOW_COMPILE_MS = 1500
+/** …and this slow, reported: on Windows a few seconds is usual (FXC), this is a wait someone sees. */
+const REPORT_COMPILE_MS = 10_000
+const compileLevel = (ms: number): 'info' | 'warning' | 'error' => (ms > 30_000 ? 'error' : ms > REPORT_COMPILE_MS ? 'warning' : 'info')
+
+/**
+ * A new shader, or a clear error when the context is lost: then createShader
+ * gives null, and handing that on threw "Argument 1 ('shader') to
+ * shaderSource must be an instance of WebGLShader" (iPhones in Instagram's
+ * browser, Nov 25), which no one could read as a lost GPU.
+ */
+function newShader(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader {
+  const shader = gl.createShader(type)
+  if (!shader) throw new Error('The GPU context was lost: no shader could be made.')
+  gl.shaderSource(shader, src)
+  gl.compileShader(shader)
+  return shader
+}
 /**
  * How long a streak program building in the background is waited on by its
  * "finished" signal (KHR_parallel_shader_compile). Past this the build is
@@ -778,7 +801,7 @@ export class GrainEngine {
       const gl = this.gl
       const limit = gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) as number
       this.fewUniforms = limit < 400 || (globalThis as { __copyshopFewUniforms?: boolean }).__copyshopFewUniforms === true
-      if (this.fewUniforms) engineReport?.('warning', 'Few shader uniforms: building the small look shader', { limit, gpu: this.gpuName() })
+      if (this.fewUniforms) engineReport?.('info', 'Few shader uniforms: building the small look shader', { limit, gpu: this.gpuName() })
     }
     return this.fewUniforms
   }
@@ -798,12 +821,7 @@ export class GrainEngine {
   private startMain(key: MainKey): void {
     if (this.mains[key] || this.building[key] || this.mainFailed[key]) return
     const gl = this.gl
-    const make = (type: number, src: string) => {
-      const shader = gl.createShader(type)!
-      gl.shaderSource(shader, src)
-      gl.compileShader(shader)
-      return shader
-    }
+    const make = (type: number, src: string) => newShader(gl, type, src)
     const started = performance.now()
     const vs = make(gl.VERTEX_SHADER, VERTEX_SHADER)
     const fs = make(gl.FRAGMENT_SHADER, this.fitToGpu(key === 'full' ? FRAGMENT_SHADER : FRAGMENT_SHADER_LIGHT))
@@ -832,7 +850,8 @@ export class GrainEngine {
     if (!gl.getProgramParameter(b.program, gl.LINK_STATUS)) {
       const log = (gl.getShaderInfoLog(b.fs) || gl.getProgramInfoLog(b.program) || '').slice(0, 500)
       this.mainFailed[key] = log || 'no reason given'
-      engineReport?.('error', `Shader failed to build: ${what}`, { seconds: Math.round(ms / 100) / 10, log, lost: gl.isContextLost(), gpu: this.gpuName() })
+      // On a lost context every build fails: that is the lost GPU (reported on its own), not this shader.
+      engineReport?.(gl.isContextLost() ? 'info' : 'error', `Shader failed to build: ${what}`, { seconds: Math.round(ms / 100) / 10, log, lost: gl.isContextLost(), gpu: this.gpuName() })
       gl.deleteProgram(b.program)
       gl.deleteShader(b.vs)
       gl.deleteShader(b.fs)
@@ -840,7 +859,7 @@ export class GrainEngine {
     }
     gl.deleteShader(b.vs)
     gl.deleteShader(b.fs)
-    if (ms > SLOW_COMPILE_MS) engineReport?.(ms > 10_000 ? 'error' : 'warning', `Slow shader compile: ${what}`, { seconds: Math.round(ms / 100) / 10, background: this.background && !!this.parallel, gpu: this.gpuName() })
+    if (ms > SLOW_COMPILE_MS) engineReport?.(compileLevel(ms), `Slow shader compile: ${what}`, { seconds: Math.round(ms / 100) / 10, background: this.background && !!this.parallel, gpu: this.gpuName() })
     this.setUpMain(key, b.program)
     return true
   }
@@ -974,6 +993,7 @@ export class GrainEngine {
       'uDitherPixel',
       'uDitherClumps',
       'uDitherOrdered',
+      'uDitherOwn',
       'uPixelate',
       'uPixelKeep',
       'uStreakShapes',
@@ -1156,12 +1176,7 @@ export class GrainEngine {
     const name = leanName(kind, v)
     if (this.leans[name] || this.leanStarted[name]) return
     const gl = this.gl
-    const make = (type: number, src: string) => {
-      const shader = gl.createShader(type)!
-      gl.shaderSource(shader, src)
-      gl.compileShader(shader)
-      return shader
-    }
+    const make = (type: number, src: string) => newShader(gl, type, src)
     const vs = make(gl.VERTEX_SHADER, VERTEX_SHADER)
     const fs = make(gl.FRAGMENT_SHADER, this.fitToGpu(leanStreakShader(FRAGMENT_SHADER, kind, v)))
     const program = gl.createProgram()!
@@ -1198,11 +1213,11 @@ export class GrainEngine {
     }
     delete this.leanStarted[name]
     const ms = performance.now() - b.started
-    if (ms > SLOW_COMPILE_MS) engineReport?.(ms > 10_000 ? 'error' : 'warning', `Slow shader compile: streaks (${name})`, { seconds: Math.round(ms / 100) / 10, background: this.background && !!this.parallel, gpu: this.gpuName() })
+    if (ms > SLOW_COMPILE_MS) engineReport?.(compileLevel(ms), `Slow shader compile: streaks (${name})`, { seconds: Math.round(ms / 100) / 10, background: this.background && !!this.parallel, gpu: this.gpuName() })
     if (!gl.getProgramParameter(b.program, gl.LINK_STATUS)) {
       const log = (gl.getShaderInfoLog(b.fs) || gl.getProgramInfoLog(b.program) || '').slice(0, 500)
       this.leanFailed[name] = log || 'no reason given'
-      engineReport?.('error', `Shader failed to build: streaks (${name})`, { log, lost: gl.isContextLost(), gpu: this.gpuName() })
+      engineReport?.(gl.isContextLost() ? 'info' : 'error', `Shader failed to build: streaks (${name})`, { log, lost: gl.isContextLost(), gpu: this.gpuName() })
       gl.deleteProgram(b.program)
       gl.deleteShader(b.vs)
       gl.deleteShader(b.fs)
@@ -1558,9 +1573,7 @@ export class GrainEngine {
   private buildProgram(vertexSource: string, fragmentSource: string): WebGLProgram {
     const gl = this.gl
     const compile = (type: number, src: string) => {
-      const shader = gl.createShader(type)!
-      gl.shaderSource(shader, src)
-      gl.compileShader(shader)
+      const shader = newShader(gl, type, src)
       if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
         const log = gl.getShaderInfoLog(shader)
         gl.deleteShader(shader)
@@ -1585,7 +1598,7 @@ export class GrainEngine {
     }
     const ms = performance.now() - started
     if (ms > SLOW_COMPILE_MS) {
-      engineReport?.(ms > 10_000 ? 'error' : 'warning', `Slow shader compile: ${kind}`, { seconds: Math.round(ms / 100) / 10, gpu: this.gpuName() })
+      engineReport?.(compileLevel(ms), `Slow shader compile: ${kind}`, { seconds: Math.round(ms / 100) / 10, gpu: this.gpuName() })
     }
     return program
   }
@@ -2738,6 +2751,9 @@ export class GrainEngine {
     // Not rounded: drawn at an export's size (PreviewCanvas asExported) a dot can be 2.5 photo pixels.
     gl.uniform1f(u.uDitherPixel, Math.max(1, fx.dither.pixel))
     gl.uniform1i(u.uDitherOrdered, fx.dither.pattern === 'ordered' ? 1 : 0)
+    // The dither's own dots, unless the edit takes them from the grain (made before they were its own).
+    const ownSeed = req.imageSeed && req.params.varyPerPhoto ? Math.abs(req.imageSeed) % 65521 : 0
+    gl.uniform4f(u.uDitherOwn, fx.dither.followGrain ? 0 : 1, DITHER_DOT * pixelScaleOf(req.params), ownSeed, region.width / Math.max(1, out.width))
     gl.uniform1f(u.uDitherClumps, fx.dither.pattern === 'grain' && fx.dither.pixel <= 1 ? Math.max(1, fx.dither.clumps ?? 1) : 1)
     gl.uniform1f(u.uDitherTransitions, this.calmResult ? fx.dither.transitionsOnly : 0)
     gl.uniform1i(u.uDitherSpreadOnly, fx.dither.pixel <= 1 || !fx.dither.blendOnly ? 0 : this.calmResult && calmWanted(fx) ? 2 : 1)

@@ -1337,10 +1337,10 @@ export interface DitherParams {
    */
   blendOnly?: boolean
   /**
-   * With the grain as the pattern and 1 px dots: the dots follow the grain
-   * read this many times larger and smoothly, so they gather into soft
-   * clumps, as coarse film grain does, instead of single-pixel speckle or the
-   * square blocks of a bigger Pixel size. The grain itself is unchanged.
+   * With the random pattern and fine dots: the dots read this many times
+   * larger and smoothly, so they gather into soft clumps, as coarse film
+   * grain does, instead of fine speckle or the square blocks of a bigger
+   * Pixel size. The grain itself is unchanged.
    * 1 (or missing): the grain as it is.
    */
   clumps?: number
@@ -1351,8 +1351,15 @@ export interface DitherParams {
    * detail can split a dot. Edits from before it was offered have it off.
    */
   blocks?: boolean
-  /** grain: the grain decides each dot (a random stipple). ordered: a Bayer matrix — the classic retro checker. */
+  /** grain: a random stipple (shown as Random). ordered: a Bayer matrix — the classic retro checker. */
   pattern: 'grain' | 'ordered'
+  /**
+   * The random dots taken from the grain plate, read at the grain's Scale,
+   * Rotation and Softness, so every grain setting moved them: how every edit
+   * made before 26 Nov 2026 was drawn, and is kept. False: the dither's own
+   * dots (1.5 print px), which grain settings leave alone.
+   */
+  followGrain?: boolean
   /**
    * Keep the pattern to where colours change. Ordered dither over an area
    * that sits flat between two bands is the same 50% checker everywhere — a
@@ -1398,6 +1405,7 @@ export const DEFAULT_DITHER: DitherParams = {
   pixel: 1,
   blocks: false,
   pattern: 'grain',
+  followGrain: false,
   transitionsOnly: 0,
   sparePop: 0,
   enabled: true,
@@ -1466,9 +1474,9 @@ export interface EffectParams {
   /** Brightness where the reversal begins, 0..1. */
   solarizeFrom: number
   /**
-   * Dither: posterise into a few colour steps and let the grain decide which
-   * step each pixel takes, so gradients break into stippled bands — pixel-art
-   * dithering with the grain as its pattern, at the grain's own size.
+   * Dither: posterise into a few colour steps and let a random dot decide
+   * which step each pixel takes, so gradients break into stippled bands —
+   * pixel-art dithering (DitherParams.followGrain: dots from the grain).
    */
   dither: DitherParams
   /** Stylised colour palette. */

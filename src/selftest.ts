@@ -1279,6 +1279,33 @@ function run() {
     for (let y = 0; y < 256; y += 4) column.add(pixel(dithered, x, y).g)
     if (column.size > 1) mixedColumn = true
   }
+  // The dither's own dots: grain settings leave them where they are; an edit
+  // that takes its dots from the grain (made before) still follows it.
+  const ditherAt = (grainScale: number, followGrain: boolean) =>
+    readPixels(
+      engine.render({
+        base: scene((x) => [x, x, x]),
+        baseSize: discSize,
+        grain: ditherPlate,
+        grainSize: { width: 128, height: 128 },
+        grainMean: 0.5,
+        grainSd: 0.09,
+        params: { ...DEFAULT_BLEND_PARAMS, amount: 0, grainScale, effects: { ...DEFAULT_EFFECTS, dither: { ...DEFAULT_DITHER, amount: 1, steps: 4, spread: 1, followGrain } } },
+      }),
+    )
+  const differing = (a: ImageData, b: ImageData) => {
+    let n = 0
+    for (let i = 0; i < a.data.length; i += 4) if (a.data[i + 1] !== b.data[i + 1]) n++
+    return n
+  }
+  const ownMoved = differing(ditherAt(1, false), ditherAt(2.5, false))
+  const grainMoved = differing(ditherAt(1, true), ditherAt(2.5, true))
+  check(
+    "dither's own dots stay put when the grain's Pattern scale changes; dots from the grain move with it",
+    ownMoved === 0 && grainMoved > 200,
+    `own: ${ownMoved} pixels changed, from the grain: ${grainMoved}`,
+  )
+
   // Following a line, the bands run across it even on a flat field, and the
   // banding stops past the line's end.
   const lined = readPixels(

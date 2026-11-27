@@ -51,12 +51,12 @@ export function DitherModule({ blend, setEffects, setEditingGuides, editingGuide
       />
       {/* What the dots are, first: the choice that changes the look most. */}
       <div className="field valued">
-        <span title="Fine: single-pixel stipple. Clumps: the dots gathered into soft clumps of the grain. Pixel: bigger square dots, as pixel art has">Dots</span>
+        <span title="Fine: a fine stipple. Clumps: the dots gathered into soft clumps, as coarse film grain is. Pixel: bigger square dots, as pixel art has">Dots</span>
         <div className="segmented">
           {(
             [
-              ['fine', 'Fine', 'Single-pixel stipple, as fine as the photo'],
-              ['clumps', 'Clumps', 'The dots gathered into soft clumps of the grain, as coarse film grain is'],
+              ['fine', 'Fine', 'A fine stipple'],
+              ['clumps', 'Clumps', 'The dots gathered into soft clumps, as coarse film grain is'],
               ['pixel', 'Pixel', 'Square dots several pixels across, as pixel art has'],
             ] as const
           ).map(([id, name, title]) => (
@@ -97,7 +97,7 @@ export function DitherModule({ blend, setEffects, setEditingGuides, editingGuide
       {dots === 'clumps' && (
         <Slider
           label="Clumps"
-          title="How large the clumps are: the dots follow the grain read this many times larger. The grain itself doesn't change."
+          title="How large the clumps are, in fine dots"
           value={dither.clumps ?? 1}
           def={2.5}
           min={1.2}
@@ -138,7 +138,7 @@ export function DitherModule({ blend, setEffects, setEditingGuides, editingGuide
         />
       )}
       <div className="field valued">
-        <span title="Grain: the grain decides each dot, a random stipple. Ordered: the classic retro checker pattern.">
+        <span title="Random: a random stipple. Ordered: the classic retro checker pattern.">
           Pattern
         </span>
         <div className="segmented">
@@ -146,7 +146,7 @@ export function DitherModule({ blend, setEffects, setEditingGuides, editingGuide
             className={blend.effects.dither.pattern === 'grain' ? 'on' : ''}
             onClick={() => setEffects({ dither: { ...blend.effects.dither, pattern: 'grain' } })}
           >
-            Grain
+            Random
           </button>
           <button
             className={blend.effects.dither.pattern === 'ordered' ? 'on' : ''}
@@ -156,6 +156,12 @@ export function DitherModule({ blend, setEffects, setEditingGuides, editingGuide
           </button>
         </div>
       </div>
+      {dither.pattern === 'grain' && (
+        <label className="check-row" title="The dots taken from the grain, at its size, so changing the grain changes them too. Edits made before 26 Nov 2026 have it on.">
+          <input type="checkbox" checked={!!dither.followGrain} onChange={(e) => setEffects({ dither: { ...dither, followGrain: e.target.checked } })} />
+          Dots from the grain
+        </label>
+      )}
       <Disclosure id="dither-more" title="Fine-tune">
         <Slider
         label="Spread"

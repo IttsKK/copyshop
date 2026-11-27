@@ -188,6 +188,7 @@
         "seed": 1
       },
       "dither": {
+        "followGrain": false,
         "amount": 0.5,
         "steps": 10,
         "spread": 0.6

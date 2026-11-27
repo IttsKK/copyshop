@@ -60,6 +60,7 @@
       "solarize": 0,
       "solarizeFrom": 0.72,
       "dither": {
+        "followGrain": false,
         "amount": 0.5,
         "steps": 10,
         "spread": 0.6

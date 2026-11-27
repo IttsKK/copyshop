@@ -72,6 +72,8 @@ export const graphicsState = {
   },
 }
 
+const isClosedBitmap = (s: TextureSource): boolean => typeof ImageBitmap !== 'undefined' && s instanceof ImageBitmap && s.width === 0 && s.height === 0
+
 const canClone = (s: TextureSource): boolean =>
   (typeof ImageBitmap !== 'undefined' && s instanceof ImageBitmap) || (typeof ImageData !== 'undefined' && s instanceof ImageData)
 
@@ -139,7 +141,7 @@ class RenderClient {
       return
     }
     // A render this slow is what a slow open or a stuck slider is made of.
-    if (m.type === 'done' && m.ms > 4000) reportIssue('Slow render', m.ms > 15_000 ? 'error' : 'warning', { seconds: Math.round(m.ms / 100) / 10 }, ['slow-render'])
+    if (m.type === 'done' && m.ms > 4000) reportIssue('Slow render', m.ms > 15_000 ? 'error' : m.ms > 8000 ? 'warning' : 'info', { seconds: Math.round(m.ms / 100) / 10 }, ['slow-render'])
     if (m.type === 'failed') reportIssue(`Render failed: ${m.error}`, 'error', undefined, ['render-failed', m.error.replace(/\d+/g, '#').slice(0, 100)])
     if (m.type === 'ready') {
       const lookWas = this.lookWaiting.size
@@ -212,6 +214,10 @@ class RenderClient {
     if (!sending) {
       sending = (async () => {
         const id = this.nextId++
+        // A closed ImageBitmap (0 × 0) can't be sent: posting it threw
+        // "An ImageBitmap is detached" (Chromebook, Nov 25). Said plainly,
+        // for whoever let it go to be found.
+        if (isClosedBitmap(source)) throw new Error('A picture to draw from was let go before it was sent (closed ImageBitmap).')
         // An ImageBitmap or ImageData is copied as it is; a canvas or an
         // image becomes an ImageBitmap of its pixels, unconverted.
         const copy = canClone(source)
@@ -223,6 +229,8 @@ class RenderClient {
         return id
       })()
       this.sending.set(source, sending)
+      // A send that failed is tried again next time, not failed forever.
+      sending.catch(() => this.sending.delete(source))
     }
     return sending
   }
@@ -244,6 +252,8 @@ class RenderClient {
   }
 
   private async run(job: Job): Promise<Rendered | null> {
+    // A source already let go (closed) belongs to a render that's been replaced.
+    if (isClosedBitmap(job.req.base) || isClosedBitmap(job.req.grain)) return null
     const worker = this.ensureWorker()
     if (!worker) {
       let engine = this.local.get(job.engine)
@@ -261,6 +271,10 @@ class RenderClient {
     const [base, grain, surface] = await Promise.all([this.textureId(job.req.base), this.textureId(job.req.grain), surfaceImage ? this.textureId(surfaceImage) : undefined])
     await this.sendCollage(job.req, base)
     if (!this.worker) return this.run(job)
+    // Let go (release) while it was being sent, the cache that held it cleared:
+    // a picture no one is waiting for. Asked for anyway, the worker had
+    // already dropped it ("The render lost its photo or grain").
+    if (this.ids.get(job.req.base) !== base || this.ids.get(job.req.grain) !== grain) return null
     const n = ++this.n
     const { base: _b, grain: _g, surfaceImage: _s, ...rest } = job.req
     try {
