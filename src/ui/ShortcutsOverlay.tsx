@@ -1,4 +1,5 @@
 import { shortcutDisplay, type Shortcut } from './shortcuts'
+import { CloseIcon } from './icons'
 
 interface Props {
   shortcuts: Shortcut[]
@@ -47,7 +48,7 @@ export function ShortcutsOverlay({ shortcuts, onClose, onIntro, onReport, onTour
             </button>
           )}
           <button className="icon" title="Close (Esc)" aria-label="Close" onClick={onClose}>
-            ×
+            <CloseIcon />
           </button>
         </header>
         <div className="overlay-groups">

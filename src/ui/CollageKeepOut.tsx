@@ -5,6 +5,7 @@ import { setCollageKeepOut, type CollageImage, type KeepOut } from '../storage/c
 import { keyWords } from '../platform/os'
 import { Slider } from './controls'
 import { capturePointer } from './pointer'
+import { CloseIcon } from './icons'
 
 /** The marks' grid: this many cells on the image's long side. */
 const SIDE = 256
@@ -158,8 +159,8 @@ export function CollageKeepOut({ images, start, onClose }: { images: CollageImag
           <h2 title="Fill gaps keeps these parts out of the gaps it fills, and fills them again when you close this. Images you placed in a gap by hand stay as they are.">
             Parts not to use
           </h2>
-          <button className="icon" title="Close (Esc)" onClick={onClose}>
-            ×
+          <button className="icon" title="Close (Esc)" aria-label="Close" onClick={onClose}>
+            <CloseIcon />
           </button>
         </header>
         <p className="keepout-hint">Fill gaps leaves these out</p>

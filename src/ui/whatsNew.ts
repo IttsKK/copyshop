@@ -10,8 +10,25 @@ import { persistedStore, useStore } from './state/store'
  * is come from the module list, and the page offers to show it) or another
  * change (`title`, with `where` it is found). `line` says what it does, in a
  * sentence; no more. Keep a release to the things a user would notice.
+ *
+ * Each thing is one `kind`, shown with its own mark and in this order:
+ * - `new`: something you couldn't do before (a module, a command, a setting).
+ * - `improved`: something you already had, working better or faster.
+ * - `fixed`: something that went wrong and now doesn't.
+ *
+ * Write it from what the user sees, not how it was built, and say what they
+ * gain. A feature is announced once, as `new`: polish and fixes that land
+ * close behind it are part of shipping it, so they get no entry of their own
+ * and don't reword the first one. A fix to something older than that is an
+ * ordinary `fixed` entry.
  */
+export type ChangeKind = 'new' | 'improved' | 'fixed'
+
+/** The order a release lists its things in. */
+export const KIND_ORDER: ChangeKind[] = ['new', 'improved', 'fixed']
+
 export interface NewThing {
+  kind: ChangeKind
   /** A module added: named, pictured and placed from the module list. */
   module?: StackModuleId
   /** Anything else: its name. */
@@ -62,31 +79,33 @@ export const RELEASES: Release[] = [
     date: '2026-11-23',
     things: [
       {
+        kind: 'new',
         title: 'Precise subject selection',
         line: 'An optional download of two larger models that select a building, a person or a car with a cleaner edge: the selection sharpens a moment after you click, and its edge a few seconds later.',
         where: 'Settings › Selection',
         download: 'precise',
       },
-      { title: 'Box it to keep the rest out', line: 'Dragging a box round a subject keeps out what is joined to it, like a wing off a tower; a streak’s subject can be boxed too.' },
+      { kind: 'improved', title: 'Box it to keep the rest out', line: 'Dragging a box round a subject keeps out what is joined to it, like a wing off a tower; a streak’s subject can be boxed too.' },
       {
+        kind: 'new',
         title: 'Submit to Gallery',
         line: 'Send a finished photo, credited to you, for the gallery on getcopyshop.com and copyshop’s Instagram. It is looked at first, and you get a link that takes it down.',
         where: 'File › Submit to Gallery…, or a photo’s menu in the Library',
       },
-      { title: 'Streak colours from a line', line: 'A streak can take its colours from a line you draw across the photo, instead of from its edge.', where: 'Streaks › a streak’s Carries › Sample line' },
-      { title: 'Streak masks like every module’s', line: 'A streak’s Mask tab has Where it applies, as every module does: its own masks and the Masks list’s, inside or outside them.' },
+      { kind: 'new', title: 'Streak colours from a line', line: 'A streak can take its colours from a line you draw across the photo, instead of from its edge.', where: 'Streaks › a streak’s Carries › Sample line' },
+      { kind: 'improved', title: 'Streak masks like every module’s', line: 'A streak’s Mask tab has Where it applies, as every module does: its own masks and the Masks list’s, inside or outside them.' },
     ],
   },
   {
     version: '1.3.0',
     date: '2026-11-23',
     things: [
-      { module: 'recolour', line: 'Select parts of the photo and give each its own colour, keeping their light and shade, or keep a part as shot in a black and white photo.' },
-      { module: 'kaleido', line: 'The photo, or a part of it, copied round a point: mirrored or turned, in rings toward the middle, and masked to where it shows.' },
-      { title: 'Masks can key on a colour', line: 'Besides brightness and blue, a mask can keep what is like a colour you pick or take from the photo: a green tree, a red car.', where: 'Masks › a mask’s Follow photo › Compare' },
-      { title: 'Move the photo while you work', line: 'Hold Space and drag to move the photo whatever tool is out. On a trackpad, two fingers move it and a pinch zooms.', where: 'Settings › General, for the trackpad' },
-      { title: 'Updates install themselves', line: 'A new version downloads in the background and is ready the next time you open copyshop, with nothing to click. You can turn this off.', where: 'Settings › General' },
-      { title: 'See the photo while you select', line: 'Selecting or drawing a part for a module (a streak’s subject, what Repeat or the Kaleidoscope copies, a part to recolour) hides that module, so you see the photo itself.' },
+      { kind: 'new', module: 'recolour', line: 'Select parts of the photo and give each its own colour, keeping their light and shade, or keep a part as shot in a black and white photo.' },
+      { kind: 'new', module: 'kaleido', line: 'The photo, or a part of it, copied round a point: mirrored or turned, in rings toward the middle, and masked to where it shows.' },
+      { kind: 'new', title: 'Masks can key on a colour', line: 'Besides brightness and blue, a mask can keep what is like a colour you pick or take from the photo: a green tree, a red car.', where: 'Masks › a mask’s Follow photo › Compare' },
+      { kind: 'new', title: 'Move the photo while you work', line: 'Hold Space and drag to move the photo whatever tool is out. On a trackpad, two fingers move it and a pinch zooms.', where: 'Settings › General, for the trackpad' },
+      { kind: 'improved', title: 'Updates install themselves', line: 'A new version downloads in the background and is ready the next time you open copyshop, with nothing to click. You can turn this off.', where: 'Settings › General' },
+      { kind: 'improved', title: 'See the photo while you select', line: 'Selecting or drawing a part for a module (a streak’s subject, what Repeat or the Kaleidoscope copies, a part to recolour) hides that module, so you see the photo itself.' },
     ],
   },
 ]

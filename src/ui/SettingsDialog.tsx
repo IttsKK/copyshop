@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { CloseIcon } from './icons'
 
 interface Props {
   onClose: () => void
@@ -14,8 +15,8 @@ export function SettingsDialog({ onClose, children }: Props) {
       <div className="overlay-card settings-card" role="dialog" aria-label="Settings" tabIndex={-1} ref={card} onClick={(e) => e.stopPropagation()}>
         <header>
           <h2>Settings</h2>
-          <button className="icon" title="Close (Esc)" onClick={onClose}>
-            ×
+          <button className="icon" title="Close (Esc)" aria-label="Close" onClick={onClose}>
+            <CloseIcon />
           </button>
         </header>
         <div className="settings-body">{children}</div>

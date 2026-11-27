@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { openUrl } from '../platform/native'
 import { track } from '../platform/usage'
 import { keptGalleryDetails, submitToGallery, type GalleryDetails } from './gallery'
+import { CloseIcon } from './icons'
 
 interface Props {
   /** The photo as it will be sent (gallery.ts galleryJpeg), made while the form is filled in. */
@@ -72,8 +73,8 @@ export function GalleryDialog({ photo, tools, onClose }: Props) {
       >
         <header>
           <h2>Submit to Gallery</h2>
-          <button className="icon" title="Close (Esc)" onClick={onClose}>
-            ×
+          <button className="icon" title="Close (Esc)" aria-label="Close" onClick={onClose}>
+            <CloseIcon />
           </button>
         </header>
         <div className="settings-body feedback-body">

@@ -2479,7 +2479,7 @@ button.recipe-mix-add { width: 100%; min-height: 28px; border-radius: 7px; margi
 .intro-card:focus { outline: none; }
 @keyframes intro-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
 @media (prefers-reduced-motion: reduce) { .intro-card { animation: none; } }
-.intro-close { position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; min-height: 0; padding: 0; border-radius: 50%; border: none; background: none; box-shadow: none; color: var(--muted); font-size: 16px; line-height: 1; }
+.intro-close { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 26px; height: 26px; min-height: 0; padding: 0; border-radius: 50%; border: none; background: none; box-shadow: none; color: var(--muted); font-size: 16px; line-height: 1; }
 .intro-close:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--text); }
 .intro-icon { display: block; margin: 2px auto 12px; width: 72px; height: 72px; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45)); }
 .intro-card h2 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
@@ -2517,7 +2517,7 @@ button, select, input[type='text'], input[type='search'], .menu-item, .library-i
 .overlay-card { border-radius: 16px; background: var(--sheet); border-color: var(--sheet-line); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55); animation: pop-in var(--t-med) var(--ease-out); }
 .overlay-card header { padding: 18px 20px 14px; gap: 12px; border-bottom-color: var(--sheet-line); }
 .overlay-card h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
-.overlay-card header .icon { width: 26px; height: 26px; min-height: 0; padding: 0; border-radius: 50%; border: none; background: none; box-shadow: none; color: var(--muted); font-size: 16px; line-height: 1; }
+.overlay-card header .icon { display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; min-height: 0; padding: 0; border-radius: 50%; border: none; background: none; box-shadow: none; color: var(--muted); font-size: 16px; line-height: 1; }
 .overlay-card header .icon:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--text); }
 
 /* Settings: each part in its own rounded group, as the system's settings are. */
@@ -3275,9 +3275,13 @@ input[type="range"].tinted::-moz-range-progress { background: transparent; }
 .whats-new-release h3 small { margin-left: 6px; color: var(--muted); font-weight: 400; }
 .whats-new-release ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .whats-new-thing { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; }
-.whats-new-mark { display: flex; justify-content: center; padding-top: 1px; }
-.whats-new-dot { display: block; width: 6px; height: 6px; margin-top: 5px; border-radius: 50%; background: var(--muted); }
-.whats-new-thing b { display: block; font-size: 12.5px; }
+/* Each thing's kind (whatsNew.ts): its mark's colour and the tag after its name. New is the accent, as the panel's New tags are. */
+.whats-new-thing { --kind: var(--accent); }
+.whats-new-thing.kind-improved { --kind: #86b98a; }
+.whats-new-thing.kind-fixed { --kind: #8aaad6; }
+.whats-new-mark { display: flex; justify-content: center; padding-top: 1px; color: var(--kind); }
+.whats-new-thing b { display: flex; align-items: center; gap: 7px; font-size: 12.5px; }
+.whats-new-kind { padding: 0 5px; border-radius: 3px; font-size: 9.5px; font-weight: 600; line-height: 15px; letter-spacing: 0.02em; text-transform: uppercase; color: var(--kind); background: color-mix(in srgb, var(--kind) 16%, transparent); }
 .whats-new-thing p { margin: 3px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
 .whats-new-where { display: flex; align-items: center; gap: 10px; color: var(--text) !important; font-size: 11.5px !important; }
 .whats-new-button { border-color: var(--accent); }

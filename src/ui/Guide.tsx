@@ -5,6 +5,7 @@ import { MODULE_HELP } from './moduleHelp'
 import { ModuleGlyph } from './ModuleGlyph'
 import { GUIDE_TOPICS, type GuideTopic } from './guideTopics'
 import { Example, GUIDE_PAGES, Showcase } from './guidePages'
+import { CloseIcon } from './icons'
 
 /** A page of the Guide: a Getting started topic, or a module. */
 export type GuidePage = `topic:${GuideTopic['id']}` | StackModuleId
@@ -79,7 +80,7 @@ export function Guide({ page, onPage, onClose, onShow }: Props) {
             <input type="text" placeholder="Search the guide" aria-label="Search the guide" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
           </label>
           <button className="icon" title="Close (Esc)" aria-label="Close" onClick={onClose}>
-            ×
+            <CloseIcon />
           </button>
         </header>
         <div className="guide-body">

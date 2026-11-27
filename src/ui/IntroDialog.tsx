@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { bytesFor, checkPrecise, downloadPrecise, partsHere, preciseWantedStore, sizeLabel, usePrecise } from '../ml/precise/models'
 import { ModuleGlyph } from './ModuleGlyph'
 import appIcon from './assets/app-icon.png'
+import { CloseIcon } from './icons'
 
 interface Props {
   /** The desktop app (a library); the browser has none. */
@@ -64,7 +65,7 @@ export function IntroDialog({ app, hasImage, onOpen, onTour, onClose: close }: P
     <div className="overlay intro-overlay" onClick={onClose}>
       <div className="intro-card" role="dialog" aria-label="Welcome to copyshop" tabIndex={-1} ref={card} onClick={(e) => e.stopPropagation()}>
         <button className="intro-close" title="Close (Esc)" aria-label="Close" onClick={onClose}>
-          ×
+          <CloseIcon />
         </button>
         <img className="intro-icon" src={appIcon} alt="" width={72} height={72} draggable={false} />
         <h2>Welcome to copyshop</h2>

@@ -3119,7 +3119,7 @@ export function App() {
   // Behind the license sheet, nothing else answers.
   useShortcuts(shortcuts, !licenseGate)
   // One window at a time: opening one closes whichever was open, so none hides behind another.
-  const windows = { showHelp, settingsOpen, paletteOpen, introOpen, getDesktopOpen, feedbackOpen, tourOpen }
+  const windows = { showHelp, settingsOpen, paletteOpen, introOpen, getDesktopOpen, feedbackOpen, tourOpen, whatsNewOpen: !!whatsNewOpen }
   const lastWindows = useRef(windows)
   useEffect(() => {
     const before = lastWindows.current
@@ -3134,6 +3134,10 @@ export function App() {
     if (opened !== 'getDesktopOpen') setGetDesktopOpen(false)
     if (opened !== 'feedbackOpen') setFeedbackOpen(false)
     if (opened !== 'tourOpen') setTourOpen(false)
+    if (opened !== 'whatsNewOpen' && whatsNewOpen) {
+      whatsNewSeen()
+      setWhatsNewOpen(null)
+    }
   })
 
   const setEffects = (patch: Partial<EffectParams>) => setBlend({ ...blend, effects: followSubjects(blend.effects, { ...blend.effects, ...patch }) })
