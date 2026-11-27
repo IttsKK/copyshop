@@ -1,4 +1,5 @@
-import { GrainEngine, setEngineReporter } from './GrainEngine'
+import { GrainEngine, setEngineReporter, setEngineTiming } from './GrainEngine'
+import { track } from '../platform/usage'
 import { surfaceImageFor } from '../sources/surfaceTextures'
 import { collageImageNow } from '../storage/collageImages'
 import type { RenderRequest, TextureSource } from './types'
@@ -79,6 +80,9 @@ const canClone = (s: TextureSource): boolean =>
 
 // The page's own engines (exports, and renders where the worker can't).
 setEngineReporter((level, message, extra) => reportIssue(`${message} (on the page)`, level, extra, ['engine', message]))
+/** How long the look's shader took to build and on which GPU, from every engine: Windows' first-open wait, measured on real machines. */
+const countTiming = (what: string, gpu: string, ms: number) => track('perf', what, gpu.slice(0, 60), Math.round(ms))
+setEngineTiming(countTiming)
 
 class RenderClient {
   private worker: Worker | null = null
@@ -138,6 +142,10 @@ class RenderClient {
   private receive(m: FromWorker): void {
     if (m.type === 'notice') {
       reportIssue(m.message, m.level, m.extra, ['render-worker', m.message])
+      return
+    }
+    if (m.type === 'timing') {
+      countTiming(m.what, m.gpu, m.ms)
       return
     }
     // A render this slow is what a slow open or a stuck slider is made of.

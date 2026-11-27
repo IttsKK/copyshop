@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { GrainEngine, ShaderPending, setEngineReporter } from './GrainEngine'
+import { GrainEngine, ShaderPending, setEngineReporter, setEngineTiming } from './GrainEngine'
 import { setCollageImageLookup, setCollagePhoto } from './collage'
 import type { CollageImage } from '../storage/collageImages'
 import type { RenderRequest, Size, TextureSource } from './types'
@@ -36,6 +36,7 @@ export type FromWorker =
   | { type: 'ready'; engine: string; streaks: boolean; look: boolean }
   /** Something to report (the page sends it to Sentry): a lost GPU context, an error nothing caught. */
   | { type: 'notice'; level: 'info' | 'warning' | 'error'; message: string; extra?: Record<string, unknown> }
+  | { type: 'timing'; what: string; gpu: string; ms: number }
 
 const scope = self as unknown as DedicatedWorkerGlobalScope
 const engines = new Map<string, GrainEngine>()
@@ -43,6 +44,7 @@ const textures = new Map<number, TextureSource>()
 const collageImages = new Map<string, CollageImage>()
 setCollageImageLookup((id) => collageImages.get(id) ?? null)
 setEngineReporter((level, message, extra) => scope.postMessage({ type: 'notice', level, message: `Render worker: ${message}`, extra } satisfies FromWorker))
+setEngineTiming((what, gpu, ms) => scope.postMessage({ type: 'timing', what, gpu, ms } satisfies FromWorker))
 
 const engineFor = (name: string): GrainEngine => {
   let engine = engines.get(name)

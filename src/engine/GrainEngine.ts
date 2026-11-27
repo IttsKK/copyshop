@@ -450,6 +450,15 @@ export function setEngineReporter(report: EngineReport | null): void {
   engineReport = report
 }
 
+/** How long a build of the look's shader took, every time, on which GPU: the usage counts' perf numbers (setEngineTiming). */
+export type EngineTiming = (what: string, gpu: string, ms: number) => void
+let engineTiming: EngineTiming | null = null
+
+/** Where engines say how long the look's shader took to build; the render worker passes it to the page. */
+export function setEngineTiming(timing: EngineTiming | null): void {
+  engineTiming = timing
+}
+
 /** The crossing table: lines per streak, texels per line, and the row it starts at in the paths' texture (shaders.ts). */
 const CROSS_LINES = 2048
 const CROSS_TEXELS = 4
@@ -860,6 +869,7 @@ export class GrainEngine {
     gl.deleteShader(b.vs)
     gl.deleteShader(b.fs)
     if (ms > SLOW_COMPILE_MS) engineReport?.(compileLevel(ms), `Slow shader compile: ${what}`, { seconds: Math.round(ms / 100) / 10, background: this.background && !!this.parallel, gpu: this.gpuName() })
+    engineTiming?.(key === 'full' ? 'look_full_build' : 'look_build', this.gpuName(), ms)
     this.setUpMain(key, b.program)
     return true
   }
