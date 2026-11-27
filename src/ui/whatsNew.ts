@@ -50,18 +50,38 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.6.0',
+    date: '2026-11-26',
+    things: [
+      { kind: 'new', module: 'surface', line: 'A slight texture over the whole print: paper, canvas, linen, watercolour, crumpled paper and more, or an image of your own.' },
+      {
+        kind: 'new',
+        title: 'Picked colours',
+        line: 'Pick a colour on the photo and keep it as it is, change it to another or make it grey, whatever the rest of the look does. A colour kept in black and white stays in colour.',
+        where: 'Colour › Picked colours',
+      },
+      { kind: 'new', title: 'Pixel dither only where it blends', line: 'With Pixel dots, the pattern can be kept to where it blends two colours, without rows of lone dots or black dots in dark reds and blues.', where: 'Dither › Dots: Pixel' },
+      { kind: 'improved', title: 'Dither has its own dots', line: 'Changing the grain no longer changes the dither’s pattern. Edits made before keep their dots as they were.', where: 'Dither' },
+      { kind: 'improved', title: 'Brush a streak’s subject', line: 'A subject streak’s pencil has Brush in, Brush out and Select again, to fix its subject by hand.', where: 'Streaks › a subject streak’s pencil' },
+      { kind: 'fixed', title: 'Brushing no longer freezes', line: 'Brushing in or out of a selection froze the app for a moment at every step.' },
+      { kind: 'fixed', title: 'Circle streaks', line: 'A Circle streak no longer shows an arrow, side handles and angle sliders that did nothing.' },
+      { kind: 'fixed', title: 'Long menus and names', line: 'Long menus scroll instead of their rows overlapping, and long control names show in full.' },
+    ],
+  },
+  {
     version: '1.5.0',
     date: '2026-11-24',
     things: [
       {
+        kind: 'new',
         title: 'Recipes come in palettes',
         line: 'Each recipe has a few palettes of its own under it: Stipple in Tide, Golden, Ember or Pale, Grit in Ice, Its colour, Rust or Smoke. A palette changes only the colours.',
         where: 'Recipes › the recipe in use',
       },
-      { title: 'Stipple', line: 'Tide, Violet, Silver and Ember were one recipe in four colours. They are now Stipple, and Tide is its first palette.', where: 'Recipes' },
-      { title: 'Copy', line: 'A new recipe: one ink in a line screen on paper, with toner dust, in blue, black, red or green.', where: 'Recipes' },
-      { title: 'Glow fits the photo', line: 'Glow is turned down on a photo that is mostly bright, like a white sky or snow, so it doesn’t wash out. A few lights in the dark keep all of it.', where: 'Glow › Fit to the photo' },
-      { title: 'Melt and Stripes', line: 'Two new bar styles for streaks, and each new streak’s bars come out a little different from the last.', where: 'Streaks › a streak’s Bars' },
+      { kind: 'improved', title: 'Stipple', line: 'Tide, Violet, Silver and Ember were one recipe in four colours. They are now Stipple, and Tide is its first palette.', where: 'Recipes' },
+      { kind: 'new', title: 'Copy', line: 'A new recipe: one ink in a line screen on paper, with toner dust, in blue, black, red or green.', where: 'Recipes' },
+      { kind: 'improved', title: 'Glow fits the photo', line: 'Glow is turned down on a photo that is mostly bright, like a white sky or snow, so it doesn’t wash out. A few lights in the dark keep all of it.', where: 'Glow › Fit to the photo' },
+      { kind: 'new', title: 'Melt and Stripes', line: 'Two new bar styles for streaks, and each new streak’s bars come out a little different from the last.', where: 'Streaks › a streak’s Bars' },
     ],
   },
   {
@@ -69,6 +89,7 @@ export const RELEASES: Release[] = [
     date: '2026-11-23',
     things: [
       {
+        kind: 'fixed',
         title: 'Saved photos keep .jpg on Windows',
         line: 'A name typed in the Save box without an extension saved a file Windows didn’t know was a photo, so Instagram and other pickers left it out. The extension is now added.',
       },
